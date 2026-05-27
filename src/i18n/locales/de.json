@@ -1,0 +1,402 @@
+{
+  "app": {
+    "name": "Najmah",
+    "tagline_main": "Gutenachtgeschichten für jedes Alter: KI-erstellt, einfühlsam und lehrreich",
+    "tagline_sub": "Digitale & gedruckte Ausgaben",
+    "tagline_focus": "Fokus auf Werte, Gefühle und kindliche Neurologie",
+    "tagline": "Gutenachtgeschichten für jedes Alter: KI-erstellt, einfühlsam und lehrreich"
+  },
+  "nav": {
+    "home": "Start",
+    "stories": "Geschichten",
+    "ai_storyteller": "KI-Erzähler",
+    "drawing_contest": "Zeichenwettbewerb",
+    "admin": "Admin",
+    "sign_in": "Anmelden",
+    "sign_out": "Abmelden",
+    "language": "Sprache",
+    "dashboard": "Dashboard",
+    "thriller": "Spannende Geschichten"
+  },
+  "language_suggestion": {
+    "title": "Sprache wechseln?",
+    "message": "Wir haben erkannt, dass deine Browsersprache {{language}} ist. Möchtest du wechseln?",
+    "switch": "Zu {{language}} wechseln",
+    "keep": "Bei Englisch bleiben"
+  },
+  "home": {
+    "stories_title": "Gutenachtgeschichten",
+    "stories_desc": "Entdecke unsere Sammlung wunderschöner Geschichten mit Bildern und Audio",
+    "ai_title": "KI-Erzähler",
+    "ai_desc": "Gestalte deinen eigenen Erzähler und erschaffe persönliche Abenteuer",
+    "drawing_title": "Zeichenwettbewerb",
+    "drawing_desc": "Mach beim wöchentlichen Zeichenwettbewerb mit und gewinne tolle Preise",
+    "cta_title": "Bereit für eine magische Schlafenszeit?",
+    "cta_desc": "Beginne dein Abenteuer mit einer schönen Geschichte oder erschaffe deine eigene magische Erzählung",
+    "cta_button": "Beginne deine Reise",
+    "start_adventure": "Abenteuer starten"
+  },
+  "stories": {
+    "library_title": "Bibliothek der Gutenachtgeschichten",
+    "all_stories": "Alle Geschichten",
+    "play_story": "Geschichte abspielen",
+    "pause_story": "Geschichte pausieren",
+    "age_label": "Alter",
+    "loading": "Geschichten werden geladen…",
+    "empty": "Noch keine Geschichten."
+  },
+  "ai": {
+    "title": "KI-Erzähler",
+    "design_storyteller": "Gestalte deinen Erzähler",
+    "choose_storyteller": "Wähle deinen Erzähler",
+    "story_theme": "Geschichtenthema",
+    "age_range": "Altersgruppe",
+    "story_length": "Länge der Geschichte",
+    "custom_elements": "Eigene Elemente (optional)",
+    "custom_placeholder": "Füge besondere Figuren, Orte oder Themen hinzu…",
+    "generate": "Magische Geschichte erstellen",
+    "generating": "Deine Geschichte wird erstellt…",
+    "your_story": "Deine magische Geschichte",
+    "save_story": "Geschichte speichern",
+    "listen_story": "Geschichte anhören",
+    "create_another": "Neue Geschichte erstellen",
+    "narrating": "Wird vorgelesen…",
+    "narration_failed": "Vorlesen fehlgeschlagen",
+    "story_for": "Eine {{theme}}-Geschichte für {{age}}",
+    "says": "sagt:",
+    "characters": {
+      "wizard": "Weiser Zauberer",
+      "fairy": "Freundliche Fee",
+      "robot": "Roboter-Erzähler",
+      "dragon": "Sanfter Drache",
+      "alien": "Weltraumforscher"
+    },
+    "themes": {
+      "adventure": "Abenteuer",
+      "animals": "Tiere",
+      "space": "Weltraum",
+      "fantasy": "Fantasie",
+      "underwater": "Unterwasser"
+    },
+    "ages": {
+      "3-5": "3-5 Jahre",
+      "6-8": "6-8 Jahre",
+      "9-12": "9-12 Jahre"
+    },
+    "lengths": {
+      "short": "Kurz (3 Min.)",
+      "medium": "Mittel (5 Min.)",
+      "long": "Lang (10 Min.)"
+    },
+    "errors": {
+      "rate_limited": "Zu viele Anfragen. Bitte versuche es gleich erneut.",
+      "payment": "KI-Guthaben aufgebraucht. Bitte lade Guthaben auf.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "drawing": {
+    "title": "Wöchentlicher Zeichenwettbewerb",
+    "subtitle": "Zeige deine kreativen Fähigkeiten und gewinne tolle Preise!",
+    "this_week_theme": "Thema der Woche",
+    "current_theme": "Magische Träume",
+    "prize": "Preis",
+    "prize_value": "Geschichtenbuch-Sammlung",
+    "entries_so_far": "Bisherige Einsendungen",
+    "artists": "{{count}} Künstler",
+    "submit_drawing": "Zeichnung einreichen",
+    "current_entries": "Aktuelle Einsendungen",
+    "past_winners": "Frühere Gewinner",
+    "by": "von",
+    "votes": "{{count}} Stimmen",
+    "prize_won": "Gewonnener Preis:",
+    "vote_required_login": "Bitte melde dich an, um abzustimmen.",
+    "loading": "Einsendungen werden geladen…",
+    "empty": "Noch keine Einsendungen."
+  },
+  "auth": {
+    "title": "Bei Sternenmärchen anmelden",
+    "sign_in_tab": "Anmelden",
+    "sign_up_tab": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "display_name": "Anzeigename",
+    "submit_sign_in": "Anmelden",
+    "submit_sign_up": "Konto erstellen",
+    "loading": "Bitte warten…",
+    "success_signin": "Willkommen zurück!",
+    "success_signup": "Konto erstellt. Du bist angemeldet!",
+    "back_home": "Zurück zur Startseite"
+  },
+  "admin": {
+    "title": "Admin-Bereich",
+    "subtitle": "Mehrsprachige Geschichten und Zeichnungen verwalten",
+    "tab_stories": "Geschichten",
+    "tab_drawings": "Zeichnungen",
+    "new_story": "Neue Geschichte",
+    "edit_story": "Geschichte bearbeiten",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "image_url": "Bild-URL",
+    "age_range": "Altersgruppe",
+    "duration": "Dauer",
+    "published": "Veröffentlicht",
+    "approved": "Freigegeben",
+    "title_field": "Titel",
+    "description_field": "Beschreibung",
+    "content_field": "Inhalt",
+    "artist_field": "Künstler",
+    "preview": "Vorschau",
+    "no_admin": "Du hast keinen Admin-Zugriff.",
+    "make_me_admin": "Mich zum Admin machen",
+    "made_admin": "Du bist jetzt Admin. Wird neu geladen…",
+    "saved": "Gespeichert",
+    "deleted": "Gelöscht"
+  },
+  "common": {
+    "loading": "Wird geladen…",
+    "error": "Etwas ist schiefgelaufen"
+  },
+  "not_found": {
+    "title": "Seite nicht gefunden",
+    "back": "Zur Startseite"
+  },
+  "admin_dashboard": {
+    "brand": "Najmah Admin",
+    "back_to_site": "Zur Seite",
+    "no_access_title": "Nur für Mitarbeiter",
+    "no_access_desc": "Du benötigst eine Admin- oder Editor-Rolle.",
+    "nav": {
+      "section": "Verwalten",
+      "dashboard": "Dashboard",
+      "stories": "Geschichten",
+      "videos": "Videos",
+      "languages": "Sprachen",
+      "settings": "Einstellungen"
+    },
+    "role": {
+      "admin": "Admin",
+      "editor": "Redakteur"
+    },
+    "overview": {
+      "title": "Dashboard",
+      "subtitle": "Überblick über Inhalte und Publikum",
+      "most_viewed": "Meistgesehene Geschichten"
+    },
+    "stats": {
+      "total_stories": "Geschichten gesamt",
+      "total_videos": "Videos gesamt",
+      "active_languages": "Aktive Sprachen",
+      "total_views": "Aufrufe gesamt",
+      "published_count": "{{count}} veröffentlicht"
+    },
+    "stories": {
+      "title": "Geschichten",
+      "new": "Neue Geschichte"
+    },
+    "videos": {
+      "title": "Videos",
+      "new": "Neues Video"
+    },
+    "languages": {
+      "title": "Sprachen"
+    },
+    "settings": {
+      "title": "Einstellungen"
+    },
+    "status": {
+      "published": "Veröffentlicht",
+      "draft": "Entwurf"
+    },
+    "actions": {
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "delete": "Löschen"
+    },
+    "categories": {
+      "thriller": "Spannend"
+    },
+    "toast": {
+      "uploading": "Wird hochgeladen…",
+      "upload_failed": "Upload fehlgeschlagen",
+      "load_failed": "Daten konnten nicht geladen werden",
+      "save_failed": "Speichern fehlgeschlagen",
+      "delete_failed": "Löschen fehlgeschlagen"
+    },
+    "field": {
+      "upload_image": "Bild hochladen",
+      "upload_audio": "Audio hochladen",
+      "upload_thumbnail": "Vorschaubild hochladen",
+      "or_paste_url": "oder URL einfügen"
+    }
+  },
+  "theme": {
+    "label": "Design",
+    "light": "Sonnenmodus ☀️",
+    "dark": "Gute-Nacht-Modus 🌙",
+    "auto": "Automatisch (nach Uhrzeit) ⏰",
+    "switch_to_dark": "Zum Gute-Nacht-Modus wechseln",
+    "switch_to_light": "Zum Sonnenmodus wechseln"
+  },
+  "ai_assistant": {
+    "title": "Najma KI",
+    "subtitle": "Dein magischer Helfer",
+    "open": "KI-Assistent öffnen",
+    "close": "Schließen",
+    "greeting": "Hallo! Ich bin Najma ✨ Frag mich alles über Najmah!",
+    "placeholder": "Schreibe deine Frage...",
+    "send": "Senden",
+    "thinking": "Denke nach...",
+    "rate_limit": "Zu viele Anfragen. Bitte warte kurz.",
+    "credits": "KI-Guthaben aufgebraucht. Bitte später erneut versuchen.",
+    "error": "Ups! Etwas ist schiefgelaufen.",
+    "suggest_1": "Erzähl mir eine kurze Gutenachtgeschichte",
+    "suggest_2": "Wie funktioniert der Zeichenwettbewerb?",
+    "suggest_3": "Was finde ich auf dieser Website?",
+    "suggest_4": "Welche Kurse gibt es und was kosten sie?",
+    "suggest_5": "Was lerne ich aus dem Kursinhalt?",
+    "suggest_6": "Wie kann ich Geschichten abonnieren und welche Pläne gibt es?",
+    "language": "Antwortsprache"
+  },
+  "about": {
+    "seo_title": "Über uns | NajmaH",
+    "seo_desc": "NajmaH ist eine KI-gestützte Plattform für Kindergeschichten, entstanden aus dem kreativen Kurs von Dr. Elham Al-Rajhi.",
+    "badge": "Über NajmaH",
+    "hero_title": "Wo Geschichten auf Fantasie treffen",
+    "hero_desc": "NajmaH ist eine KI-gestützte Plattform, die Familien und Kreativen hilft, magische, personalisierte Kindergeschichten zu gestalten. Jede Funktion ist von einem echten Kreativkurs inspiriert.",
+    "origin_title": "Vom Kurs zur Plattform",
+    "origin_desc": "NajmaH entstand aus einem kreativen Erzählkurs von Dr. Elham AlRajehy. Was als Lehrplan für Kinderliteratur begann, entwickelte sich zu einer vollständigen interaktiven Plattform, die bewährte Erzählprinzipien mit moderner KI verbindet.",
+    "features_heading": "Was NajmaH antreibt",
+    "features": [
+      {
+        "title": "Geschichten aufbauen",
+        "desc": "Fesselnde Erzählungen, die Fantasie wecken und Werte vermitteln."
+      },
+      {
+        "title": "Visuelles Design",
+        "desc": "Unvergessliche Charaktere, lebendige Welten und reich illustrierte Seiten."
+      },
+      {
+        "title": "KI-Kreativität",
+        "desc": "Moderne KI-Tools für Ideen, Illustrationen und schnellere Produktion."
+      },
+      {
+        "title": "Veröffentlichung & Marketing",
+        "desc": "Praktische Schritte, um deine Geschichten zu veröffentlichen und das richtige Publikum zu erreichen."
+      }
+    ],
+    "instructor_heading": "Lerne die Gründerin kennen",
+    "instructor_role": "Gründerin & Kursleiterin",
+    "instructor_name": "Dr. Elham AlRajehy",
+    "instructor_bio": "Innenarchitektin, Doktorandin in Serious Games und Kulturerbe, freiberufliche Kinderbuchautorin und Entwicklerin interaktiver Apps. Dr. Elham verbindet tiefes akademisches Wissen mit Leidenschaft für Bildung.",
+    "curriculum_heading": "Kursinhalte",
+    "curriculum_desc": "Vier aufeinander aufbauende Stufen — von der ersten Idee bis zum veröffentlichten Kinderbuch.",
+    "lessons_count": "{{count}} Lektionen",
+    "modules": [
+      {
+        "level": "Stufe 1",
+        "title": "Grundlagen der Geschichte",
+        "duration": "2 Std. 30 Min.",
+        "lessons": 8,
+        "topics": [
+          "Erzählanatomie & 4-Akt-Struktur",
+          "Altersgerechtes Erzählen (Piaget)",
+          "Unvergessliche Charaktere"
+        ]
+      },
+      {
+        "level": "Stufe 2",
+        "title": "Visuelle Weltgestaltung",
+        "duration": "3 Std. 10 Min.",
+        "lessons": 10,
+        "topics": [
+          "Farb-Emotions-Mapping",
+          "Visuelle Charakteridentität",
+          "Seitenkomposition & Illustration"
+        ]
+      },
+      {
+        "level": "Stufe 3",
+        "title": "KI für Erzähler",
+        "duration": "2 Std. 45 Min.",
+        "lessons": 9,
+        "topics": [
+          "Prompt-Engineering für Geschichten",
+          "KI-Illustration & Konsistenz",
+          "Stimme, Erzählung & Sounddesign"
+        ]
+      },
+      {
+        "level": "Stufe 4",
+        "title": "Veröffentlichen & Wachsen",
+        "duration": "1 Std. 50 Min.",
+        "lessons": 6,
+        "topics": [
+          "Selbstverlag vs. Verlage",
+          "Marketing für dein Buch",
+          "Eine Kreativ-Community aufbauen"
+        ]
+      }
+    ],
+    "testimonials_heading": "Was Lernende sagen",
+    "testimonials_desc": "Echte Geschichten von Familien, Lehrkräften und Kreativen mit NajmaH.",
+    "testimonials": [
+      {
+        "name": "Sarah M.",
+        "role": "Kinderbuchautorin",
+        "rating": 5,
+        "quote": "NajmaH machte aus meinen rohen Ideen wunderschön illustrierte Bücher, die meine Kinder immer wieder hören wollen."
+      },
+      {
+        "name": "Ahmed K.",
+        "role": "Vater von drei Kindern",
+        "rating": 5,
+        "quote": "Der KI-Erzähler ist magisch. Schlafenszeit ist kein Kampf mehr — sondern unser Lieblingsmoment."
+      },
+      {
+        "name": "Layla R.",
+        "role": "Grundschullehrerin",
+        "rating": 5,
+        "quote": "Ich nutze NajmaH im Unterricht für SEL-Geschichten. Qualität und Wärme jeder Seite sind unübertroffen."
+      },
+      {
+        "name": "Yousef A.",
+        "role": "Kursabsolvent",
+        "rating": 5,
+        "quote": "Dr. Elhams Kurs hat meine Sicht auf Kinderliteratur völlig verändert."
+      },
+      {
+        "name": "Mona H.",
+        "role": "Illustratorin",
+        "rating": 5,
+        "quote": "Die visuellen Tools sparen Stunden. Die Charakterkonsistenz ist unglaublich."
+      }
+    ],
+    "faq_heading": "Häufig gestellte Fragen",
+    "faq_desc": "Alles, was du vor dem Start deiner kreativen Reise wissen musst.",
+    "faqs": [
+      {
+        "q": "Brauche ich Schreiberfahrung?",
+        "a": "Überhaupt nicht. NajmaH und der Kurs sind für Anfänger und erfahrene Autoren gleichermaßen gemacht."
+      },
+      {
+        "q": "Ist NajmaH kostenlos testbar?",
+        "a": "Ja — auf der Startseite kannst du eine kostenlose Geschichte generieren. Bezahlpläne schalten unbegrenzte Geschichten, Premium-Illustrationen, Sprachausgabe und PDF-Export frei."
+      },
+      {
+        "q": "Für welche Altersgruppen?",
+        "a": "Geschichten sind für 3 bis 12 Jahre abgestimmt, nach Piagets Entwicklungsstufen und trauma-informierten Sicherheitsregeln."
+      },
+      {
+        "q": "Kann ich Geschichten drucken oder veröffentlichen?",
+        "a": "Auf jeden Fall. Jede Geschichte kann als druckfertiges PDF exportiert werden."
+      },
+      {
+        "q": "Welche Sprachen werden unterstützt?",
+        "a": "Arabisch und Englisch sind vollständig unterstützt, weitere Sprachen folgen."
+      }
+    ],
+    "cta_button": "Starte deine kreative Reise",
+    "cta_helper": "Neu hier? In Sekunden ein kostenloses Konto erstellen."
+  }
+}

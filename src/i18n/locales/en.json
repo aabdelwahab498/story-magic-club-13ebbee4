@@ -1,0 +1,818 @@
+{
+  "paywall": {
+    "premium": "Premium",
+    "premium_feature": "Premium feature",
+    "feature_premium": "{{feature}} — Premium",
+    "upgrade_cta": "Upgrade",
+    "sign_in_cta": "Sign in",
+    "upgrade_title": "Upgrade your plan",
+    "feature_requires_paid": "This feature requires a paid plan",
+    "feature_not_in_plan": "Your current plan does not include this feature.",
+    "free_upgrade_desc": "Upgrade to unlock illustrations, PDF, and audio narration.",
+    "sign_in_required": "Sign in to unlock this feature",
+    "checking_subscription": "Checking your subscription…",
+    "illustrations": "Illustrations",
+    "pdf": "PDF Download",
+    "audio": "Audio Narration",
+    "limit_reached_title": "Monthly story limit reached",
+    "limit_reached_desc": "You've used your free story for this month. Upgrade for more.",
+    "free_trial_note": "Free accounts get 1 story per month."
+  },
+  "app": {
+    "name": "Najmah",
+    "tagline_main": "Bedtime stories for All Ages: AI-Crafted, Compassionate & Educational",
+    "tagline_sub": "Digital & Physical Editions",
+    "tagline_focus": "Manners & Feelings, Child Neurology Focused",
+    "tagline": "Bedtime stories for All Ages: AI-Crafted, Compassionate & Educational"
+  },
+  "nav": {
+    "home": "Home",
+    "stories": "Stories",
+    "ai_storyteller": "AI Storyteller",
+    "drawing_contest": "Drawing Contest",
+    "blog": "Blog",
+    "store": "Store",
+    "contact": "Contact",
+    "pricing": "Pricing",
+    "admin": "Admin",
+    "dashboard": "Dashboard",
+    "sign_in": "Sign in",
+    "sign_out": "Sign out",
+    "language": "Language",
+    "thriller": "Thrilling Stories",
+    "group_explore": "Explore",
+    "group_community": "Community",
+    "group_shop": "Shop"
+  },
+  "language_suggestion": {
+    "title": "Switch language?",
+    "message": "We detected your browser language is {{language}}. Would you like to switch?",
+    "switch": "Switch to {{language}}",
+    "keep": "Keep English"
+  },
+  "home": {
+    "stories_title": "Bedtime Stories",
+    "stories_desc": "Explore our collection of beautiful stories with pictures and audio narration",
+    "ai_title": "AI Storyteller",
+    "ai_desc": "Design your own storyteller and create personalized bedtime adventures",
+    "drawing_title": "Drawing Contest",
+    "drawing_desc": "Join our weekly drawing competition and win exciting prizes",
+    "cta_title": "Ready for a magical bedtime?",
+    "cta_desc": "Start your adventure with a beautiful story or create your own magical tale",
+    "cta_button": "Begin Your Journey",
+    "start_adventure": "Start Adventure",
+    "blog_section_title": "Latest from Najmah",
+    "see_all": "See all",
+    "sub_teaser_title": "Unlock the full magic ✨",
+    "sub_teaser_desc": "Unlimited stories, AI generation, and audio narration from $5/month.",
+    "sub_teaser_cta": "See pricing",
+    "wheel_teaser_title": "Spin the Lucky Wheel 🎡",
+    "wheel_teaser_desc": "One free spin a day — discounts, free stories, and even a free month await.",
+    "wheel_teaser_cta": "Try your luck",
+    "competition_section_title": "Drawing Competition",
+    "competition_theme_label": "This week's theme",
+    "competition_subtitle": "Submit your drawing this week and win the spotlight!",
+    "competition_join_cta": "Join the competition",
+    "competition_view_cta": "View winner"
+  },
+  "counters": {
+    "title": "Our magical numbers ✨",
+    "stories": "Stories in our library",
+    "users": "Happy little readers",
+    "drawings": "Drawings submitted"
+  },
+  "blog": {
+    "eyebrow": "Najmah Updates",
+    "title": "News, milestones & magical updates",
+    "subtitle": "Everything new from the Najmah world — stories, partnerships, and your own achievements.",
+    "all": "All",
+    "read_more": "Read more",
+    "back_to_list": "Back to all posts",
+    "empty": "No posts in this category yet.",
+    "categories": {
+      "updates": "Updates",
+      "achievements": "Achievements",
+      "collaborations": "Collaborations"
+    }
+  },
+  "store": {
+    "eyebrow": "Najmah Store",
+    "title": "Take the magic home — printed stories",
+    "subtitle": "Hardcover bundles, custom AI-story prints, and gift sets your child will treasure.",
+    "order_now": "Order Now",
+    "buy_now": "Buy Now 🛒",
+    "added_toast_title": "Added to your wishlist ✨",
+    "added_toast_desc": "{{product}} is reserved. We'll email you to complete your order.",
+    "perk_shipping_title": "Worldwide shipping",
+    "perk_shipping_desc": "We ship to over 60 countries. Free delivery over $40.",
+    "perk_quality_title": "Premium quality",
+    "perk_quality_desc": "Eco-friendly inks, hardcover binding, FSC-certified paper."
+  },
+  "payment": {
+    "title": "Complete your payment",
+    "title_success": "Payment complete",
+    "title_error": "Payment failed",
+    "subtitle": "Choose your country and preferred method.",
+    "next": "Next",
+    "back": "Back",
+    "proceed": "Proceed to Payment",
+    "processing": "Processing your payment…",
+    "processing_desc": "Hang tight, this only takes a moment.",
+    "country_label": "Where are you paying from?",
+    "region_hint_eg": "🇪🇬 Local Egyptian methods will be shown.",
+    "region_hint_intl": "🌍 International payment methods will be shown.",
+    "currency_label": "Pay in which currency?",
+    "choose_currency_badge": "Choose currency",
+    "steps": {
+      "country": "Country",
+      "method": "Method",
+      "confirm": "Confirm"
+    },
+    "summary": {
+      "title": "Order Summary",
+      "item": "Item",
+      "qty": "Quantity",
+      "billing": "Billing",
+      "total": "Total"
+    },
+    "methods": {
+      "instapay": {
+        "name": "InstaPay",
+        "desc": "Scan QR to pay instantly"
+      },
+      "fawry": {
+        "name": "Fawry",
+        "desc": "Pay with reference code at any outlet"
+      },
+      "paymob": {
+        "name": "Paymob",
+        "desc": "Local cards & wallets"
+      },
+      "vodafone_cash": {
+        "name": "Vodafone Cash",
+        "desc": "Pay from your Vodafone Cash wallet"
+      },
+      "card": {
+        "name": "Credit / Debit Card",
+        "desc": "Visa, Mastercard, Amex"
+      },
+      "bank": {
+        "name": "Bank Transfer (Wire / SEPA)",
+        "desc": "International wire transfer or SEPA"
+      }
+    },
+    "forms": {
+      "instapay_title": "Scan with your bank app",
+      "instapay_desc": "Open InstaPay or your bank app and scan to confirm.",
+      "fawry_title": "Pay at any Fawry outlet",
+      "fawry_desc": "Use this reference code within 48 hours.",
+      "paymob_title": "Pay with Paymob",
+      "card_title": "Card details",
+      "card_number": "Card number",
+      "cardholder": "Cardholder name",
+      "cardholder_ph": "Full name on card",
+      "expiry": "Expiry",
+      "bank_title": "Bank Transfer",
+      "bank_desc": "Use these details to send the payment.",
+      "vodafone_title": "Vodafone Cash",
+      "vodafone_desc": "Enter your wallet number to receive a confirmation prompt.",
+      "vodafone_phone": "Vodafone wallet number",
+      "vodafone_hint": "You'll receive a USSD prompt to confirm the payment on your phone.",
+      "copied": "Reference code copied"
+    },
+    "success": {
+      "title": "Subscription Activated 🎉",
+      "desc": "Welcome aboard! {{item}} is now active.",
+      "unlocked": "What you've unlocked",
+      "spin_reward": "Spin the bonus wheel 🎡",
+      "start_reading": "Start Reading Stories"
+    },
+    "error": {
+      "title": "Payment Failed ❌",
+      "desc": "Something went wrong. Please try again or use another method.",
+      "retry": "Retry payment",
+      "cancel": "Cancel"
+    }
+  },
+  "contact": {
+    "eyebrow": "We'd love to hear from you",
+    "title": "Get in touch",
+    "subtitle": "Questions, partnerships, or a drawing to submit? Pick the right inbox or use the form.",
+    "invalid_title": "Please check your inputs",
+    "invalid_desc": "All fields are required and must be valid.",
+    "sent_title": "Message sent ✨",
+    "sent_desc": "Thanks! We'll get back to you within 1–2 days.",
+    "email": {
+      "info_title": "General info",
+      "support_title": "Support",
+      "submissions_title": "Drawing submissions"
+    },
+    "form": {
+      "name": "Your name",
+      "email": "Email address",
+      "subject": "Subject",
+      "message": "Message",
+      "send": "Send message",
+      "sending": "Sending…"
+    }
+  },
+  "pricing": {
+    "eyebrow": "Pricing",
+    "title": "Simple plans, big magic",
+    "subtitle": "Start free. Upgrade when your child is hooked. Cancel anytime.",
+    "subscribe": "Subscribe",
+    "start_trial": "Start 7-day free trial",
+    "subscribed_title": "You're in! ✨",
+    "subscribed_desc": "{{plan}} activated (demo). Real billing coming soon.",
+    "trial_title": "Trial started 🎉",
+    "trial_desc": "Enjoy 7 days of unlimited Najmah magic.",
+    "cancel_note": "All plans include a 7-day free trial. Cancel anytime, no questions asked.",
+    "cycle": {
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "per": {
+      "month": "month",
+      "year": "year"
+    },
+    "global": {
+      "name": "Global Plan",
+      "desc": "For families everywhere — billed in USD."
+    },
+    "egypt": {
+      "name": "Egypt Plan",
+      "badge": "Special offer for Egypt",
+      "desc": "Localized pricing in Egyptian pounds.",
+      "currency": "EGP",
+      "bonus": "Bonus: 1 free printed story / year"
+    },
+    "features": {
+      "unlimited_stories": "Unlimited stories from the library",
+      "ai_generation": "AI Story generation",
+      "audio_playback": "Audio narration in 6 languages",
+      "competitions": "Access to drawing competitions",
+      "printable_pdf": "Download stories as PDF",
+      "multi_language": "Switch languages anytime"
+    }
+  },
+  "wheel": {
+    "title": "The Lucky Wheel",
+    "subtitle": "Spin once a day to win magical rewards!",
+    "spin_now": "Spin now",
+    "spinning": "Spinning…",
+    "come_back_in": "Come back in {{time}}",
+    "you_won": "You won!",
+    "try_again_title": "So close! Try again tomorrow.",
+    "win_toast_title": "🎁 You won a reward!",
+    "rewards": {
+      "discount_10": "10% off your next subscription",
+      "free_story": "1 free AI story",
+      "free_month": "1 free month of Premium",
+      "custom_story": "1 custom personalized story",
+      "try_again": "Better luck next time"
+    },
+    "short": {
+      "discount_10": "10% OFF",
+      "free_story": "Free Story",
+      "free_month": "Free Month",
+      "custom_story": "Custom Story",
+      "try_again": "Try Again"
+    },
+    "free_spin_available": "You have {{count}} free streak spin!",
+    "use_free_spin": "Use free streak spin 🔥"
+  },
+  "streak": {
+    "title": "Daily Streak",
+    "tooltip": "{{count}}-day streak — keep it going!",
+    "days": "{{count}}-day streak",
+    "days_one": "{{count}}-day streak",
+    "days_other": "{{count}}-day streak",
+    "next_in": "{{days}} more day(s) to reach the {{milestone}}-day badge",
+    "legend": "Legendary streak! You've earned all badges 🏆",
+    "badge_label": "{{days}}-day badge",
+    "badge_earned": "{{days}}-day milestone earned",
+    "badge_locked": "{{days}}-day milestone — not yet",
+    "claim_spin": "Claim free spin",
+    "spin_wheel": "Spin the wheel",
+    "free_spin_hint": "Use it anytime — no cooldown!",
+    "earn_spin_hint": "Reach 7 days to unlock a free Spin Wheel",
+    "free_spins_available": "{{count}} free spin(s) available",
+    "milestone_toast_title": "🔥 {{days}}-day streak!",
+    "milestone_toast_desc": "You earned a free Spin Wheel reward."
+  },
+  "stories": {
+    "library_title": "Bedtime Story Library",
+    "all_stories": "All Stories",
+    "choose_narrator": "Choose your narrator",
+    "play_story": "Play Story",
+    "pause_story": "Pause Story",
+    "generate_audio_book": "🎧 Generate Audio Book",
+    "generate_audio_book_hint": "Premium narration with the selected character voice",
+    "audio_fallback": "Using browser voice as fallback",
+    "age_label": "Age",
+    "loading": "Loading stories…",
+    "empty": "No stories yet."
+  },
+  "ai": {
+    "title": "AI Storyteller",
+    "design_storyteller": "Design Your Storyteller",
+    "choose_storyteller": "Choose your storyteller",
+    "story_theme": "Story theme",
+    "age_range": "Age range",
+    "story_length": "Story length",
+    "custom_elements": "Custom elements (optional)",
+    "custom_placeholder": "Add special characters, settings, or themes…",
+    "generate": "Generate Magical Story",
+    "generating": "Creating your story…",
+    "your_story": "Your Magical Story",
+    "save_story": "Save Story",
+    "listen_story": "Listen to Story",
+    "create_another": "Create Another Story",
+    "back_to_narrators": "Back to Narrators",
+    "back_to_home": "Back to Home",
+    "explore_stories": "Explore Stories",
+    "narrating": "Narrating…",
+    "narration_failed": "Narration failed",
+    "story_for": "A {{theme}} story for {{age}}",
+    "says": "says:",
+    "characters": {
+      "wizard": "Wise Wizard",
+      "fairy": "Friendly Fairy",
+      "robot": "Robo Narrator",
+      "dragon": "Gentle Dragon",
+      "alien": "Space Explorer"
+    },
+    "greetings": {
+      "wizard": "Greetings, young one! I am the Wise Wizard, ready for a magical tale?",
+      "fairy": "Hello sweetie! I'm the Friendly Fairy, let me whisper a lovely story.",
+      "robot": "Beep boop! I am the Robo Narrator, story protocol activated.",
+      "dragon": "Hello little friend! I am the Gentle Dragon, I love telling stories.",
+      "alien": "Greetings, earthling! I'm your Space Explorer, let's travel the stars."
+    },
+    "themes": {
+      "adventure": "Adventure",
+      "animals": "Animals",
+      "space": "Space",
+      "fantasy": "Fantasy",
+      "underwater": "Underwater"
+    },
+    "ages": {
+      "3-5": "3-5 years",
+      "6-8": "6-8 years",
+      "9-12": "9-12 years"
+    },
+    "lengths": {
+      "short": "Short (3 min)",
+      "medium": "Medium (5 min)",
+      "long": "Long (10 min)"
+    },
+    "errors": {
+      "rate_limited": "Too many requests. Please try again in a moment.",
+      "rate_limited_retry": "Too many requests. Try again in {{time}}.",
+      "payment": "AI credits exhausted. Please add credits to continue.",
+      "content_rejected": "Your input was flagged as unsafe for children. Please rephrase and try again.",
+      "quota_reached": "You've reached your monthly limit. Upgrade to keep creating.",
+      "feature_locked": "This feature requires a paid plan.",
+      "payload_too_large": "Your input is too long. Please shorten it.",
+      "auth_required": "Please sign in to continue.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "drawing": {
+    "title": "Weekly Drawing Competition",
+    "subtitle": "Show off your creative skills and win amazing prizes!",
+    "this_week_theme": "This Week's Theme",
+    "current_theme": "Magical Dreams",
+    "prize": "Prize",
+    "prize_value": "Story Book Collection",
+    "entries_so_far": "Entries So Far",
+    "artists": "{{count}} Artists",
+    "submit_drawing": "Submit Your Drawing",
+    "current_entries": "Current Entries",
+    "past_winners": "Past Winners",
+    "by": "by",
+    "votes": "{{count}} votes",
+    "prize_won": "Prize Won:",
+    "vote_required_login": "Please sign in to vote.",
+    "loading": "Loading entries…",
+    "empty": "No entries yet."
+  },
+  "competition": {
+    "weekly": {
+      "eyebrow": "Weekly Challenge",
+      "title": "This week's drawing theme",
+      "theme_label": "Theme",
+      "ends_in": "Ends in",
+      "weekly_reset": "New theme every Sunday"
+    },
+    "countdown": {
+      "days": "Days",
+      "hours": "Hours",
+      "minutes": "Mins",
+      "seconds": "Secs"
+    },
+    "winner": {
+      "title": "Winner of the Week 👑",
+      "badge": "Winner",
+      "theme": "Theme"
+    },
+    "hall": {
+      "title": "Hall of Fame",
+      "subtitle": "Our most loved little artists from around the world."
+    },
+    "submit": {
+      "title": "How to submit your drawing 🎨",
+      "subtitle": "Send your masterpiece in 4 easy steps and join this week's competition.",
+      "step_1": "Draw your artwork on the weekly theme.",
+      "step_2": "Take a clear photo or scan it (JPG/PNG).",
+      "step_3": "Email it to us with your name, age, and country.",
+      "step_4": "We'll review it and add it to the contest within 24h.",
+      "email_label": "Submissions email",
+      "email_subject": "My drawing submission",
+      "copy_btn": "Copy email",
+      "copied_btn": "Copied",
+      "copied": "Email copied to clipboard"
+    }
+  },
+  "auth": {
+    "title": "Sign in to Najmah",
+    "sign_in_tab": "Sign in",
+    "sign_up_tab": "Sign up",
+    "email": "Email",
+    "password": "Password",
+    "display_name": "Display name",
+    "submit_sign_in": "Sign in",
+    "submit_sign_up": "Create account",
+    "loading": "Please wait…",
+    "success_signin": "Welcome back!",
+    "success_signup": "Account created. You're signed in!",
+    "back_home": "Back to home"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "subtitle": "Manage multilingual stories and drawings",
+    "tab_stories": "Stories",
+    "tab_drawings": "Drawings",
+    "new_story": "New story",
+    "edit_story": "Edit story",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "image_url": "Image URL",
+    "age_range": "Age range",
+    "duration": "Duration",
+    "published": "Published",
+    "approved": "Approved",
+    "title_field": "Title",
+    "description_field": "Description",
+    "content_field": "Content",
+    "artist_field": "Artist",
+    "preview": "Preview",
+    "no_admin": "You do not have admin access.",
+    "make_me_admin": "Make me admin",
+    "made_admin": "You are now an admin. Reloading…",
+    "saved": "Saved",
+    "deleted": "Deleted"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong"
+  },
+  "not_found": {
+    "title": "Page not found",
+    "back": "Return to Home"
+  },
+  "admin_dashboard": {
+    "brand": "Najmah Admin",
+    "back_to_site": "Back to site",
+    "go_to_admin": "Go to admin",
+    "no_access_title": "Staff access only",
+    "no_access_desc": "You need an admin or editor role to access this dashboard.",
+    "empty": "No items yet.",
+    "no_content": "No content for this language yet.",
+    "nav": {
+      "section": "Manage",
+      "dashboard": "Dashboard",
+      "stories": "Stories",
+      "videos": "Videos",
+      "languages": "Languages",
+      "settings": "Settings"
+    },
+    "role": {
+      "admin": "Admin",
+      "editor": "Editor",
+      "user": "User"
+    },
+    "overview": {
+      "title": "Dashboard",
+      "subtitle": "Overview of your content and audience",
+      "most_viewed": "Most viewed stories",
+      "using_mock": "Mock data"
+    },
+    "stats": {
+      "total_stories": "Total stories",
+      "total_videos": "Total videos",
+      "active_languages": "Active languages",
+      "total_views": "Total views",
+      "published_count": "{{count}} published",
+      "languages_sub": "Supported languages",
+      "views_sub": "All time"
+    },
+    "stories": {
+      "title": "Stories",
+      "subtitle": "Create, edit and publish multilingual stories.",
+      "new": "New story",
+      "edit": "Edit story",
+      "search_placeholder": "Search stories…"
+    },
+    "videos": {
+      "title": "Videos",
+      "subtitle": "Upload videos or paste links from YouTube, Vimeo, etc.",
+      "new": "New video",
+      "edit": "Edit video",
+      "search_placeholder": "Search videos…"
+    },
+    "languages": {
+      "title": "Languages",
+      "subtitle": "Translation coverage across your content.",
+      "current": "Current",
+      "coverage": "Coverage",
+      "rtl": "Right-to-left"
+    },
+    "social": {
+      "title": "Social media links",
+      "subtitle": "Manage the social icons shown in the website footer. Leave a field empty to hide that icon.",
+      "saved": "Social links updated ✨",
+      "hint": "Tip: For WhatsApp you can paste either a full wa.me URL or just a phone number with country code."
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Account, data sources, and roles.",
+      "account": "Account",
+      "signed_in_as": "Signed in as",
+      "your_roles": "Your roles",
+      "no_roles": "No roles assigned",
+      "data_source": "Data source",
+      "use_mock": "Use mock data",
+      "use_mock_desc": "Show sample stories and videos in the dashboard. Turn off when you're ready to wire real database queries.",
+      "using_mock": "Using mock data.",
+      "swap_real_hint": "Ask your developer to wire real database queries.",
+      "roles_explained": "Roles",
+      "admin_desc": "Full access. Can create, edit, publish, and delete any content. Can manage user roles.",
+      "editor_desc": "Can create and edit drafts. Cannot publish or delete content."
+    },
+    "filter": {
+      "all_status": "All statuses",
+      "all_categories": "All categories"
+    },
+    "status": {
+      "published": "Published",
+      "draft": "Draft"
+    },
+    "source": {
+      "url": "URL",
+      "upload": "Upload"
+    },
+    "table": {
+      "title": "Title",
+      "category": "Category",
+      "age": "Age",
+      "languages": "Languages",
+      "status": "Status",
+      "views": "Views",
+      "source": "Source",
+      "actions": "Actions"
+    },
+    "actions": {
+      "preview": "Preview",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "field": {
+      "title": "Title",
+      "description": "Description",
+      "content": "Story content",
+      "age": "Age range",
+      "category": "Category",
+      "duration": "Duration",
+      "image_url": "Cover image URL",
+      "audio_url": "Audio URL",
+      "thumbnail_url": "Thumbnail URL",
+      "video_source": "Video source",
+      "publish": "Publish",
+      "upload_image": "Upload image",
+      "upload_audio": "Upload audio",
+      "upload_thumbnail": "Upload thumbnail",
+      "or_paste_url": "or paste a URL"
+    },
+    "publish_hint_admin": "Make this content visible to everyone.",
+    "publish_hint_editor": "Only admins can publish. Save as draft.",
+    "categories": {
+      "bedtime": "Bedtime",
+      "adventure": "Adventure",
+      "fairytale": "Fairy tale",
+      "educational": "Educational",
+      "fantasy": "Fantasy",
+      "animals": "Animals",
+      "space": "Space",
+      "lullaby": "Lullaby",
+      "cartoon": "Cartoon",
+      "songs": "Songs",
+      "stories": "Stories",
+      "thriller": "Thrilling"
+    },
+    "delete": {
+      "title": "Delete this item?",
+      "desc": "This action cannot be undone."
+    },
+    "errors": {
+      "english_required": "An English title is required.",
+      "video_url_required": "A video URL or upload is required."
+    },
+    "toast": {
+      "saved": "Saved",
+      "deleted": "Deleted",
+      "upload_mock": "Selected: {{name}} (mock)",
+      "uploading": "Uploading…",
+      "upload_failed": "Upload failed",
+      "load_failed": "Failed to load data",
+      "save_failed": "Save failed",
+      "delete_failed": "Delete failed"
+    }
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Sunny Mode ☀️",
+    "dark": "Good Night Mode 🌙",
+    "auto": "Auto (by time) ⏰",
+    "switch_to_dark": "Switch to Good Night Mode",
+    "switch_to_light": "Switch to Sunny Mode"
+  },
+  "footer": {
+    "follow_us": "Follow us on social media",
+    "rights": "All rights reserved."
+  },
+  "ai_assistant": {
+    "title": "Najma AI",
+    "subtitle": "Your magical helper",
+    "open": "Open AI assistant",
+    "close": "Close",
+    "greeting": "Hi! I'm Najma ✨ Ask me anything about Najmah!",
+    "placeholder": "Type your question...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "rate_limit": "Too many requests. Please wait a moment.",
+    "credits": "AI credits exhausted. Please try later.",
+    "error": "Oops! Something went wrong.",
+    "suggest_1": "Tell me a short bedtime story",
+    "suggest_2": "How does the drawing competition work?",
+    "suggest_3": "What can I find on this website?",
+    "suggest_4": "What courses are available and their prices?",
+    "suggest_5": "What will I gain from the course content?",
+    "suggest_6": "How can I subscribe to stories and what are the plans?",
+    "language": "Reply language"
+  },
+  "about": {
+    "seo_title": "About | NajmaH",
+    "seo_desc": "NajmaH is an AI-powered children's storytelling platform born from Dr. Elham Al-Rajhi's creative storytelling course.",
+    "badge": "About NajmaH",
+    "hero_title": "Where Stories Meet Imagination",
+    "hero_desc": "NajmaH is an AI-powered platform that helps families and creators design magical, personalized children's stories. Every feature you see here was inspired by a real creative course — built to put world-class storytelling tools in everyone's hands.",
+    "origin_title": "From a Course to a Platform",
+    "origin_desc": "NajmaH was born from a creative storytelling course designed by Dr. Elham AlRajehy. What began as a curriculum to teach the art of children's literature evolved into a full interactive platform — combining proven storytelling principles with modern AI to bring imagination to life. Everything you experience here, from story building to visual design and AI illustration, mirrors the pillars of that course.",
+    "features_heading": "What Powers NajmaH",
+    "features": [
+      {
+        "title": "Story Building",
+        "desc": "Craft compelling narratives that spark imagination and nurture children's values."
+      },
+      {
+        "title": "Visual Design",
+        "desc": "Create unforgettable characters, immersive worlds, and richly illustrated pages."
+      },
+      {
+        "title": "AI-Powered Creativity",
+        "desc": "Leverage modern AI tools to generate ideas, design illustrations, and accelerate production."
+      },
+      {
+        "title": "Publishing & Marketing",
+        "desc": "Learn practical steps to publish your stories and reach the right audience worldwide."
+      }
+    ],
+    "instructor_heading": "Meet the Founder",
+    "instructor_role": "Founder & Course Creator",
+    "instructor_name": "Dr. Elham AlRajehy",
+    "instructor_bio": "An interior architect, doctoral researcher in serious games and heritage, freelance children's book author, and developer of interactive applications. Dr. Elham combines deep academic expertise with a passion for education — empowering creators everywhere to unleash their imagination through storytelling.",
+    "curriculum_heading": "Course Curriculum",
+    "curriculum_desc": "Four progressive levels guiding you from your first story idea to a published, polished children's book.",
+    "lessons_count": "{{count}} lessons",
+    "modules": [
+      {
+        "level": "Level 1",
+        "title": "Story Foundations",
+        "duration": "2h 30m",
+        "lessons": 8,
+        "topics": [
+          "Story anatomy & 4-act structure",
+          "Age-appropriate storytelling (Piaget bands)",
+          "Building memorable characters"
+        ]
+      },
+      {
+        "level": "Level 2",
+        "title": "Visual Worldbuilding",
+        "duration": "3h 10m",
+        "lessons": 10,
+        "topics": [
+          "Color-emotion mapping",
+          "Character visual identity",
+          "Page composition & illustration flow"
+        ]
+      },
+      {
+        "level": "Level 3",
+        "title": "AI for Storytellers",
+        "duration": "2h 45m",
+        "lessons": 9,
+        "topics": [
+          "Prompt engineering for narratives",
+          "AI illustration & consistency",
+          "Voice, narration & sound design"
+        ]
+      },
+      {
+        "level": "Level 4",
+        "title": "Publish & Grow",
+        "duration": "1h 50m",
+        "lessons": 6,
+        "topics": [
+          "Self-publishing vs. publishers",
+          "Marketing your storybook",
+          "Building a creator community"
+        ]
+      }
+    ],
+    "testimonials_heading": "What Learners Say",
+    "testimonials_desc": "Real stories from families, teachers and creators using NajmaH.",
+    "testimonials": [
+      {
+        "name": "Sarah M.",
+        "role": "Children's Author",
+        "rating": 5,
+        "quote": "NajmaH turned my rough story ideas into beautifully illustrated books my kids actually ask for again and again."
+      },
+      {
+        "name": "Ahmed K.",
+        "role": "Parent of Three",
+        "rating": 5,
+        "quote": "The AI Storyteller is magical. Bedtime is no longer a battle — it's our favorite moment of the day."
+      },
+      {
+        "name": "Layla R.",
+        "role": "Primary Teacher",
+        "rating": 5,
+        "quote": "I use NajmaH in my classroom for SEL stories. The quality and warmth of every page is unmatched."
+      },
+      {
+        "name": "Yousef A.",
+        "role": "Course Graduate",
+        "rating": 5,
+        "quote": "Dr. Elham's course completely changed how I think about children's literature. The platform is the perfect companion."
+      },
+      {
+        "name": "Mona H.",
+        "role": "Illustrator",
+        "rating": 5,
+        "quote": "The visual design tools save me hours. The character consistency is unbelievable for an AI platform."
+      }
+    ],
+    "faq_heading": "Frequently Asked Questions",
+    "faq_desc": "Everything you need to know before starting your creative journey.",
+    "faqs": [
+      {
+        "q": "Do I need any prior writing experience?",
+        "a": "Not at all. NajmaH and the underlying course are designed for absolute beginners as well as experienced authors. Start where you are."
+      },
+      {
+        "q": "Is NajmaH free to try?",
+        "a": "Yes — you can generate a free story right from the home page. Paid plans unlock unlimited stories, premium illustrations, narration and PDF export."
+      },
+      {
+        "q": "What ages are the stories designed for?",
+        "a": "Stories are tuned to age bands from 3 to 12, following Piaget's developmental stages and trauma-informed safety rules."
+      },
+      {
+        "q": "Can I publish or print the stories I create?",
+        "a": "Absolutely. Every story can be exported as a print-ready PDF. The course also walks you through self-publishing and marketing."
+      },
+      {
+        "q": "Which languages are supported?",
+        "a": "Arabic and English are fully supported, with more languages rolling out as the platform grows."
+      }
+    ],
+    "cta_button": "Start Your Creative Journey",
+    "cta_helper": "New here? You'll create a free account in seconds."
+  }
+}

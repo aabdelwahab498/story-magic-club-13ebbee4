@@ -1,0 +1,402 @@
+{
+  "app": {
+    "name": "Najmah",
+    "tagline_main": "Histoires du soir pour tous les âges : créées par IA, bienveillantes et éducatives",
+    "tagline_sub": "Éditions numériques et imprimées",
+    "tagline_focus": "Axées sur les bonnes manières, les émotions et la neurologie de l'enfant",
+    "tagline": "Histoires du soir pour tous les âges : créées par IA, bienveillantes et éducatives"
+  },
+  "nav": {
+    "home": "Accueil",
+    "stories": "Histoires",
+    "ai_storyteller": "Conteur IA",
+    "drawing_contest": "Concours de dessin",
+    "admin": "Admin",
+    "sign_in": "Se connecter",
+    "sign_out": "Se déconnecter",
+    "language": "Langue",
+    "dashboard": "Tableau de bord",
+    "thriller": "Histoires palpitantes"
+  },
+  "language_suggestion": {
+    "title": "Changer de langue ?",
+    "message": "Nous avons détecté que la langue de votre navigateur est {{language}}. Voulez-vous changer ?",
+    "switch": "Passer à {{language}}",
+    "keep": "Garder l'anglais"
+  },
+  "home": {
+    "stories_title": "Histoires du soir",
+    "stories_desc": "Découvrez notre collection de belles histoires avec images et narration audio",
+    "ai_title": "Conteur IA",
+    "ai_desc": "Créez votre propre conteur et inventez des aventures personnalisées",
+    "drawing_title": "Concours de dessin",
+    "drawing_desc": "Participez au concours de dessin hebdomadaire et gagnez de superbes prix",
+    "cta_title": "Prêt pour un coucher magique ?",
+    "cta_desc": "Commencez votre aventure avec une belle histoire ou créez votre propre conte magique",
+    "cta_button": "Commencer le voyage",
+    "start_adventure": "Commencer l'aventure"
+  },
+  "stories": {
+    "library_title": "Bibliothèque d'histoires du soir",
+    "all_stories": "Toutes les histoires",
+    "play_story": "Lire l'histoire",
+    "pause_story": "Pause",
+    "age_label": "Âge",
+    "loading": "Chargement des histoires…",
+    "empty": "Aucune histoire pour le moment."
+  },
+  "ai": {
+    "title": "Conteur IA",
+    "design_storyteller": "Créez votre conteur",
+    "choose_storyteller": "Choisissez votre conteur",
+    "story_theme": "Thème de l'histoire",
+    "age_range": "Tranche d'âge",
+    "story_length": "Longueur de l'histoire",
+    "custom_elements": "Éléments personnalisés (facultatif)",
+    "custom_placeholder": "Ajoutez des personnages, lieux ou thèmes spéciaux…",
+    "generate": "Générer une histoire magique",
+    "generating": "Création de votre histoire…",
+    "your_story": "Votre histoire magique",
+    "save_story": "Enregistrer",
+    "listen_story": "Écouter",
+    "create_another": "Créer une autre histoire",
+    "narrating": "Lecture en cours…",
+    "narration_failed": "Échec de la lecture",
+    "story_for": "Une histoire {{theme}} pour {{age}}",
+    "says": "dit :",
+    "characters": {
+      "wizard": "Sage Magicien",
+      "fairy": "Fée Amicale",
+      "robot": "Robot Narrateur",
+      "dragon": "Gentil Dragon",
+      "alien": "Explorateur Spatial"
+    },
+    "themes": {
+      "adventure": "Aventure",
+      "animals": "Animaux",
+      "space": "Espace",
+      "fantasy": "Fantaisie",
+      "underwater": "Sous-marin"
+    },
+    "ages": {
+      "3-5": "3-5 ans",
+      "6-8": "6-8 ans",
+      "9-12": "9-12 ans"
+    },
+    "lengths": {
+      "short": "Court (3 min)",
+      "medium": "Moyen (5 min)",
+      "long": "Long (10 min)"
+    },
+    "errors": {
+      "rate_limited": "Trop de requêtes. Veuillez réessayer dans un instant.",
+      "payment": "Crédits IA épuisés. Veuillez ajouter des crédits.",
+      "generic": "Une erreur est survenue. Veuillez réessayer."
+    }
+  },
+  "drawing": {
+    "title": "Concours de dessin hebdomadaire",
+    "subtitle": "Montrez votre créativité et gagnez de superbes prix !",
+    "this_week_theme": "Thème de la semaine",
+    "current_theme": "Rêves Magiques",
+    "prize": "Prix",
+    "prize_value": "Collection de livres",
+    "entries_so_far": "Participations à ce jour",
+    "artists": "{{count}} artistes",
+    "submit_drawing": "Soumettre votre dessin",
+    "current_entries": "Participations actuelles",
+    "past_winners": "Anciens gagnants",
+    "by": "par",
+    "votes": "{{count}} votes",
+    "prize_won": "Prix gagné :",
+    "vote_required_login": "Connectez-vous pour voter.",
+    "loading": "Chargement des participations…",
+    "empty": "Aucune participation pour le moment."
+  },
+  "auth": {
+    "title": "Connexion à Contes Étoilés",
+    "sign_in_tab": "Se connecter",
+    "sign_up_tab": "S'inscrire",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "display_name": "Nom d'affichage",
+    "submit_sign_in": "Se connecter",
+    "submit_sign_up": "Créer un compte",
+    "loading": "Veuillez patienter…",
+    "success_signin": "Bon retour !",
+    "success_signup": "Compte créé. Vous êtes connecté !",
+    "back_home": "Retour à l'accueil"
+  },
+  "admin": {
+    "title": "Panneau d'administration",
+    "subtitle": "Gérer les histoires et dessins multilingues",
+    "tab_stories": "Histoires",
+    "tab_drawings": "Dessins",
+    "new_story": "Nouvelle histoire",
+    "edit_story": "Modifier l'histoire",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "image_url": "URL de l'image",
+    "age_range": "Tranche d'âge",
+    "duration": "Durée",
+    "published": "Publié",
+    "approved": "Approuvé",
+    "title_field": "Titre",
+    "description_field": "Description",
+    "content_field": "Contenu",
+    "artist_field": "Artiste",
+    "preview": "Aperçu",
+    "no_admin": "Vous n'avez pas l'accès admin.",
+    "make_me_admin": "Me rendre admin",
+    "made_admin": "Vous êtes maintenant admin. Rechargement…",
+    "saved": "Enregistré",
+    "deleted": "Supprimé"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "error": "Une erreur est survenue"
+  },
+  "not_found": {
+    "title": "Page introuvable",
+    "back": "Retour à l'accueil"
+  },
+  "admin_dashboard": {
+    "brand": "Admin Najmah",
+    "back_to_site": "Retour au site",
+    "no_access_title": "Accès réservé au staff",
+    "no_access_desc": "Vous avez besoin d'un rôle admin ou éditeur.",
+    "nav": {
+      "section": "Gérer",
+      "dashboard": "Tableau de bord",
+      "stories": "Histoires",
+      "videos": "Vidéos",
+      "languages": "Langues",
+      "settings": "Paramètres"
+    },
+    "role": {
+      "admin": "Admin",
+      "editor": "Éditeur"
+    },
+    "overview": {
+      "title": "Tableau de bord",
+      "subtitle": "Aperçu de votre contenu et audience",
+      "most_viewed": "Histoires les plus vues"
+    },
+    "stats": {
+      "total_stories": "Total histoires",
+      "total_videos": "Total vidéos",
+      "active_languages": "Langues actives",
+      "total_views": "Vues totales",
+      "published_count": "{{count}} publié(s)"
+    },
+    "stories": {
+      "title": "Histoires",
+      "new": "Nouvelle histoire"
+    },
+    "videos": {
+      "title": "Vidéos",
+      "new": "Nouvelle vidéo"
+    },
+    "languages": {
+      "title": "Langues"
+    },
+    "settings": {
+      "title": "Paramètres"
+    },
+    "status": {
+      "published": "Publié",
+      "draft": "Brouillon"
+    },
+    "actions": {
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "delete": "Supprimer"
+    },
+    "categories": {
+      "thriller": "Palpitant"
+    },
+    "toast": {
+      "uploading": "Téléversement…",
+      "upload_failed": "Échec du téléversement",
+      "load_failed": "Échec du chargement",
+      "save_failed": "Échec de l'enregistrement",
+      "delete_failed": "Échec de la suppression"
+    },
+    "field": {
+      "upload_image": "Téléverser une image",
+      "upload_audio": "Téléverser un audio",
+      "upload_thumbnail": "Téléverser une miniature",
+      "or_paste_url": "ou collez une URL"
+    }
+  },
+  "theme": {
+    "label": "Thème",
+    "light": "Mode Soleil ☀️",
+    "dark": "Mode Bonne Nuit 🌙",
+    "auto": "Auto (selon l'heure) ⏰",
+    "switch_to_dark": "Passer au Mode Bonne Nuit",
+    "switch_to_light": "Passer au Mode Soleil"
+  },
+  "ai_assistant": {
+    "title": "Najma IA",
+    "subtitle": "Votre aide magique",
+    "open": "Ouvrir l'assistant IA",
+    "close": "Fermer",
+    "greeting": "Salut ! Je suis Najma ✨ Demande-moi tout sur Najmah !",
+    "placeholder": "Tapez votre question...",
+    "send": "Envoyer",
+    "thinking": "Je réfléchis...",
+    "rate_limit": "Trop de requêtes. Patiente un instant.",
+    "credits": "Crédits IA épuisés. Réessaie plus tard.",
+    "error": "Oups ! Une erreur est survenue.",
+    "suggest_1": "Raconte-moi une courte histoire du soir",
+    "suggest_2": "Comment fonctionne le concours de dessin ?",
+    "suggest_3": "Que puis-je trouver sur ce site ?",
+    "suggest_4": "Quels cours sont disponibles et à quels prix ?",
+    "suggest_5": "Que vais-je apprendre du contenu du cours ?",
+    "suggest_6": "Comment m'abonner aux histoires et quels sont les forfaits ?",
+    "language": "Langue de réponse"
+  },
+  "about": {
+    "seo_title": "À propos | NajmaH",
+    "seo_desc": "NajmaH est une plateforme de contes pour enfants alimentée par l'IA, née du cours créatif de la Dre Elham Al-Rajhi.",
+    "badge": "À propos de NajmaH",
+    "hero_title": "Là où les histoires rencontrent l'imagination",
+    "hero_desc": "NajmaH est une plateforme alimentée par l'IA qui aide les familles et les créateurs à concevoir des histoires pour enfants magiques et personnalisées. Chaque fonctionnalité est inspirée d'un véritable cours créatif — conçue pour mettre des outils de narration de classe mondiale entre toutes les mains.",
+    "origin_title": "D'un cours à une plateforme",
+    "origin_desc": "NajmaH est née d'un cours de narration créative conçu par la Dre Elham AlRajehy. Ce qui a commencé comme un programme d'enseignement de l'art de la littérature jeunesse est devenu une plateforme interactive complète — combinant des principes narratifs éprouvés avec l'IA moderne pour donner vie à l'imagination.",
+    "features_heading": "Ce qui fait NajmaH",
+    "features": [
+      {
+        "title": "Construction de l'histoire",
+        "desc": "Créez des récits captivants qui éveillent l'imagination et nourrissent les valeurs des enfants."
+      },
+      {
+        "title": "Design visuel",
+        "desc": "Personnages mémorables, mondes immersifs et pages richement illustrées."
+      },
+      {
+        "title": "Créativité par IA",
+        "desc": "Utilisez les outils d'IA modernes pour générer des idées, créer des illustrations et accélérer la production."
+      },
+      {
+        "title": "Publication & Marketing",
+        "desc": "Apprenez les étapes pratiques pour publier vos histoires et toucher le bon public dans le monde entier."
+      }
+    ],
+    "instructor_heading": "Rencontrez la fondatrice",
+    "instructor_role": "Fondatrice & créatrice du cours",
+    "instructor_name": "Dre Elham AlRajehy",
+    "instructor_bio": "Architecte d'intérieur, doctorante en serious games et patrimoine, autrice de livres pour enfants et développeuse d'applications interactives. La Dre Elham allie une expertise académique approfondie à une passion pour l'éducation, pour libérer l'imagination des créateurs partout dans le monde.",
+    "curriculum_heading": "Programme du cours",
+    "curriculum_desc": "Quatre niveaux progressifs qui vous guident de votre première idée à un livre pour enfants publié et abouti.",
+    "lessons_count": "{{count}} leçons",
+    "modules": [
+      {
+        "level": "Niveau 1",
+        "title": "Fondamentaux de l'histoire",
+        "duration": "2h 30",
+        "lessons": 8,
+        "topics": [
+          "Anatomie du récit & structure en 4 actes",
+          "Narration adaptée à l'âge (étapes de Piaget)",
+          "Construction de personnages mémorables"
+        ]
+      },
+      {
+        "level": "Niveau 2",
+        "title": "Construction du monde visuel",
+        "duration": "3h 10",
+        "lessons": 10,
+        "topics": [
+          "Cartographie couleur-émotion",
+          "Identité visuelle des personnages",
+          "Composition de page & flux d'illustration"
+        ]
+      },
+      {
+        "level": "Niveau 3",
+        "title": "L'IA pour les conteurs",
+        "duration": "2h 45",
+        "lessons": 9,
+        "topics": [
+          "Ingénierie des prompts narratifs",
+          "Illustration IA & cohérence",
+          "Voix, narration & design sonore"
+        ]
+      },
+      {
+        "level": "Niveau 4",
+        "title": "Publier & se développer",
+        "duration": "1h 50",
+        "lessons": 6,
+        "topics": [
+          "Auto-édition vs. éditeurs",
+          "Marketing de votre livre",
+          "Construire une communauté de créateurs"
+        ]
+      }
+    ],
+    "testimonials_heading": "Ce que disent les apprenants",
+    "testimonials_desc": "De vraies histoires de familles, enseignants et créateurs utilisant NajmaH.",
+    "testimonials": [
+      {
+        "name": "Sarah M.",
+        "role": "Autrice jeunesse",
+        "rating": 5,
+        "quote": "NajmaH a transformé mes idées en livres magnifiquement illustrés que mes enfants redemandent sans cesse."
+      },
+      {
+        "name": "Ahmed K.",
+        "role": "Parent de trois enfants",
+        "rating": 5,
+        "quote": "Le conteur IA est magique. L'heure du coucher n'est plus une bataille — c'est notre moment préféré."
+      },
+      {
+        "name": "Layla R.",
+        "role": "Enseignante en primaire",
+        "rating": 5,
+        "quote": "J'utilise NajmaH en classe pour les histoires socio-émotionnelles. La qualité de chaque page est inégalée."
+      },
+      {
+        "name": "Yousef A.",
+        "role": "Diplômé du cours",
+        "rating": 5,
+        "quote": "Le cours de la Dre Elham a complètement changé ma vision de la littérature jeunesse."
+      },
+      {
+        "name": "Mona H.",
+        "role": "Illustratrice",
+        "rating": 5,
+        "quote": "Les outils de design visuel me font gagner des heures. La cohérence des personnages est incroyable."
+      }
+    ],
+    "faq_heading": "Questions fréquentes",
+    "faq_desc": "Tout ce que vous devez savoir avant de commencer votre voyage créatif.",
+    "faqs": [
+      {
+        "q": "Ai-je besoin d'expérience préalable en écriture ?",
+        "a": "Pas du tout. NajmaH et le cours sont conçus aussi bien pour les débutants que pour les auteurs expérimentés."
+      },
+      {
+        "q": "NajmaH est-il gratuit à essayer ?",
+        "a": "Oui — vous pouvez générer une histoire gratuite depuis la page d'accueil. Les plans payants débloquent des histoires illimitées, des illustrations premium, la narration et l'export PDF."
+      },
+      {
+        "q": "À quels âges les histoires sont-elles destinées ?",
+        "a": "Les histoires sont adaptées aux tranches d'âge de 3 à 12 ans, selon les étapes de Piaget et les règles de sécurité informées par les traumatismes."
+      },
+      {
+        "q": "Puis-je publier ou imprimer mes histoires ?",
+        "a": "Absolument. Chaque histoire peut être exportée en PDF prêt à imprimer. Le cours vous guide aussi pour l'auto-édition et le marketing."
+      },
+      {
+        "q": "Quelles langues sont prises en charge ?",
+        "a": "L'arabe et l'anglais sont entièrement pris en charge, d'autres langues arrivent à mesure que la plateforme grandit."
+      }
+    ],
+    "cta_button": "Commencez votre voyage créatif",
+    "cta_helper": "Nouveau ici ? Créez un compte gratuit en quelques secondes."
+  }
+}

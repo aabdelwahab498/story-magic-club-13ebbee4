@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.cleanup_rate_limit_data() FROM PUBLIC, anon, authenticated;

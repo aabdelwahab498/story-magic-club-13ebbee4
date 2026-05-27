@@ -1,0 +1,467 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Kid-Friendly Fonts — body uses readable rounded sans, display uses playful */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Varela+Round&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Permanent+Marker&family=Bagel+Fat+One&family=Lilita+One&family=Bubblegum+Sans&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@500;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* More vibrant, magical color scheme */
+    --background: 262 83% 98%;
+    --foreground: 262 83% 18%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 262 83% 18%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 262 83% 18%;
+
+    --primary: 262 90% 62%;            /* Vibrant violet */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 282 95% 72%;       /* Glow companion */
+
+    --secondary: 48 100% 62%;          /* Bright sunny yellow */
+    --secondary-foreground: 262 60% 18%;
+
+    --muted: 262 30% 95%;
+    --muted-foreground: 262 12% 45%;
+
+    --accent: 190 95% 60%;             /* Brighter aqua */
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 262 30% 90%;
+    --input: 262 30% 90%;
+    --ring: 262 90% 62%;
+
+    /* Glass card text — deep violet on light mode, white on dark */
+    --glass-text: 262 70% 22%;
+    --glass-text-muted: 262 50% 35%;
+
+    --radius: 1.25rem; /* Even rounder, softer corners */
+
+    /* Magical gradients & shadows */
+    --gradient-magic: linear-gradient(135deg, hsl(262 90% 62%) 0%, hsl(320 90% 70%) 50%, hsl(190 95% 60%) 100%);
+    --gradient-sunset: linear-gradient(135deg, hsl(48 100% 62%) 0%, hsl(20 100% 65%) 100%);
+    --gradient-rainbow: linear-gradient(90deg, #FF6FBE, #FFD93D, #4ED99A, #3FB8FF, #8B5CF6);
+    --shadow-soft: 0 10px 30px -8px hsl(262 60% 50% / 0.25);
+    --shadow-glow: 0 0 40px hsl(282 95% 72% / 0.45);
+    --shadow-pop: 0 8px 0 -2px hsl(262 90% 50% / 0.5);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Magical bedtime palette: deep midnight + glowing stars */
+    --background: 240 60% 6%;              /* Deep midnight */
+    --foreground: 250 40% 96%;             /* Soft moonlight */
+
+    --card: 245 50% 10%;                   /* Night card */
+    --card-foreground: 250 40% 96%;
+
+    --popover: 245 50% 10%;
+    --popover-foreground: 250 40% 96%;
+
+    --primary: 270 90% 72%;                /* Glowing violet */
+    --primary-foreground: 240 60% 8%;
+    --primary-glow: 290 95% 78%;           /* Magic glow */
+
+    --secondary: 220 60% 18%;              /* Navy */
+    --secondary-foreground: 250 40% 96%;
+
+    --muted: 240 30% 16%;
+    --muted-foreground: 250 20% 70%;
+
+    --accent: 200 95% 65%;                 /* Soft starlight aqua */
+    --accent-foreground: 240 60% 8%;
+
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 250 40% 96%;
+
+    --border: 245 40% 20%;
+    --input: 245 40% 18%;
+    --ring: 270 90% 72%;
+
+    /* Glass card text — white in dark mode */
+    --glass-text: 250 40% 96%;
+    --glass-text-muted: 250 30% 80%;
+
+    /* Magical bedtime gradients & glows */
+    --gradient-magic: linear-gradient(135deg, hsl(260 80% 35%) 0%, hsl(280 70% 45%) 50%, hsl(220 80% 40%) 100%);
+    --gradient-sunset: linear-gradient(135deg, hsl(280 70% 50%) 0%, hsl(320 70% 55%) 100%);
+    --gradient-rainbow: linear-gradient(90deg, #6B4FBE, #4F6FBE, #4FBEAE, #BE4F8E, #8B5CF6);
+    --shadow-soft: 0 10px 30px -8px hsl(270 80% 30% / 0.6);
+    --shadow-glow: 0 0 50px hsl(290 95% 70% / 0.55);
+    --shadow-pop: 0 8px 0 -2px hsl(270 90% 40% / 0.6);
+
+    --sidebar-background: 245 50% 8%;
+    --sidebar-foreground: 250 40% 96%;
+    --sidebar-primary: 270 90% 72%;
+    --sidebar-primary-foreground: 240 60% 8%;
+    --sidebar-accent: 245 40% 14%;
+    --sidebar-accent-foreground: 250 40% 96%;
+    --sidebar-border: 245 40% 18%;
+    --sidebar-ring: 270 90% 72%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  /* Smooth theme transition across the entire app */
+  html {
+    transition: background-color 400ms ease, color 400ms ease;
+  }
+  body {
+    @apply text-foreground;
+    background: linear-gradient(135deg, hsl(270 60% 92%), hsl(220 70% 92%));
+    transition: background 400ms ease, color 400ms ease;
+    /* Body: rounded, highly readable. Display fonts only for headings/logo. */
+    font-family: 'Fredoka', 'Varela Round', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  html.dark body {
+    background: hsl(240 60% 6%);
+  }
+  /* Slightly larger base text on small screens for legibility */
+  @media (max-width: 640px) {
+    body { font-size: 15.5px; line-height: 1.6; }
+  }
+  /* Animate background colors and borders for a soft fade between modes */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 300ms;
+    transition-timing-function: ease;
+  }
+  /* Don't slow down explicit transforms / opacity animations */
+  [class*="animate-"], [class*="hover-"] {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow, transform, opacity;
+  }
+
+  /* Headings keep some personality but stay readable */
+  h1, h2, h3, h4 {
+    font-family: 'Fredoka', 'Varela Round', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* RTL / Arabic — switch to a clean, readable Arabic typeface everywhere */
+  html[dir="rtl"] body,
+  html[lang="ar"] body {
+    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
+  }
+  html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3, html[dir="rtl"] h4,
+  html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4 {
+    font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
+    font-weight: 800;
+  }
+}
+
+@layer utilities {
+  .bg-magic {
+    background-image: var(--gradient-magic);
+  }
+  .bg-sunset {
+    background-image: var(--gradient-sunset);
+  }
+  .bg-rainbow {
+    background-image: var(--gradient-rainbow);
+    background-size: 200% 200%;
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .shadow-pop {
+    box-shadow: var(--shadow-pop);
+  }
+  .hover-pop {
+    @apply transition-transform duration-300 hover:-translate-y-1 hover:scale-[1.03] active:scale-95;
+  }
+  .hover-wiggle:hover {
+    animation: wiggle 0.5s ease-in-out;
+  }
+  /* Magical glow specifically for dark/bedtime mode */
+  .dark .glow-card {
+    box-shadow: 0 0 24px -4px hsl(var(--primary) / 0.45),
+                0 0 60px -10px hsl(var(--primary-glow) / 0.35);
+  }
+  .dark .glow-button {
+    box-shadow: 0 0 20px -2px hsl(var(--primary) / 0.55),
+                0 0 40px -8px hsl(var(--primary-glow) / 0.45);
+  }
+}
+
+/* Animated twinkling stars for dark/bedtime mode */
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes star-drift {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-20px); }
+}
+
+.starry-sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, hsl(var(--primary-glow) / 0.9), transparent 50%),
+    radial-gradient(1.5px 1.5px at 70% 20%, hsl(0 0% 100% / 0.85), transparent 50%),
+    radial-gradient(2px 2px at 40% 70%, hsl(var(--accent) / 0.8), transparent 50%),
+    radial-gradient(1px 1px at 85% 60%, hsl(0 0% 100% / 0.9), transparent 50%),
+    radial-gradient(1.5px 1.5px at 15% 85%, hsl(var(--primary-glow) / 0.85), transparent 50%),
+    radial-gradient(1px 1px at 60% 90%, hsl(0 0% 100% / 0.8), transparent 50%),
+    radial-gradient(2px 2px at 90% 35%, hsl(var(--accent) / 0.75), transparent 50%),
+    radial-gradient(1px 1px at 30% 50%, hsl(0 0% 100% / 0.9), transparent 50%),
+    radial-gradient(1.5px 1.5px at 55% 15%, hsl(var(--primary-glow) / 0.8), transparent 50%),
+    radial-gradient(1px 1px at 75% 75%, hsl(0 0% 100% / 0.85), transparent 50%);
+  background-size: 100% 100%;
+  animation: star-twinkle 4s ease-in-out infinite;
+}
+.starry-sky::after {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  background-image:
+    radial-gradient(1px 1px at 10% 10%, hsl(0 0% 100% / 0.6), transparent 50%),
+    radial-gradient(1px 1px at 80% 40%, hsl(var(--primary-glow) / 0.55), transparent 50%),
+    radial-gradient(1px 1px at 45% 80%, hsl(0 0% 100% / 0.6), transparent 50%),
+    radial-gradient(1px 1px at 25% 60%, hsl(var(--accent) / 0.5), transparent 50%),
+    radial-gradient(1px 1px at 95% 85%, hsl(0 0% 100% / 0.55), transparent 50%);
+  animation: star-twinkle 6s ease-in-out infinite reverse;
+}
+
+/* ============================================================
+   Per-page kid-friendly background patterns (SVG, theme-aware)
+   ============================================================ */
+
+/* ☁️ Soft drifting clouds — Home */
+.bg-bg-clouds {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='180' viewBox='0 0 280 180'><g fill='white' opacity='0.7'><ellipse cx='40' cy='50' rx='28' ry='14'/><ellipse cx='65' cy='45' rx='22' ry='12'/><ellipse cx='180' cy='120' rx='34' ry='16'/><ellipse cx='210' cy='115' rx='24' ry='13'/><ellipse cx='140' cy='30' rx='18' ry='9'/></g></svg>");
+  background-size: 420px 270px;
+  animation: bg-drift-x 60s linear infinite;
+}
+
+/* 🌿 Soft leaves — Stories */
+.bg-bg-leaves {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'><g fill='%234ED99A' opacity='0.55'><path d='M40 60 Q60 30 80 60 Q60 90 40 60Z'/><path d='M150 40 Q170 10 190 40 Q170 70 150 40' fill='%2378E0A8'/><path d='M60 160 Q90 130 110 170 Q80 200 60 160' fill='%23A6E8B5'/><path d='M170 140 Q200 120 210 160 Q180 180 170 140' fill='%234ED99A'/></g></svg>");
+  background-size: 360px 360px;
+  animation: bg-drift-y 90s linear infinite;
+}
+
+/* ⭐ Tiny stars — AI Storyteller */
+.bg-bg-stars {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'><g fill='%238B5CF6'><circle cx='25' cy='30' r='1.6' opacity='0.7'/><circle cx='90' cy='60' r='1.2' opacity='0.6'/><circle cx='150' cy='40' r='1.8' opacity='0.7'/><circle cx='60' cy='110' r='1.4' opacity='0.6'/><circle cx='130' cy='140' r='1.6' opacity='0.7'/><circle cx='40' cy='160' r='1.2' opacity='0.5'/><circle cx='170' cy='100' r='1.4' opacity='0.6'/></g></svg>");
+  background-size: 260px 260px;
+  animation: bg-drift-y 80s linear infinite reverse;
+}
+
+/* 🎨 Polka dots — Drawing */
+.bg-bg-dots {
+  background-image: radial-gradient(circle, hsl(var(--primary) / 0.18) 2px, transparent 2.5px);
+  background-size: 32px 32px;
+  animation: bg-drift-diag 70s linear infinite;
+}
+
+@keyframes bg-drift-x {
+  from { background-position: 0 0; }
+  to   { background-position: 420px 0; }
+}
+@keyframes bg-drift-y {
+  from { background-position: 0 0; }
+  to   { background-position: 0 360px; }
+}
+@keyframes bg-drift-diag {
+  from { background-position: 0 0; }
+  to   { background-position: 320px 320px; }
+}
+
+/* ✨ Firefly / sparkle dot — gentle blink */
+.firefly {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: hsl(var(--primary-glow));
+  box-shadow: 0 0 12px 3px hsl(var(--primary-glow) / 0.7);
+  opacity: 0;
+  animation: firefly-blink 4s ease-in-out infinite;
+  pointer-events: none;
+}
+.dark .firefly {
+  background: hsl(var(--accent));
+  box-shadow: 0 0 14px 4px hsl(var(--accent) / 0.8);
+}
+
+@keyframes firefly-blink {
+  0%, 100% { opacity: 0; transform: translateY(0) scale(0.6); }
+  50%      { opacity: 0.9; transform: translateY(-12px) scale(1); }
+}
+
+/* Slow Ken-Burns style pan & zoom for hero backgrounds */
+@keyframes bg-pan {
+  0%   { transform: scale(1) translate(0, 0); }
+  50%  { transform: scale(1.06) translate(-1%, -1%); }
+  100% { transform: scale(1) translate(0, 0); }
+}
+.animate-bg-pan {
+  animation: bg-pan 70s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* More noticeable cosmic drift — wider pan + zoom */
+@keyframes bg-drift {
+  0%   { transform: scale(1) translate(0, 0); }
+  25%  { transform: scale(1.08) translate(-2%, 1%); }
+  50%  { transform: scale(1.1) translate(1%, -2%); }
+  75%  { transform: scale(1.08) translate(2%, 1%); }
+  100% { transform: scale(1) translate(0, 0); }
+}
+.animate-bg-drift {
+  animation: bg-drift 60s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ✨ Magical Home — bigger, dreamier Ken-Burns with subtle rotation */
+@keyframes bg-magical {
+  0%   { transform: scale(1.05) translate(0, 0) rotate(0deg); }
+  25%  { transform: scale(1.12) translate(-2%, 1.5%) rotate(0.4deg); }
+  50%  { transform: scale(1.15) translate(1.5%, -1.5%) rotate(-0.3deg); }
+  75%  { transform: scale(1.1) translate(2%, 2%) rotate(0.3deg); }
+  100% { transform: scale(1.05) translate(0, 0) rotate(0deg); }
+}
+.animate-bg-magical {
+  animation: bg-magical 90s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* 🌈 Shimmer light sweep across the home background */
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-30%) skewX(-12deg); opacity: 0; }
+  20%  { opacity: 0.4; }
+  60%  { opacity: 0.4; }
+  100% { transform: translateX(130%) skewX(-12deg); opacity: 0; }
+}
+.animate-shimmer-sweep {
+  animation: shimmer-sweep 18s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* 🌙 Sleeping angel on moon — gentle catchy bob + sway + dreamy glow */
+@keyframes sleep-bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-14px) rotate(2deg); }
+}
+@keyframes dream-glow {
+  0%, 100% { filter: drop-shadow(0 0 18px hsl(48 100% 70% / 0.55)) drop-shadow(0 8px 22px hsl(262 80% 50% / 0.35)); }
+  50%      { filter: drop-shadow(0 0 36px hsl(48 100% 75% / 0.85)) drop-shadow(0 12px 28px hsl(282 95% 65% / 0.5)); }
+}
+@keyframes zzz-rise {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.7) rotate(-8deg); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(18px, -42px) scale(1.2) rotate(8deg); }
+}
+.animate-sleep-bob {
+  animation: sleep-bob 5s ease-in-out infinite, dream-glow 4s ease-in-out infinite;
+  will-change: transform, filter;
+}
+.zzz-bubble {
+  position: absolute;
+  font-family: 'Gochi Hand', 'Permanent Marker', cursive;
+  font-weight: 700;
+  color: hsl(262 80% 55%);
+  text-shadow: 0 2px 0 hsl(0 0% 100% / 0.8);
+  animation: zzz-rise 3.2s ease-out infinite;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ☁️ Slow drifting clouds around the moon mascot */
+@keyframes cloud-drift-l {
+  0%   { transform: translateX(0) translateY(0); opacity: 0.85; }
+  50%  { transform: translateX(-22px) translateY(-6px); opacity: 1; }
+  100% { transform: translateX(0) translateY(0); opacity: 0.85; }
+}
+@keyframes cloud-drift-r {
+  0%   { transform: translateX(0) translateY(0); opacity: 0.85; }
+  50%  { transform: translateX(26px) translateY(-8px); opacity: 1; }
+  100% { transform: translateX(0) translateY(0); opacity: 0.85; }
+}
+.cloud-puff {
+  position: absolute;
+  background: hsl(220 30% 96%);
+  border-radius: 9999px;
+  filter: blur(2px) drop-shadow(0 6px 12px hsl(240 40% 50% / 0.18));
+  pointer-events: none;
+}
+.cloud-puff::before,
+.cloud-puff::after {
+  content: '';
+  position: absolute;
+  background: hsl(220 30% 96%);
+  border-radius: 9999px;
+}
+.cloud-puff::before {
+  width: 60%; height: 80%;
+  top: -35%; left: 18%;
+}
+.cloud-puff::after {
+  width: 50%; height: 70%;
+  top: -20%; right: 8%;
+}
+.animate-cloud-l { animation: cloud-drift-l 14s ease-in-out infinite; }
+.animate-cloud-r { animation: cloud-drift-r 16s ease-in-out infinite; }
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .bg-bg-clouds,
+  .bg-bg-leaves,
+  .bg-bg-stars,
+  .bg-bg-dots,
+  .firefly,
+  .starry-sky,
+  .starry-sky::after,
+  .animate-sleep-bob,
+  .zzz-bubble {
+    animation: none !important;
+  }
+}
+
+/* Ken Burns slow zoom-and-pan for story cover images */
+@keyframes ken-burns {
+  0%   { transform: scale(1) translate(0, 0); }
+  50%  { transform: scale(1.08) translate(-1.5%, -1%); }
+  100% { transform: scale(1) translate(0, 0); }
+}
+.animate-ken-burns {
+  animation: ken-burns 18s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-ken-burns { animation: none; }
+}

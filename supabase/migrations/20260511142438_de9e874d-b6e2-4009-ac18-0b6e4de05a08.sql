@@ -1,0 +1,15 @@
+ALTER TABLE public.payment_settings
+  ADD COLUMN IF NOT EXISTS instapay_enabled boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS instapay_currencies text[] NOT NULL DEFAULT ARRAY['EGP']::text[],
+  ADD COLUMN IF NOT EXISTS vodafone_enabled boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS vodafone_currencies text[] NOT NULL DEFAULT ARRAY['EGP']::text[],
+  ADD COLUMN IF NOT EXISTS payoneer_enabled boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS payoneer_email text,
+  ADD COLUMN IF NOT EXISTS payoneer_currencies text[] NOT NULL DEFAULT ARRAY['USD']::text[],
+  ADD COLUMN IF NOT EXISTS bank_enabled boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS bank_name text,
+  ADD COLUMN IF NOT EXISTS bank_account_name text,
+  ADD COLUMN IF NOT EXISTS bank_account_number text,
+  ADD COLUMN IF NOT EXISTS bank_iban text,
+  ADD COLUMN IF NOT EXISTS bank_swift text,
+  ADD COLUMN IF NOT EXISTS bank_currencies text[] NOT NULL DEFAULT ARRAY['EGP','USD']::text[];

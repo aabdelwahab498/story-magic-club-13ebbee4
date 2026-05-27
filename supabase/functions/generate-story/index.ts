@@ -1,0 +1,282 @@
+// AI Storyteller edge function — generates a multilingual story via Lovable AI Gateway
+import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimits, identifierFromRequest, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { enforceMonthlyStoryQuota, quotaResponse, userIdFromRequest } from "../_shared/quota.ts";
+import { moderateText, moderationRejectedResponse, ModerationGatewayError } from "../_shared/moderation.ts";
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  ar: "Arabic",
+  de: "German",
+  fr: "French",
+  it: "Italian",
+  es: "Spanish",
+};
+
+// Word count target by length
+const LENGTH_MAP: Record<string, string> = {
+  short: "around 200 words",
+  medium: "around 400 words",
+  long: "around 800 words",
+};
+
+// Detailed creative direction per theme — gives the AI concrete vocabulary,
+// settings and motifs so themes feel meaningfully different.
+const THEME_GUIDE: Record<string, string> = {
+  adventure:
+    "An exciting quest with brave choices, hidden maps, mountain trails or secret caves, " +
+    "small obstacles overcome with courage and teamwork. Use action verbs and surprise turns, " +
+    "but keep all peril gentle and resolved kindly.",
+  animals:
+    "A heartwarming tale about animal friends in a forest, farm, jungle or savanna. " +
+    "Give animals distinct voices and quirky habits. Include sounds (cheep, rustle, splash) " +
+    "and a small lesson about friendship, kindness or sharing.",
+  space:
+    "A wondrous journey across stars, planets, comets and friendly aliens. Mention rockets, " +
+    "moons, constellations and zero-gravity moments. Use cosmic imagery (twinkling, glowing, " +
+    "shimmering) and end with a peaceful return home.",
+  fantasy:
+    "A magical story with wizards, fairies, dragons, enchanted forests or talking objects. " +
+    "Include spells, glowing potions, riddles and a touch of whimsy. Magic should always be " +
+    "used for kindness, never fear.",
+  underwater:
+    "A dreamy ocean adventure with coral reefs, dolphins, glowing jellyfish, sea turtles and " +
+    "sunken treasure. Use flowing, watery language (drift, glide, ripple, sparkle) and " +
+    "include bioluminescent wonders.",
+};
+
+// Age-band guidance — vocabulary level, sentence length, complexity, themes to avoid.
+const AGE_GUIDE: Record<string, string> = {
+  "3-5":
+    "Use very simple words a 3–5 year old understands. Short sentences (5–8 words). " +
+    "Lots of repetition, sound words and rhymes. One clear feeling per paragraph. " +
+    "No scary moments, no complex emotions. Focus on colors, animals, hugs and bedtime calm.",
+  "6-8":
+    "Use everyday vocabulary with a few colorful new words explained naturally in context. " +
+    "Sentences of 8–14 words. Introduce a small problem and a kind solution. " +
+    "Add humor, friendship and small acts of bravery.",
+  "9-12":
+    "Use richer vocabulary and more descriptive imagery. Sentences can vary (10–20 words). " +
+    "Include layered characters, mild challenges, curiosity and discovery. Avoid violence, " +
+    "romance or anything frightening — keep it wholesome and bedtime-appropriate.",
+};
+
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+if (!OPENROUTER_API_KEY) {
+  console.error("[generate-story] CRITICAL: OPENROUTER_API_KEY is not configured in environment variables.");
+}
+
+const ALLOWED_LANGS = new Set(Object.keys(LANGUAGE_NAMES));
+const ALLOWED_LENGTHS = new Set(["short", "medium", "long"]);
+const ALLOWED_AGES = new Set(["3-5", "6-8", "9-12"]);
+
+const str = (v: unknown, max: number) =>
+  typeof v === "string" ? v.slice(0, max).trim() : "";
+
+serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const pre = handlePreflight(req);
+  if (pre) return pre;
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Body size guard (~16KB max)
+  const cl = Number(req.headers.get("content-length") || "0");
+  if (cl > 16_384) {
+    return new Response(JSON.stringify({ error: "payload_too_large" }), {
+      status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const raw = await req.json().catch(() => ({}));
+
+    const character = str(raw.character, 80);
+    const characterId = str(raw.characterId, 40);
+    const theme = str(raw.theme, 80);
+    const themeId = str(raw.themeId, 40);
+    const ageRange = str(raw.ageRange, 20);
+    const ageId = str(raw.ageId, 10);
+    const length = str(raw.length, 10).toLowerCase();
+    const customPrompt = str(raw.customPrompt, 500);
+    const language = str(raw.language, 5).toLowerCase();
+
+    if (!character || !theme || !ageRange) {
+      return new Response(JSON.stringify({ error: "missing_required_fields" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (language && !ALLOWED_LANGS.has(language)) {
+      return new Response(JSON.stringify({ error: "invalid_language" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (length && !ALLOWED_LENGTHS.has(length)) {
+      return new Response(JSON.stringify({ error: "invalid_length" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (ageId && !ALLOWED_AGES.has(ageId)) {
+      return new Response(JSON.stringify({ error: "invalid_age" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Server-side auth + quota + rate limit (cannot be bypassed from client)
+    const userId = await userIdFromRequest(req);
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const identifier = `u:${userId}`;
+    const rl = await checkRateLimits(identifier, "generate-story", [
+      { windowSec: 60, max: 3 },
+      { windowSec: 3600, max: 15 },
+      { windowSec: 86400, max: 50 },
+    ]);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
+    const quota = await enforceMonthlyStoryQuota(userId);
+    if (!quota.allowed) return quotaResponse(quota, corsHeaders);
+
+    // Lovable AI moderation on user-supplied free-text fields
+    const toModerate = [character, theme, customPrompt].filter(Boolean).join("\n");
+    if (toModerate.trim().length > 0) {
+      try {
+        const verdict = await moderateText(toModerate, { language });
+        if (!verdict.allowed || verdict.severity === "medium" || verdict.severity === "high" || verdict.severity === "critical") {
+          console.warn("[generate-story] moderation rejected", { userId, severity: verdict.severity, categories: verdict.categories });
+          return moderationRejectedResponse(verdict, corsHeaders);
+        }
+      } catch (e) {
+        if (e instanceof ModerationGatewayError) {
+          return new Response(JSON.stringify({ error: "moderation_unavailable" }), {
+            status: e.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
+    const langName = LANGUAGE_NAMES[language] || "English";
+    const wordTarget = LENGTH_MAP[length] || "around 300 words";
+    const themeGuide = THEME_GUIDE[themeId] || "";
+    const ageGuide = AGE_GUIDE[ageId] || "";
+
+    const systemPrompt = `You are a magical bedtime storyteller for children. Write a soothing, age-appropriate story in ${langName}.
+- Match the language exactly: every word in ${langName}.
+- Keep tone warm, gentle, and imaginative.
+- Use short paragraphs (2-3 sentences each) for easy reading aloud.
+- End with a peaceful, comforting closing line.
+- Do not include English headings if the language is not English.
+- The theme and age guidance below MUST shape vocabulary, setting, pacing and tone — they are not optional.`;
+
+    const userPrompt = `Create a bedtime story with these elements:
+- Storyteller character: ${character}
+- Theme: ${theme}
+- Target age: ${ageRange}
+- Length: ${wordTarget}
+${customPrompt ? `- Special elements requested: ${customPrompt}` : ""}
+
+THEME DIRECTION (${theme}):
+${themeGuide}
+
+AGE-APPROPRIATE STYLE (${ageRange}):
+${ageGuide}
+
+Write the story now in ${langName}, fully respecting both the theme direction and the age-appropriate style.`;
+
+    const FREE_MODELS = [
+      "openai/gpt-oss-120b:free",
+      "deepseek/deepseek-v4-flash:free",
+      "qwen/qwen3-next-80b-a3b-instruct:free",
+      "z-ai/glm-4.5-air:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+    ];
+
+    if (!OPENROUTER_API_KEY) {
+      console.error("[generate-story] CRITICAL: OPENROUTER_API_KEY is not configured. AI call aborted.");
+      return new Response(
+        JSON.stringify({ error: "ai_config_missing", detail: "OPENROUTER_API_KEY is not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let resp: Response | null = null;
+    let lastStatus = 500;
+    let lastTxt = "";
+    let attemptedModels = 0;
+    for (const model of FREE_MODELS) {
+      attemptedModels++;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30_000);
+      let r: Response;
+      try {
+        r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://lovable.dev",
+            "X-Title": "Starry Tales",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        lastStatus = 504;
+        lastTxt = (err as Error).message || "timeout";
+        console.error(`AI gateway ${model} -> aborted: ${lastTxt}`);
+        continue;
+      }
+      clearTimeout(timer);
+      if (r.ok) { resp = r; break; }
+      lastStatus = r.status;
+      lastTxt = await r.text().catch(() => "");
+      console.error(`AI gateway ${model} -> ${r.status}: ${lastTxt.slice(0, 200)}`);
+      if (![429, 404, 500, 502, 503, 504].includes(r.status)) break;
+    }
+
+    if (!resp) {
+      if (lastStatus === 429) {
+        return new Response(JSON.stringify({ error: "rate_limited" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (lastStatus === 402) {
+        return new Response(JSON.stringify({ error: "payment_required" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: "ai_error", detail: lastTxt.slice(0, 200) }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const data = await resp.json();
+    const story = data.choices?.[0]?.message?.content || "";
+
+    return new Response(JSON.stringify({ story, language }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("generate-story error:", e);
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

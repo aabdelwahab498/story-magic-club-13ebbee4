@@ -1,0 +1,1637 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  public: {
+    Tables: {
+      admin_claim_attempts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          ip: string | null
+          success: boolean
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip?: string | null
+          success?: boolean
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip?: string | null
+          success?: boolean
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_story_history: {
+        Row: {
+          age_band: string | null
+          audio_url: string | null
+          character_visual_hash: string | null
+          child_profile_id: string | null
+          created_at: string
+          generated_story: Json
+          id: string
+          language: string
+          pages: Json
+          pdf_url: string | null
+          prompt_data: Json
+          quality_scores: Json
+          quality_total: number | null
+          regeneration_count: number
+          safety_passed: boolean
+          sel_analysis: Json
+          sel_outcome: Json
+          theme: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+          video_embed_url: string | null
+        }
+        Insert: {
+          age_band?: string | null
+          audio_url?: string | null
+          character_visual_hash?: string | null
+          child_profile_id?: string | null
+          created_at?: string
+          generated_story?: Json
+          id?: string
+          language?: string
+          pages?: Json
+          pdf_url?: string | null
+          prompt_data?: Json
+          quality_scores?: Json
+          quality_total?: number | null
+          regeneration_count?: number
+          safety_passed?: boolean
+          sel_analysis?: Json
+          sel_outcome?: Json
+          theme?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          video_embed_url?: string | null
+        }
+        Update: {
+          age_band?: string | null
+          audio_url?: string | null
+          character_visual_hash?: string | null
+          child_profile_id?: string | null
+          created_at?: string
+          generated_story?: Json
+          id?: string
+          language?: string
+          pages?: Json
+          pdf_url?: string | null
+          prompt_data?: Json
+          quality_scores?: Json
+          quality_total?: number | null
+          regeneration_count?: number
+          safety_passed?: boolean
+          sel_analysis?: Json
+          sel_outcome?: Json
+          theme?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          video_embed_url?: string | null
+        }
+        Relationships: []
+      }
+      bedtime_schedules: {
+        Row: {
+          child_profile_id: string
+          created_at: string
+          dark_mode: boolean
+          day_of_week: number
+          end_time: string
+          id: string
+          parent_user_id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          child_profile_id: string
+          created_at?: string
+          dark_mode?: boolean
+          day_of_week: number
+          end_time: string
+          id?: string
+          parent_user_id: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          child_profile_id?: string
+          created_at?: string
+          dark_mode?: boolean
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          parent_user_id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bedtime_schedules_child_profile_id_fkey"
+            columns: ["child_profile_id"]
+            isOneToOne: false
+            referencedRelation: "child_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_categories: {
+        Row: {
+          created_at: string
+          description: Json
+          id: string
+          name: Json
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: Json
+          id?: string
+          name?: Json
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: Json
+          id?: string
+          name?: Json
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      blog_posts: {
+        Row: {
+          author_name: string | null
+          category_id: string | null
+          content: Json
+          cover_image: string | null
+          created_at: string
+          created_by: string | null
+          excerpt: Json
+          id: string
+          published: boolean
+          published_at: string | null
+          reading_minutes: number | null
+          seo_description: Json
+          seo_title: Json
+          slug: string
+          tags: string[] | null
+          title: Json
+          updated_at: string
+          views: number
+        }
+        Insert: {
+          author_name?: string | null
+          category_id?: string | null
+          content?: Json
+          cover_image?: string | null
+          created_at?: string
+          created_by?: string | null
+          excerpt?: Json
+          id?: string
+          published?: boolean
+          published_at?: string | null
+          reading_minutes?: number | null
+          seo_description?: Json
+          seo_title?: Json
+          slug: string
+          tags?: string[] | null
+          title?: Json
+          updated_at?: string
+          views?: number
+        }
+        Update: {
+          author_name?: string | null
+          category_id?: string | null
+          content?: Json
+          cover_image?: string | null
+          created_at?: string
+          created_by?: string | null
+          excerpt?: Json
+          id?: string
+          published?: boolean
+          published_at?: string | null
+          reading_minutes?: number | null
+          seo_description?: Json
+          seo_title?: Json
+          slug?: string
+          tags?: string[] | null
+          title?: Json
+          updated_at?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "blog_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cart_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_profiles: {
+        Row: {
+          age: number | null
+          avatar: string | null
+          bedtime_preferences: Json
+          created_at: string
+          emotional_focus: Json
+          id: string
+          name: string
+          parent_user_id: string
+          preferred_language: string
+          reading_level: string | null
+          updated_at: string
+        }
+        Insert: {
+          age?: number | null
+          avatar?: string | null
+          bedtime_preferences?: Json
+          created_at?: string
+          emotional_focus?: Json
+          id?: string
+          name: string
+          parent_user_id: string
+          preferred_language?: string
+          reading_level?: string | null
+          updated_at?: string
+        }
+        Update: {
+          age?: number | null
+          avatar?: string | null
+          bedtime_preferences?: Json
+          created_at?: string
+          emotional_focus?: Json
+          id?: string
+          name?: string
+          parent_user_id?: string
+          preferred_language?: string
+          reading_level?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          language: string | null
+          message: string
+          name: string
+          status: string
+          subject: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          language?: string | null
+          message: string
+          name: string
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          language?: string | null
+          message?: string
+          name?: string
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      drawing_entries: {
+        Row: {
+          approved: boolean
+          artist: Json
+          created_at: string
+          id: string
+          image: string | null
+          submitted_by: string | null
+          title: Json
+          updated_at: string
+          votes: number
+        }
+        Insert: {
+          approved?: boolean
+          artist?: Json
+          created_at?: string
+          id?: string
+          image?: string | null
+          submitted_by?: string | null
+          title?: Json
+          updated_at?: string
+          votes?: number
+        }
+        Update: {
+          approved?: boolean
+          artist?: Json
+          created_at?: string
+          id?: string
+          image?: string | null
+          submitted_by?: string | null
+          title?: Json
+          updated_at?: string
+          votes?: number
+        }
+        Relationships: []
+      }
+      drawing_votes: {
+        Row: {
+          created_at: string
+          drawing_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          drawing_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          drawing_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_votes_drawing_id_fkey"
+            columns: ["drawing_id"]
+            isOneToOne: false
+            referencedRelation: "drawing_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_scan_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          declared_mime: string | null
+          error: string | null
+          id: string
+          scan_result: Json
+          size_bytes: number | null
+          status: string
+          target_bucket: string
+          target_path: string
+          temp_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          declared_mime?: string | null
+          error?: string | null
+          id?: string
+          scan_result?: Json
+          size_bytes?: number | null
+          status?: string
+          target_bucket: string
+          target_path: string
+          temp_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          declared_mime?: string | null
+          error?: string | null
+          id?: string
+          scan_result?: Json
+          size_bytes?: number | null
+          status?: string
+          target_bucket?: string
+          target_path?: string
+          temp_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      generated_illustrations: {
+        Row: {
+          character_profile_hash: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          page_index: number
+          prompt: string
+          status: string
+          story_id: string
+          style: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_profile_hash?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          page_index: number
+          prompt: string
+          status?: string
+          story_id: string
+          style?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          character_profile_hash?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          page_index?: number
+          prompt?: string
+          status?: string
+          story_id?: string
+          style?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_illustrations_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "ai_story_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_payment_requests: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          method: string
+          plan_tier: string
+          proof_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sender_name: string | null
+          sender_phone: string | null
+          status: string
+          transaction_ref: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          method: string
+          plan_tier: string
+          proof_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          status?: string
+          transaction_ref?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          method?: string
+          plan_tier?: string
+          proof_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          status?: string
+          transaction_ref?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          order_id: string
+          product_id: string
+          product_snapshot: Json
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          id?: string
+          order_id: string
+          product_id: string
+          product_snapshot?: Json
+          quantity?: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          product_snapshot?: Json
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          payment_request_id: string | null
+          shipping_address: string | null
+          shipping_city: string | null
+          shipping_country: string | null
+          shipping_name: string | null
+          shipping_phone: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          payment_request_id?: string | null
+          shipping_address?: string | null
+          shipping_city?: string | null
+          shipping_country?: string | null
+          shipping_name?: string | null
+          shipping_phone?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          payment_request_id?: string | null
+          shipping_address?: string | null
+          shipping_city?: string | null
+          shipping_country?: string | null
+          shipping_name?: string | null
+          shipping_phone?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_payment_request_id_fkey"
+            columns: ["payment_request_id"]
+            isOneToOne: false
+            referencedRelation: "manual_payment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_settings: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_currencies: string[]
+          bank_enabled: boolean
+          bank_iban: string | null
+          bank_info: Json
+          bank_name: string | null
+          bank_swift: string | null
+          id: string
+          instapay_currencies: string[]
+          instapay_enabled: boolean
+          instapay_handle: string | null
+          instructions_ar: string | null
+          instructions_en: string | null
+          payoneer_currencies: string[]
+          payoneer_email: string | null
+          payoneer_enabled: boolean
+          updated_at: string
+          vodafone_currencies: string[]
+          vodafone_enabled: boolean
+          vodafone_number: string | null
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_currencies?: string[]
+          bank_enabled?: boolean
+          bank_iban?: string | null
+          bank_info?: Json
+          bank_name?: string | null
+          bank_swift?: string | null
+          id?: string
+          instapay_currencies?: string[]
+          instapay_enabled?: boolean
+          instapay_handle?: string | null
+          instructions_ar?: string | null
+          instructions_en?: string | null
+          payoneer_currencies?: string[]
+          payoneer_email?: string | null
+          payoneer_enabled?: boolean
+          updated_at?: string
+          vodafone_currencies?: string[]
+          vodafone_enabled?: boolean
+          vodafone_number?: string | null
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_currencies?: string[]
+          bank_enabled?: boolean
+          bank_iban?: string | null
+          bank_info?: Json
+          bank_name?: string | null
+          bank_swift?: string | null
+          id?: string
+          instapay_currencies?: string[]
+          instapay_enabled?: boolean
+          instapay_handle?: string | null
+          instructions_ar?: string | null
+          instructions_en?: string | null
+          payoneer_currencies?: string[]
+          payoneer_email?: string | null
+          payoneer_enabled?: boolean
+          updated_at?: string
+          vodafone_currencies?: string[]
+          vodafone_enabled?: boolean
+          vodafone_number?: string | null
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          active: boolean
+          age_range: string | null
+          category: string | null
+          created_at: string
+          description: Json
+          featured: boolean
+          gallery: Json
+          id: string
+          image: string | null
+          name: Json
+          price_egp: number | null
+          price_eur: number | null
+          price_usd: number | null
+          sku: string | null
+          stock: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          age_range?: string | null
+          category?: string | null
+          created_at?: string
+          description?: Json
+          featured?: boolean
+          gallery?: Json
+          id?: string
+          image?: string | null
+          name?: Json
+          price_egp?: number | null
+          price_eur?: number | null
+          price_usd?: number | null
+          sku?: string | null
+          stock?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          age_range?: string | null
+          category?: string | null
+          created_at?: string
+          description?: Json
+          featured?: boolean
+          gallery?: Json
+          id?: string
+          image?: string | null
+          name?: Json
+          price_egp?: number | null
+          price_eur?: number | null
+          price_usd?: number | null
+          sku?: string | null
+          stock?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          preferred_language: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          preferred_language?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          preferred_language?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rate_limit_blocks: {
+        Row: {
+          blocked_until: string
+          created_at: string
+          endpoint: string
+          id: string
+          identifier: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_until: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          identifier: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_until?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          identifier?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      rate_limit_events: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: number
+          identifier: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: number
+          identifier: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: number
+          identifier?: string
+        }
+        Relationships: []
+      }
+      reading_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: string
+          last_active_date: string | null
+          longest_streak: number
+          total_minutes: number
+          total_stories_read: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_active_date?: string | null
+          longest_streak?: number
+          total_minutes?: number
+          total_stories_read?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_active_date?: string | null
+          longest_streak?: number
+          total_minutes?: number
+          total_stories_read?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stories: {
+        Row: {
+          age_range: string | null
+          audio_url: string | null
+          category: string | null
+          content: Json
+          created_at: string
+          created_by: string | null
+          description: Json
+          duration: string | null
+          gallery: Json
+          id: string
+          image: string | null
+          pdf_url: string | null
+          published: boolean
+          title: Json
+          updated_at: string
+          video_embed_url: string | null
+          views: number
+        }
+        Insert: {
+          age_range?: string | null
+          audio_url?: string | null
+          category?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: Json
+          duration?: string | null
+          gallery?: Json
+          id?: string
+          image?: string | null
+          pdf_url?: string | null
+          published?: boolean
+          title?: Json
+          updated_at?: string
+          video_embed_url?: string | null
+          views?: number
+        }
+        Update: {
+          age_range?: string | null
+          audio_url?: string | null
+          category?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: Json
+          duration?: string | null
+          gallery?: Json
+          id?: string
+          image?: string | null
+          pdf_url?: string | null
+          published?: boolean
+          title?: Json
+          updated_at?: string
+          video_embed_url?: string | null
+          views?: number
+        }
+        Relationships: []
+      }
+      story_generation_settings: {
+        Row: {
+          banned_words: string[]
+          cinematic_fields_enabled: Json
+          created_at: string
+          default_visual_style: string
+          id: string
+          max_regenerations: number
+          model: string
+          quality_threshold: number
+          singleton: boolean
+          system_prompt_override: string | null
+          temperature: number
+          updated_at: string
+          user_prompt_addendum: string | null
+        }
+        Insert: {
+          banned_words?: string[]
+          cinematic_fields_enabled?: Json
+          created_at?: string
+          default_visual_style?: string
+          id?: string
+          max_regenerations?: number
+          model?: string
+          quality_threshold?: number
+          singleton?: boolean
+          system_prompt_override?: string | null
+          temperature?: number
+          updated_at?: string
+          user_prompt_addendum?: string | null
+        }
+        Update: {
+          banned_words?: string[]
+          cinematic_fields_enabled?: Json
+          created_at?: string
+          default_visual_style?: string
+          id?: string
+          max_regenerations?: number
+          model?: string
+          quality_threshold?: number
+          singleton?: boolean
+          system_prompt_override?: string | null
+          temperature?: number
+          updated_at?: string
+          user_prompt_addendum?: string | null
+        }
+        Relationships: []
+      }
+      story_music_cache: {
+        Row: {
+          audio_url: string
+          cache_key: string
+          created_at: string
+          duration_seconds: number
+          id: string
+          mood: string
+          theme: string
+        }
+        Insert: {
+          audio_url: string
+          cache_key: string
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          mood: string
+          theme: string
+        }
+        Update: {
+          audio_url?: string
+          cache_key?: string
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          mood?: string
+          theme?: string
+        }
+        Relationships: []
+      }
+      story_safety_reports: {
+        Row: {
+          bibliotherapy_check: Json
+          bowlby_check: Json
+          created_at: string
+          goleman_check: Json
+          ibby_check: Json
+          id: string
+          notes: string | null
+          passed: boolean
+          piaget_check: Json
+          quality_rubric: Json
+          story_id: string
+          total_score: number
+          trauma_reject_check: Json
+          user_id: string
+          vygotsky_check: Json
+        }
+        Insert: {
+          bibliotherapy_check?: Json
+          bowlby_check?: Json
+          created_at?: string
+          goleman_check?: Json
+          ibby_check?: Json
+          id?: string
+          notes?: string | null
+          passed?: boolean
+          piaget_check?: Json
+          quality_rubric?: Json
+          story_id: string
+          total_score?: number
+          trauma_reject_check?: Json
+          user_id: string
+          vygotsky_check?: Json
+        }
+        Update: {
+          bibliotherapy_check?: Json
+          bowlby_check?: Json
+          created_at?: string
+          goleman_check?: Json
+          ibby_check?: Json
+          id?: string
+          notes?: string | null
+          passed?: boolean
+          piaget_check?: Json
+          quality_rubric?: Json
+          story_id?: string
+          total_score?: number
+          trauma_reject_check?: Json
+          user_id?: string
+          vygotsky_check?: Json
+        }
+        Relationships: []
+      }
+      subscription_plans: {
+        Row: {
+          active: boolean
+          allow_audio: boolean
+          allow_illustrations: boolean
+          allow_pdf: boolean
+          created_at: string
+          description: Json
+          features: Json
+          id: string
+          monthly_story_limit: number
+          name: Json
+          price_egp: number
+          price_usd: number
+          sort_order: number
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          allow_audio?: boolean
+          allow_illustrations?: boolean
+          allow_pdf?: boolean
+          created_at?: string
+          description?: Json
+          features?: Json
+          id?: string
+          monthly_story_limit?: number
+          name?: Json
+          price_egp?: number
+          price_usd?: number
+          sort_order?: number
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          allow_audio?: boolean
+          allow_illustrations?: boolean
+          allow_pdf?: boolean
+          created_at?: string
+          description?: Json
+          features?: Json
+          id?: string
+          monthly_story_limit?: number
+          name?: Json
+          price_egp?: number
+          price_usd?: number
+          sort_order?: number
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trial_usage: {
+        Row: {
+          child_name: string | null
+          created_at: string
+          error_code: string | null
+          fallback_used: boolean
+          fingerprint: string
+          id: string
+          ip: string | null
+          latency_ms: number | null
+          model: string | null
+          pages_count: number
+          provider: string | null
+          stage: string | null
+          story_id: string | null
+          theme: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          child_name?: string | null
+          created_at?: string
+          error_code?: string | null
+          fallback_used?: boolean
+          fingerprint: string
+          id?: string
+          ip?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          pages_count?: number
+          provider?: string | null
+          stage?: string | null
+          story_id?: string | null
+          theme?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          child_name?: string | null
+          created_at?: string
+          error_code?: string | null
+          fallback_used?: boolean
+          fingerprint?: string
+          id?: string
+          ip?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          pages_count?: number
+          provider?: string | null
+          stage?: string | null
+          story_id?: string | null
+          theme?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      upload_security_logs: {
+        Row: {
+          abuse_score: number
+          action: string
+          bucket: string | null
+          created_at: string
+          details: Json
+          extension: string | null
+          filename: string | null
+          id: string
+          ip: string | null
+          mime_declared: string | null
+          mime_detected: string | null
+          scan_engine: string | null
+          scan_signature: string | null
+          size_bytes: number | null
+          target_path: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          abuse_score?: number
+          action: string
+          bucket?: string | null
+          created_at?: string
+          details?: Json
+          extension?: string | null
+          filename?: string | null
+          id?: string
+          ip?: string | null
+          mime_declared?: string | null
+          mime_detected?: string | null
+          scan_engine?: string | null
+          scan_signature?: string | null
+          size_bytes?: number | null
+          target_path?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          abuse_score?: number
+          action?: string
+          bucket?: string | null
+          created_at?: string
+          details?: Json
+          extension?: string | null
+          filename?: string | null
+          id?: string
+          ip?: string | null
+          mime_declared?: string | null
+          mime_detected?: string | null
+          scan_engine?: string | null
+          scan_signature?: string | null
+          size_bytes?: number | null
+          target_path?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_api_keys: {
+        Row: {
+          api_key: string
+          base_url: string | null
+          capabilities: string[]
+          created_at: string
+          enabled: boolean
+          id: string
+          image_model: string | null
+          label: string | null
+          provider: string
+          text_model: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          base_url?: string | null
+          capabilities?: string[]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_model?: string | null
+          label?: string | null
+          provider: string
+          text_model?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          base_url?: string | null
+          capabilities?: string[]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_model?: string | null
+          label?: string | null
+          provider?: string
+          text_model?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          payment_method: string | null
+          payment_request_id: string | null
+          plan_tier: string
+          starts_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payment_method?: string | null
+          payment_request_id?: string | null
+          plan_tier?: string
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payment_method?: string | null
+          payment_request_id?: string | null
+          plan_tier?: string
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          age_range: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: Json
+          duration: string | null
+          id: string
+          published: boolean
+          source_type: string
+          thumbnail: string | null
+          title: Json
+          updated_at: string
+          video_url: string | null
+          views: number
+        }
+        Insert: {
+          age_range?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: Json
+          duration?: string | null
+          id?: string
+          published?: boolean
+          source_type?: string
+          thumbnail?: string | null
+          title?: Json
+          updated_at?: string
+          video_url?: string | null
+          views?: number
+        }
+        Update: {
+          age_range?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: Json
+          duration?: string | null
+          id?: string
+          published?: boolean
+          source_type?: string
+          thumbnail?: string | null
+          title?: Json
+          updated_at?: string
+          video_url?: string | null
+          views?: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      site_stats: {
+        Row: {
+          total_drawings: number | null
+          total_stories: number | null
+          total_users: number | null
+        }
+        Relationships: []
+      }
+    }
+    Functions: {
+      approve_manual_payment: {
+        Args: { _months?: number; _request_id: string }
+        Returns: string
+      }
+      cleanup_rate_limit_data: { Args: never; Returns: undefined }
+      cleanup_upload_pipeline: { Args: never; Returns: undefined }
+      expire_due_subscriptions: { Args: never; Returns: number }
+      has_paid_feature: {
+        Args: { _feature: string; _user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      reject_manual_payment: {
+        Args: { _reason?: string; _request_id: string }
+        Returns: undefined
+      }
+      user_daily_upload_bytes: { Args: { _user_id: string }; Returns: number }
+    }
+    Enums: {
+      app_role: "admin" | "user" | "editor"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["admin", "user", "editor"],
+    },
+  },
+} as const

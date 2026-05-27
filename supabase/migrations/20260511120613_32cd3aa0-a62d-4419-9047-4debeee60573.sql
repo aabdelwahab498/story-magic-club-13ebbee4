@@ -1,0 +1,1 @@
+UPDATE public.products SET price_egp=499, price_usd=10, price_eur=9.5 WHERE sku IN ('course-childrens-stories-part1','course-childrens-stories-part2','course-childrens-stories-part3');

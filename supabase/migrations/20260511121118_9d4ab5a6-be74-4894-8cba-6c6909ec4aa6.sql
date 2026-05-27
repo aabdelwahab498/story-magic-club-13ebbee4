@@ -1,0 +1,1 @@
+UPDATE public.products SET image='https://pkpervvletmxkvkwactk.supabase.co/storage/v1/object/public/story-images/courses/childrens-stories-mastery-part1-cover.jpg' WHERE sku='course-childrens-stories-part1';

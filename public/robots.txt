@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /parent
+Disallow: /account/
+Disallow: /checkout/
+
+Sitemap: https://bedtime-buddy-box.lovable.app/sitemap.xml
