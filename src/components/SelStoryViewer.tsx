@@ -81,6 +81,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       return n;
     });
     try {
+      console.info("[SelStoryViewer] illustrate requested by user", {
+        storyId: story.story_id,
+        pages: targetPages.map((p) => p.index),
+      });
       const res = await illustrateSelStory({
         storyId: story.story_id,
         pages: targetPages.map((p) => ({
@@ -90,7 +94,8 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         })),
         characterVisualHash: story.character_visual_hash,
         characterProfile: (story.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? null,
-      });
+      }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
+
       const map = new Map(res.illustrations.map((i) => [i.index, i]));
       setPages((prev) => prev.map((p) => {
         const r = map.get(p.index);
@@ -370,7 +375,36 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         </button>
       </div>
 
+      {/* Illustration readiness summary — surfaces Function B state to the user. */}
+      {(() => {
+        const ready = pages.filter((p) => !!p.imageUrl).length;
+        const total = pages.length;
+        const allReady = ready === total && total > 0;
+        return (
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs">
+            <ImageIcon className="h-3.5 w-3.5 text-foreground/60 dark:text-white/60" />
+            <span
+              className={`px-2 py-0.5 rounded-full font-semibold ${
+                allReady
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : ready > 0
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  : "bg-foreground/10 text-foreground/70 dark:text-white/70"
+              }`}
+              aria-live="polite"
+            >
+              {illustrating
+                ? t("sel.illustrations_pending", `Generating illustrations… ${ready}/${total}`)
+                : allReady
+                ? t("sel.illustrations_ready", `All illustrations ready (${total}/${total})`)
+                : t("sel.illustrations_status", `Illustrations: ${ready}/${total} ready`)}
+            </span>
+          </div>
+        );
+      })()}
+
       <div className="mt-6 flex flex-wrap justify-center gap-3">
+
         {/* AUDIO — Premium tier only */}
         {canAudio ? (
           <>
@@ -408,27 +442,40 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           <PremiumBadge featureKey="audio" size="lg" />
         )}
 
-        {/* ILLUSTRATE + PDF — Family / Premium tiers */}
+        {/* ILLUSTRATE + PDF — Family / Premium tiers. User-triggered only (Function B). */}
         {canIllustrate && canExportPdf ? (
-          <button
-            onClick={async () => {
-              await runIllustrate(pages);
-              if (!requireSubscription("pdf")) return;
-              await handleExportPdf();
-            }}
-            disabled={illustrating || exporting}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
-          >
-            {illustrating || exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            {illustrating ? "Illustrating…" : exporting ? "Exporting…" : "Illustrate & Download"}
-          </button>
+          (() => {
+            const allReady = pages.length > 0 && pages.every((p) => !!p.imageUrl);
+            return (
+              <button
+                onClick={async () => {
+                  if (!allReady) await runIllustrate(pages);
+                  if (!requireSubscription("pdf")) return;
+                  await handleExportPdf();
+                }}
+                disabled={illustrating || exporting}
+                title={allReady ? t("sel.illustrations_ready_title", "Illustrations already generated — will export PDF") : undefined}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
+              >
+                {illustrating || exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {illustrating
+                  ? t("sel.illustrating", "Illustrating…")
+                  : exporting
+                  ? t("sel.exporting", "Exporting…")
+                  : allReady
+                  ? t("sel.download_pdf", "Download PDF")
+                  : t("sel.illustrate_download", "Illustrate & Download")}
+              </button>
+            );
+          })()
         ) : (
           <PremiumBadge featureKey="illustrations" size="lg" />
         )}
+
 
         <button
           onClick={onBack}

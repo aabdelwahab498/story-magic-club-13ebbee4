@@ -141,7 +141,19 @@ export class SubscriptionRequiredError extends Error {
   }
 }
 
-export async function illustrateSelStory(input: IllustrateInput): Promise<IllustrateResponse> {
+export async function illustrateSelStory(
+  input: IllustrateInput,
+  meta: { trigger?: "user" | "auto"; source?: string } = {},
+): Promise<IllustrateResponse> {
+  const trigger = meta.trigger ?? "auto";
+  const source = meta.source ?? "unknown";
+  if (trigger === "user") {
+    console.info("[illustrate-story] user-triggered invoke", { source, pages: input.pages?.length });
+  } else {
+    // Image generation must be user-initiated only (Function B contract).
+    console.error("[illustrate-story] BLOCKED auto/unattributed invoke", { source, stack: new Error().stack });
+    throw new Error("illustrate-story must be user-triggered (pass { trigger: 'user' })");
+  }
   const { data, error } = await supabase.functions.invoke("illustrate-story", { body: input });
   if (error) throw error;
   if ((data as { blocked?: boolean })?.blocked) {
@@ -149,6 +161,7 @@ export async function illustrateSelStory(input: IllustrateInput): Promise<Illust
   }
   return data as IllustrateResponse;
 }
+
 
 export async function exportStoryPdf(storyId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke("export-story-pdf", { body: { storyId } });

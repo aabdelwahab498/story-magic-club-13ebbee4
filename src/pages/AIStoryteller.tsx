@@ -536,6 +536,7 @@ const AIStoryteller = () => {
     // Truncate each scene to keep prompts compact.
     const trimmed = scenes.map((s) => s.slice(0, 280));
     setIllustrating(true);
+    console.info("[AIStoryteller] illustrate requested by user", { scenes: trimmed.length });
     try {
       const res = await generateClassicIllustrations({
         scenes: trimmed,
@@ -543,7 +544,8 @@ const AIStoryteller = () => {
         theme: t(`ai.themes.${themeId}`),
         ageId,
         language: lang,
-      });
+      }, { trigger: "user", source: "AIStoryteller.generateSceneIllustrations" });
+
       setIllustrations(res.illustrations);
       setIllustrationsGated(res.gated && res.tier !== "paid");
     } catch (e) {
@@ -1428,21 +1430,33 @@ const AIStoryteller = () => {
                 </Link>
               </>
             ) : sub.canIllustrate && sub.canExportPdf ? (
-              <button
-                onClick={() => {
-                  generateSceneIllustrations(story).catch((err) =>
-                    console.error("illustration generation failed", err),
-                  );
-                }}
-                disabled={illustrating}
-                className="px-6 py-3 bg-gradient-to-r from-amber-400 to-pink-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60"
-              >
-                {illustrating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
-                {t("page_ai_storyteller.illustrate_download", "Illustrate & Download")}
-              </button>
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => {
+                    generateSceneIllustrations(story).catch((err) =>
+                      console.error("illustration generation failed", err),
+                    );
+                  }}
+                  disabled={illustrating || illustrations.length > 0}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-400 to-pink-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  {illustrating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
+                  {illustrations.length > 0
+                    ? t("page_ai_storyteller.illustrations_ready", "Illustrations ready")
+                    : t("page_ai_storyteller.illustrate_download", "Illustrate & Download")}
+                </button>
+                <span className="text-[11px] text-foreground/60 dark:text-white/60">
+                  {illustrating
+                    ? t("page_ai_storyteller.illustrations_pending_short", "Generating images…")
+                    : illustrations.length > 0
+                    ? t("page_ai_storyteller.illustrations_ready_short", `${illustrations.length} images ready`)
+                    : t("page_ai_storyteller.illustrations_not_ready_short", "Tap to generate images")}
+                </span>
+              </div>
             ) : (
               <PremiumBadge featureKey="illustrations" size="lg" />
             )}
+
 
             <button
               onClick={() => {
