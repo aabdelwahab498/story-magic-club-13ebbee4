@@ -98,9 +98,6 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         pages: targetPages.map((p) => p.index),
         startedAt,
       });
-        storyId: story.story_id,
-        pages: targetPages.map((p) => p.index),
-      });
       const res = await illustrateSelStory({
         storyId: story.story_id,
         pages: targetPages.map((p) => ({
