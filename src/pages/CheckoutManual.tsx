@@ -261,9 +261,9 @@ const CheckoutManual = () => {
           {t("page_checkout_manual.complete_subscription_manually", "Complete Subscription Manually")}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {isAr
-            ? `خطة ${plan.name.ar ?? plan.name.en}`
-            : `${plan.name.en ?? plan.name.ar} plan`}
+          {t("page_checkout_manual.plan_label", "{{name}} plan", {
+            name: plan.name.en ?? plan.name.ar,
+          })}
         </p>
       </header>
 
@@ -350,7 +350,7 @@ const CheckoutManual = () => {
           ))}
         </div>
         <div className="text-3xl font-extrabold text-primary">
-          {safeCurrency === "EGP" ? `${plan.price_egp} ج.م` : `$${plan.price_usd}`}
+          {safeCurrency === "EGP" ? `${plan.price_egp} ${t("page_checkout_manual.egp_short", "EGP")}` : `$${plan.price_usd}`}
           <span className="text-sm font-normal text-muted-foreground ms-2">
             / {t("page_checkout_manual.month", "month")}
           </span>
@@ -426,10 +426,8 @@ const CheckoutManual = () => {
       >
         {submitting ? (
           <Loader2 className="h-5 w-5 animate-spin mx-auto" />
-        ) : isAr ? (
-          "إرسال الطلب"
         ) : (
-          "Submit Request"
+          t("page_checkout_manual.submit_request", "Submit Request")
         )}
       </button>
     </div>

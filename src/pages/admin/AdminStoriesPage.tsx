@@ -453,21 +453,21 @@ export default function AdminStoriesPage() {
                   dir="ltr"
                 />
                 <p className="text-xs text-muted-foreground">
-                  لو حطّيت رابط فيديو هيظهر مشغّل داخل صفحة القصة.
+                  {t("admin_stories.video_url_hint", "If you provide a video URL, an inline player will appear on the story page.")}
                 </p>
               </div>
               <FileUploadField
-                label="PDF القصة (اختياري)"
+                label={t("admin_stories.story_pdf_optional", "Story PDF (optional)")}
                 value={(editing as StoryRecord).pdf_url ?? null}
                 onChange={(url) => setEditing({ ...editing, pdf_url: url } as StoryItem)}
                 uploader={uploadStoryPdf}
                 accept="application/pdf"
-                uploadLabel="ارفع ملف PDF من الجهاز"
+                uploadLabel={t("admin_stories.upload_pdf_from_device", "Upload PDF from device")}
                 preview="none"
                 disabled={isMock}
               />
               <p className="text-xs text-muted-foreground -mt-1">
-                ارفع ملف PDF فيه كل صفحات القصة، وهيظهر للمستخدم زرار تحميل/قراءة جوّه صفحة القصة.
+                {t("admin_stories.pdf_hint", "Upload a PDF containing all story pages; users will see a download/read button on the story page.")}
               </p>
               {isMock && (
                 <p className="text-xs text-muted-foreground -mt-2">

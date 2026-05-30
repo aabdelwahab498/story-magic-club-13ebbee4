@@ -534,7 +534,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
                     <Input
                       value={item.label_ar ?? ""}
                       onChange={(e) => updateGalleryAt(idx, { label_ar: e.target.value })}
-                      placeholder="عنوان عربي"
+                      placeholder={t("admin_products.arabic_label", "Arabic label")}
                       dir="rtl"
                     />
                     <Input

@@ -260,16 +260,14 @@ const StoryLibrary = () => {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-lg sm:text-xl font-extrabold text-kids-midnight">
-              {isAr ? "قولنا فكرتك" : t("stories.idea_title", "Tell us your idea")}
+              {t("stories.idea_title", "Tell us your idea")}
             </h3>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {isAr
-                ? `احنا هنا نساعدك تولّد قصة من خيالك — بالصور و PDF ومشاهد يقرأها ${t(`ai.characters.${ideaNarrator}`)} بصوته، كل ده ماشي على معايير الكورس.`
-                : t(
-                    "stories.idea_subtitle",
-                    "We'll turn your idea into a full story — with illustrations, a PDF, and scenes {{narrator}} reads aloud, all aligned with the course criteria.",
-                    { narrator: t(`ai.characters.${ideaNarrator}`) },
-                  )}
+              {t(
+                "stories.idea_subtitle",
+                "We'll turn your idea into a full story — with illustrations, a PDF, and scenes {{narrator}} reads aloud, all aligned with the course criteria.",
+                { narrator: t(`ai.characters.${ideaNarrator}`) },
+              )}
             </p>
           </div>
         </div>
@@ -303,7 +301,7 @@ const StoryLibrary = () => {
             onClick={() => {
               const idea = ideaPrompt.trim();
               if (!idea) {
-                toast.error(isAr ? "اكتب فكرتك الأول" : t("stories.idea_required", "Please write your idea first"));
+                toast.error(t("stories.idea_required", "Please write your idea first"));
                 return;
               }
               navigate("/ai-storyteller", { state: { idea, autoGenerate: true, narrator: ideaNarrator } });
@@ -311,7 +309,7 @@ const StoryLibrary = () => {
             className="px-5 py-2.5 rounded-full inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:scale-[1.03] transition-transform"
           >
             <Wand2 className="h-4 w-4" />
-            {isAr ? "ولّد القصة" : t("stories.generate_from_idea", "Generate my story")}
+            {t("stories.generate_from_idea", "Generate my story")}
           </button>
         </div>
       </div>

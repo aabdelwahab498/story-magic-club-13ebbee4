@@ -8,7 +8,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 
 const LANG_OPTIONS = [
-  { code: "ar", label: "العربية" },
+  { code: "ar", label: "Arabic" },
   { code: "en", label: "English" },
   { code: "fr", label: "Français" },
   { code: "es", label: "Español" },
