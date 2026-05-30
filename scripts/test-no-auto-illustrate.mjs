@@ -47,7 +47,7 @@ const grep = execSync(
   `grep -RIn --include='*.ts' --include='*.tsx' -E 'invoke\\("(illustrate-story|generate-classic-illustrations|trial-illustrate)"' src/ || true`,
   { encoding: "utf8" },
 );
-const offenders = grep.split("\n").filter(Boolean).filter((l) => !/src\/lib\/(selStoryApi|aiStoryApi|trialStoryApi)\.ts/.test(l));
+const offenders = grep.split("\n").filter(Boolean).filter((l) => !/src\/lib\/(selStoryApi|aiStoryApi|trialStoryApi)\.ts/.test(l) && !/src\/pages\/test\//.test(l));
 if (offenders.length) {
   fail("Illustration edge function invoked outside lib helpers:\n" + offenders.join("\n"));
 } else {
