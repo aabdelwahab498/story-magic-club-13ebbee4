@@ -255,6 +255,7 @@ const Navigation = () => {
 
           <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 justify-center">
             <ChildPicker />
+            <CreditCounter />
             <StreakBadge />
             <ThemeToggle />
             <LanguageSwitcher />
