@@ -148,7 +148,9 @@ const AIStoryteller = () => {
 
   // Gating: signed-in users have a real limit; guests are allowed a couple of trial stories per session.
   const guestMode = !user;
-  const limitReached = !guestMode && !sub.loading && !sub.canCreateStory;
+  // Pro Creator / Elite Publisher with a valid personal key bypass monthly credit cap.
+  const creditsExhausted = !guestMode && !sub.loading && !sub.canCreateStory;
+  const limitReached = creditsExhausted && !byok.bypass;
 
   const buildSelInput = (): SelInput => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
