@@ -134,7 +134,7 @@ const Index = () => {
             className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 sm:px-7 sm:py-3 bg-gradient-to-r from-primary to-kids-pink text-white font-bold rounded-full shadow-pop hover-pop text-sm sm:text-base animate-pulse-slow"
           >
             <Sparkles className="h-5 w-5" />
-            جرّب توليد قصة مجاناً
+            {t("home.try_free_cta", "Try generating a story for free")}
           </button>
         </div>
       </div>
