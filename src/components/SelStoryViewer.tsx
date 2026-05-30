@@ -81,6 +81,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       return n;
     });
     try {
+      console.info("[SelStoryViewer] illustrate requested by user", {
+        storyId: story.story_id,
+        pages: targetPages.map((p) => p.index),
+      });
       const res = await illustrateSelStory({
         storyId: story.story_id,
         pages: targetPages.map((p) => ({
@@ -90,7 +94,8 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         })),
         characterVisualHash: story.character_visual_hash,
         characterProfile: (story.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? null,
-      });
+      }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
+
       const map = new Map(res.illustrations.map((i) => [i.index, i]));
       setPages((prev) => prev.map((p) => {
         const r = map.get(p.index);
