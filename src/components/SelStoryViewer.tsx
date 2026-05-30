@@ -31,6 +31,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const [exporting, setExporting] = useState(false);
   const [pageStatus, setPageStatus] = useState<Record<number, "idle" | "pending" | "ready" | "failed">>({});
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
+  // Per-page queued/started timestamps surfaced in the progress strip tooltip
+  // so users can see exactly when an illustration entered each phase.
+  const [pageQueuedAt, setPageQueuedAt] = useState<Record<number, number>>(() =>
+    Object.fromEntries(story.pages.map((p) => [p.index, Date.now()])),
+  );
+  const [pageStartedAt, setPageStartedAt] = useState<Record<number, number>>({});
   const [audioState, setAudioState] = useState<"idle" | "loading" | "playing" | "paused">("idle");
   const audioRef = useRef<HTMLAudioElement | BrowserTtsHandle | null>(null);
   // Cached playback position so pause → play resumes exactly where we left off,
