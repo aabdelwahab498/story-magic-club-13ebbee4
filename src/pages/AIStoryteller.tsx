@@ -177,7 +177,7 @@ const AIStoryteller = () => {
         ? (mergedInfo.raw as { message: string }).message
         : null) ||
       mergedInfo.message ||
-      (e instanceof Error ? e.message : (isAr ? "فشل توليد القصة" : "Story generation failed"))
+      (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")))
     );
   };
 
@@ -197,7 +197,7 @@ const AIStoryteller = () => {
     startProgressTimeline();
     try {
       const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
-      const childName = activeChild?.name ?? (isAr ? "البطل" : "Hero");
+      const childName = activeChild?.name ?? (t("page_ai_storyteller.hero", "Hero"));
       const themeLabel = t(`ai.themes.${themeId}`);
 
       // ── Step 1: Story text
@@ -244,7 +244,7 @@ const AIStoryteller = () => {
             };
           });
           if (ill.ready === 0) {
-            toast.info(isAr ? "تم توليد القصة (الصور غير متاحة الآن)" : "Story ready (images unavailable right now)");
+            toast.info(t("page_ai_storyteller.story_ready_images_unavailable_right_now", "Story ready (images unavailable right now)"));
           }
         })
         .catch((e) => {
@@ -264,15 +264,11 @@ const AIStoryteller = () => {
         toast.error(e.userMessage);
         setLastError(e.userMessage);
       } else if (e instanceof TrialServerError) {
-        const msg = isAr
-          ? "نحضّر قصتك… حاول مرة أخرى بعد لحظة."
-          : "Preparing your magical story… please try again in a moment.";
+        const msg = t("page_ai_storyteller.preparing_your_magical_story_please_try_", "Preparing your magical story… please try again in a moment.");
         toast.error(msg);
         setLastError(msg);
       } else {
-        const msg = isAr
-          ? "نحضّر قصتك… حاول مرة أخرى بعد لحظة."
-          : "Preparing your magical story… please try again in a moment.";
+        const msg = t("page_ai_storyteller.preparing_your_magical_story_please_try_", "Preparing your magical story… please try again in a moment.");
         toast.error(msg);
         setLastError(msg);
         const info = await handleEdgeError(e, t, { context: "trial-story" });
@@ -302,13 +298,11 @@ const AIStoryteller = () => {
       });
       const safeTitle = (guestTrial.title || "my-story").replace(/[^a-z0-9-]+/gi, "-").slice(0, 60);
       downloadTrialPdf(pdf.pdfBase64, `${safeTitle}.pdf`);
-      toast.success(isAr ? "تم تنزيل قصتك بصيغة PDF ✨" : "Your PDF is ready ✨");
+      toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
     } catch (e) {
       console.error("[trial-pdf] failed", e);
       toast.error(
-        isAr
-          ? "تعذّر تحضير الـ PDF — جرّب مرة تانية بعد لحظة."
-          : "Could not build the PDF — please try again in a moment.",
+        t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."),
       );
     } finally {
       setGuestPdfLoading(false);
@@ -321,7 +315,7 @@ const AIStoryteller = () => {
     if (guestMode) return runGuestTrial();
 
     if (limitReached) {
-      toast.error(isAr ? "وصلت للحد الشهري — قم بالترقية للاستمرار" : "Monthly limit reached — upgrade to continue");
+      toast.error(t("page_ai_storyteller.monthly_limit_reached_upgrade_to_continu", "Monthly limit reached — upgrade to continue"));
       return;
     }
     lastModeRef.current = "sel";
@@ -434,7 +428,7 @@ const AIStoryteller = () => {
     setSelMode(true);
     clearTrialResume();
     toast.success(
-      isAr ? "أهلاً بيك! نكمل القصة دلوقتي بالصور والصوت ✨" : "Welcome! Let's continue your story with images & audio ✨",
+      t("page_ai_storyteller.welcome_let_s_continue_your_story_with_i", "Welcome! Let's continue your story with images & audio ✨"),
     );
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -551,7 +545,7 @@ const AIStoryteller = () => {
       setIllustrationsGated(res.gated && res.tier !== "paid");
     } catch (e) {
       console.error("illustrations failed", e);
-      toast.error(isAr ? "تعذّر رسم الصور هذه المرة" : "Couldn't draw the pictures this time");
+      toast.error(t("page_ai_storyteller.couldn_t_draw_the_pictures_this_time", "Couldn't draw the pictures this time"));
     } finally {
       setIllustrating(false);
     }
@@ -560,7 +554,7 @@ const AIStoryteller = () => {
   const handleGenerate = async () => {
     if (guestMode) return runGuestTrial();
     if (limitReached) {
-      toast.error(isAr ? "وصلت للحد الشهري — قم بالترقية للاستمرار" : "Monthly limit reached — upgrade to continue");
+      toast.error(t("page_ai_storyteller.monthly_limit_reached_upgrade_to_continu", "Monthly limit reached — upgrade to continue"));
       return;
     }
 
@@ -591,7 +585,7 @@ const AIStoryteller = () => {
         stopProgressTimeline("idle");
         const info = await handleEdgeError(error, t, { context: "generate-story" });
         setErrorDetails(info);
-        setLastError(error.message || info.message || (isAr ? "فشل توليد القصة" : "Story generation failed"));
+        setLastError(error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
         return;
       }
       const text = (data as { story: string }).story || "";
@@ -618,7 +612,7 @@ const AIStoryteller = () => {
       stopProgressTimeline("idle");
       console.error(e);
       toast.error(t("ai.errors.generic"));
-      setLastError(e instanceof Error ? e.message : (isAr ? "فشل توليد القصة" : "Story generation failed"));
+      setLastError(e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
     } finally {
       setGenerating(false);
     }
@@ -726,9 +720,7 @@ const AIStoryteller = () => {
         // to browser TTS so the listener experience never breaks.
         console.error("HD voice failed, falling back to browser TTS:", err);
         toast.info(
-          isAr
-            ? "تعذر تشغيل الصوت المميز — تم التحويل للصوت العادي"
-            : "Premium voice unavailable — switched to basic voice",
+          t("page_ai_storyteller.premium_voice_unavailable_switched_to_ba", "Premium voice unavailable — switched to basic voice"),
         );
       }
     }
@@ -738,7 +730,7 @@ const AIStoryteller = () => {
       await startBrowserTts();
     } catch (err) {
       console.error("browser tts failed to start:", err);
-      toast.error(isAr ? "تعذّر تشغيل القراءة الصوتية" : "Audio playback failed");
+      toast.error(t("page_ai_storyteller.audio_playback_failed", "Audio playback failed"));
       setNarrationState("idle");
     }
   };
@@ -754,10 +746,10 @@ const AIStoryteller = () => {
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
             <p className="font-bold text-foreground">
-              {isAr ? "أحضّر مخطط القصة…" : "Planning your story…"}
+              {t("page_ai_storyteller.planning_your_story", "Planning your story…")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {isAr ? "ثوانٍ قليلة قبل المعاينة" : "A few seconds before the preview"}
+              {t("page_ai_storyteller.a_few_seconds_before_the_preview", "A few seconds before the preview")}
             </p>
           </div>
         </div>
@@ -768,24 +760,22 @@ const AIStoryteller = () => {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-5 sm:p-6 max-w-2xl w-full my-8 text-left rtl:text-right">
             <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">
-              {isAr ? "معاينة المخطط" : "Story preview"}
+              {t("page_ai_storyteller.story_preview", "Story preview")}
             </h2>
             <p className="text-xs text-muted-foreground mb-4">
-              {isAr
-                ? "راجع الفكرة قبل كتابة القصة كاملة. لو مش زي ما طلبت، ارجع وعدّل تفاصيلك."
-                : "Review the plan before the full story is written. If it doesn't match, go back and edit your brief."}
+              {t("page_ai_storyteller.review_the_plan_before_the_full_story_is", "Review the plan before the full story is written. If it doesn't match, go back and edit your brief.")}
             </p>
 
             <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 rtl:pl-2 rtl:pr-0">
               <div>
                 <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                  {isAr ? "العنوان" : "Title"}
+                  {t("page_ai_storyteller.title", "Title")}
                 </p>
                 <p className="text-base font-bold text-foreground">{planPreview.title}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                  {isAr ? "البطل" : "Hero"}
+                  {t("page_ai_storyteller.hero", "Hero")}
                 </p>
                 <p className="text-sm text-foreground/90">
                   <strong>{planPreview.hero.name}</strong>
@@ -795,7 +785,7 @@ const AIStoryteller = () => {
               {planPreview.companion?.name && (
                 <div>
                   <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                    {isAr ? "الرفيق" : "Companion"}
+                    {t("page_ai_storyteller.companion", "Companion")}
                   </p>
                   <p className="text-sm text-foreground/90">
                     <strong>{planPreview.companion.name}</strong>
@@ -805,7 +795,7 @@ const AIStoryteller = () => {
               )}
               <div>
                 <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-1">
-                  {isAr ? "الفصول" : "Acts"}
+                  {t("page_ai_storyteller.acts", "Acts")}
                 </p>
                 <ol className="space-y-1.5 text-sm text-foreground/90 list-decimal pl-5 rtl:pr-5 rtl:pl-0">
                   <li>{planPreview.acts.act1_normalWorld}</li>
@@ -820,7 +810,7 @@ const AIStoryteller = () => {
               </div>
               <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
                 <p className="text-[11px] uppercase tracking-wide font-bold text-primary mb-1">
-                  {isAr ? "هدف القصة العاطفي" : "Emotional outcome"}
+                  {t("page_ai_storyteller.emotional_outcome", "Emotional outcome")}
                 </p>
                 <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome.statement}</p>
               </div>
@@ -832,7 +822,7 @@ const AIStoryteller = () => {
                 onClick={() => setPlanPreview(null)}
                 className="px-4 py-2 rounded-full bg-muted text-foreground font-bold text-sm hover:bg-muted/80 transition"
               >
-                {isAr ? "تعديل الطلب" : "Edit brief"}
+                {t("page_ai_storyteller.edit_brief", "Edit brief")}
               </button>
               <button
                 type="button"
@@ -840,7 +830,7 @@ const AIStoryteller = () => {
                 className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition inline-flex items-center gap-2"
               >
                 <Check className="h-4 w-4" />
-                {isAr ? "اكتب القصة" : "Write the story"}
+                {t("page_ai_storyteller.write_the_story", "Write the story")}
               </button>
             </div>
           </div>
@@ -885,7 +875,7 @@ const AIStoryteller = () => {
             <span className="capitalize">{sub.plan?.name?.[isAr ? "ar" : "en"] ?? sub.tier}</span>
             <span className="opacity-70">·</span>
             <span>
-              {isAr ? "متبقي" : "Remaining"}: {sub.remainingStories}/{sub.plan?.monthly_story_limit ?? 0}
+              {t("page_ai_storyteller.remaining", "Remaining")}: {sub.remainingStories}/{sub.plan?.monthly_story_limit ?? 0}
             </span>
           </div>
           {(sub.tier === "free" || limitReached) && (
@@ -893,7 +883,7 @@ const AIStoryteller = () => {
               to="/pricing"
               className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition"
             >
-              {isAr ? "ترقية الخطة" : "Upgrade plan"}
+              {t("page_ai_storyteller.upgrade_plan", "Upgrade plan")}
             </Link>
           )}
         </div>
@@ -904,7 +894,7 @@ const AIStoryteller = () => {
           {customPrompt.trim() && (
             <div className="mb-3 mx-auto max-w-3xl flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
               <span className="text-[11px] uppercase tracking-wide font-bold text-primary shrink-0">
-                {isAr ? "قصتك عن" : "Your story is about"}
+                {t("page_ai_storyteller.your_story_is_about", "Your story is about")}
               </span>
               <span className="text-xs sm:text-sm text-foreground/90 dark:text-white/90 line-clamp-2 flex-1 min-w-0">
                 "{customPrompt.trim()}"
@@ -915,7 +905,7 @@ const AIStoryteller = () => {
                 className="ml-auto rtl:mr-auto rtl:ml-0 shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition"
               >
                 <Loader2 className="h-3.5 w-3.5" />
-                {isAr ? "أعد التوليد" : "Regenerate"}
+                {t("page_ai_storyteller.regenerate", "Regenerate")}
               </button>
             </div>
           )}
@@ -1047,9 +1037,7 @@ const AIStoryteller = () => {
                 {t("ai.custom_elements")}:
               </h4>
               <p className="text-xs mb-2 text-foreground/70 dark:text-white/70">
-                {isAr
-                  ? "اكتب أي تفاصيل أو فكرة تحب القصة تركز عليها — هنلتزم تلقائيًا بمعايير الكورس (SPEC، 4 فصول، Piaget، Bowlby، Bibliotherapy، تقييم /25)."
-                  : "Add any prompt or idea you want the story to focus on — it will automatically follow the course criteria (SPEC, 4-act, Piaget, Bowlby, Bibliotherapy, /25 rubric)."}
+                {t("page_ai_storyteller.add_any_prompt_or_idea_you_want_the_stor", "Add any prompt or idea you want the story to focus on — it will automatically follow the course criteria (SPEC, 4-act, Piaget, Bowlby, Bibliotherapy, /25 rubric).")}
               </p>
               <textarea
                 value={customPrompt}
@@ -1081,7 +1069,7 @@ const AIStoryteller = () => {
               ) : limitReached ? (
                 <>
                   <Lock className="h-5 w-5" />
-                  {isAr ? "وصلت للحد الشهري" : "Monthly limit reached"}
+                  {t("page_ai_storyteller.monthly_limit_reached", "Monthly limit reached")}
                 </>
               ) : (
                 <>
@@ -1097,10 +1085,10 @@ const AIStoryteller = () => {
               <div className="mt-4 mx-auto max-w-md p-3 sm:p-4 rounded-xl bg-white/70 dark:bg-white/10 border border-foreground/10 dark:border-white/20 text-left rtl:text-right">
                 {(() => {
                   const steps: { id: GenStep; label: string }[] = [
-                    { id: "planning", label: isAr ? "تحضير الفكرة" : "Planning" },
-                    { id: "writing", label: isAr ? "كتابة القصة" : "Writing" },
-                    { id: "evaluating", label: isAr ? "تجهيز الصوت والمراجعة" : "Preparing audio & review" },
-                    { id: "saving", label: isAr ? "الحفظ" : "Saving" },
+                    { id: "planning", label: t("page_ai_storyteller.planning", "Planning") },
+                    { id: "writing", label: t("page_ai_storyteller.writing", "Writing") },
+                    { id: "evaluating", label: t("page_ai_storyteller.preparing_audio_review", "Preparing audio & review") },
+                    { id: "saving", label: t("page_ai_storyteller.saving", "Saving") },
                   ];
                   const order: GenStep[] = ["planning", "writing", "evaluating", "saving"];
                   const idx = Math.max(0, order.indexOf(genStep));
@@ -1110,7 +1098,7 @@ const AIStoryteller = () => {
                       <div className="flex items-center gap-2 mb-3">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
                         <p className="text-sm font-bold text-foreground dark:text-white">
-                          {isAr ? "جاري إنشاء القصة…" : "Generating your story…"}
+                          {t("page_ai_storyteller.generating_your_story", "Generating your story…")}
                         </p>
                       </div>
                       <div className="h-2 rounded-full bg-foreground/10 dark:bg-white/15 overflow-hidden mb-3">
@@ -1142,7 +1130,7 @@ const AIStoryteller = () => {
                       {customPrompt.trim() && (
                         <div className="mt-3 pt-3 border-t border-foreground/10 dark:border-white/15">
                           <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground dark:text-white/60 mb-1">
-                            {isAr ? "قصتك ستكون عن" : "Your story is about"}
+                            {t("page_ai_storyteller.your_story_is_about_2", "Your story is about")}
                           </p>
                           <p className="text-xs sm:text-sm text-foreground/90 dark:text-white/90 line-clamp-3">
                             "{customPrompt.trim()}"
@@ -1162,16 +1150,14 @@ const AIStoryteller = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-destructive dark:text-red-300">
                       {errorDetails?.status === 402 && (errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota")
-                        ? (isAr ? "خدمة الذكاء الاصطناعي نفد رصيدها مؤقتًا" : "AI service is temporarily out of credits")
+                        ? (t("page_ai_storyteller.ai_service_is_temporarily_out_of_credits", "AI service is temporarily out of credits"))
                         : errorDetails?.status === 402
-                          ? (isAr ? "وصلت إلى حد خطتك الشهري" : "You've reached your monthly plan limit")
-                          : (isAr ? "تعذّر توليد القصة الآن" : "Couldn't generate the story right now")}
+                          ? (t("page_ai_storyteller.you_ve_reached_your_monthly_plan_limit", "You've reached your monthly plan limit"))
+                          : (t("page_ai_storyteller.couldn_t_generate_the_story_right_now", "Couldn't generate the story right now"))}
                     </p>
                     <p className="text-xs text-muted-foreground dark:text-white/70 mt-1">
                       {errorDetails?.status === 402 && (errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota")
-                        ? (isAr
-                            ? "ممكن تجرب ميزة الاستماع المجانية أو تتواصل مع الدعم لحين عودة الخدمة."
-                            : "You can try the free Listen feature or contact support while we restore service.")
+                        ? (t("page_ai_storyteller.you_can_try_the_free_listen_feature_or_c", "You can try the free Listen feature or contact support while we restore service."))
                         : lastError}
                     </p>
                   </div>
@@ -1185,7 +1171,7 @@ const AIStoryteller = () => {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition"
                     >
                       <Crown className="h-3.5 w-3.5" />
-                      {isAr ? "ترقية الخطة" : "Upgrade plan"}
+                      {t("page_ai_storyteller.upgrade_plan", "Upgrade plan")}
                     </Link>
                     {story && (
                       <button
@@ -1193,7 +1179,7 @@ const AIStoryteller = () => {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition"
                       >
                         <Volume2 className="h-3.5 w-3.5" />
-                        {isAr ? "استمع مجانًا" : "Use free Listen"}
+                        {t("page_ai_storyteller.use_free_listen", "Use free Listen")}
                       </button>
                     )}
                   </div>
@@ -1209,7 +1195,7 @@ const AIStoryteller = () => {
                     className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full font-bold text-sm shadow hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    {isAr ? "جرّب مرة أخرى" : "Try again"}
+                    {t("page_ai_storyteller.try_again", "Try again")}
                   </button>
                   {errorDetails && (
                     <button
@@ -1217,7 +1203,7 @@ const AIStoryteller = () => {
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-muted-foreground dark:text-white/70 hover:text-foreground dark:hover:text-white"
                     >
                       {showErrorDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      {isAr ? "تفاصيل المطور" : "Developer details"}
+                      {t("page_ai_storyteller.developer_details", "Developer details")}
                     </button>
                   )}
                 </div>
@@ -1354,7 +1340,7 @@ const AIStoryteller = () => {
             {(illustrating || guestIllustrating) && illustrations.length === 0 && (
               <div className="w-full h-48 sm:h-64 mb-6 rounded-2xl bg-kids-softPurple/30 dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-primary font-bold animate-pulse">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span>{isAr ? "✨ يتم رسم القصة..." : "✨ Drawing the story..."}</span>
+                <span>{t("page_ai_storyteller.drawing_the_story", "✨ Drawing the story...")}</span>
               </div>
             )}
             {illustrations[0]?.imageUrl && (
@@ -1387,9 +1373,7 @@ const AIStoryteller = () => {
               <div className="mt-4 p-3 rounded-xl bg-kids-softPurple/30 dark:bg-white/10 border border-foreground/10 dark:border-white/20 flex items-center gap-2 text-xs sm:text-sm font-semibold">
                 <Crown className="h-4 w-4 text-amber-500 shrink-0" />
                 <span className="text-foreground dark:text-white/90">
-                  {isAr
-                    ? "اشترك للحصول على رسومات لكل مشهد من القصة"
-                    : "Upgrade to get an illustration for every scene"}
+                  {t("page_ai_storyteller.upgrade_to_get_an_illustration_for_every", "Upgrade to get an illustration for every scene")}
                 </span>
               </div>
             )}
@@ -1404,7 +1388,7 @@ const AIStoryteller = () => {
               className="px-6 py-3 bg-kids-softPurple text-kids-midnight rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2"
             >
               <BookOpen className="h-4 w-4" />
-              {isAr ? "وضع القراءة" : "Reading Mode"}
+              {t("page_ai_storyteller.reading_mode", "Reading Mode")}
             </button>
             {guestMode ? (
               <>
@@ -1419,15 +1403,15 @@ const AIStoryteller = () => {
                     <BookOpen className="h-4 w-4" />
                   )}
                   {guestPdfLoading
-                    ? (isAr ? "جارٍ تحضير الـ PDF..." : "Building PDF...")
-                    : (isAr ? "تنزيل القصة PDF" : "Download story PDF")}
+                    ? (t("page_ai_storyteller.building_pdf", "Building PDF..."))
+                    : (t("page_ai_storyteller.download_story_pdf", "Download story PDF"))}
                 </button>
                 <Link
                   to="/pricing"
                   className="px-6 py-3 bg-gradient-to-r from-amber-400 to-pink-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2"
                 >
                   <Crown className="h-4 w-4" />
-                  {isAr ? "اشترك لقصص بلا حدود" : "Subscribe for unlimited stories"}
+                  {t("page_ai_storyteller.subscribe_for_unlimited_stories", "Subscribe for unlimited stories")}
                 </Link>
               </>
             ) : sub.canIllustrate && sub.canExportPdf ? (
@@ -1441,7 +1425,7 @@ const AIStoryteller = () => {
                 className="px-6 py-3 bg-gradient-to-r from-amber-400 to-pink-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60"
               >
                 {illustrating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
-                {isAr ? "ارسم وحمّل القصة" : "Illustrate & Download"}
+                {t("page_ai_storyteller.illustrate_download", "Illustrate & Download")}
               </button>
             ) : (
               <PremiumBadge featureKey="illustrations" size="lg" />

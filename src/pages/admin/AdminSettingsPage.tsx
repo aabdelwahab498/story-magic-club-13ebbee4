@@ -17,11 +17,11 @@ export default function AdminSettingsPage() {
   const { isMock, setSource } = useAdminDataSource();
   const { overrides, update } = useAdminTrialOverrides();
 
-  const trialToggles: Array<{ key: keyof typeof overrides; icon: typeof FileText; labelAr: string; labelEn: string; descAr: string; descEn: string }> = [
-    { key: "createStory", icon: BookOpen, labelAr: "إنشاء القصص", labelEn: "Create stories", descAr: "تجاوز الحد الشهري للقصص أثناء التجربة.", descEn: "Bypass monthly story limit while testing." },
-    { key: "illustrations", icon: Palette, labelAr: "توليد الرسومات", labelEn: "Illustrations", descAr: "تفعيل زر توليد الصور للقصص.", descEn: "Enable AI illustration button." },
-    { key: "pdf", icon: FileText, labelAr: "تصدير PDF", labelEn: "PDF export", descAr: "تفعيل تنزيل القصة كملف PDF.", descEn: "Enable PDF download for stories." },
-    { key: "audio", icon: Volume2, labelAr: "السرد الصوتي", labelEn: "Audio narration", descAr: "تفعيل قراءة القصة صوتيًا.", descEn: "Enable text-to-speech narration." },
+  const trialToggles: Array<{ key: keyof typeof overrides; icon: typeof FileText; labelKey: string; labelDefault: string; descKey: string; descDefault: string }> = [
+    { key: "createStory", icon: BookOpen, labelKey: "admin_settings.trial.create_story_label", labelDefault: "Create stories", descKey: "admin_settings.trial.create_story_desc", descDefault: "Bypass monthly story limit while testing." },
+    { key: "illustrations", icon: Palette, labelKey: "admin_settings.trial.illustrations_label", labelDefault: "Illustrations", descKey: "admin_settings.trial.illustrations_desc", descDefault: "Enable AI illustration button." },
+    { key: "pdf", icon: FileText, labelKey: "admin_settings.trial.pdf_label", labelDefault: "PDF export", descKey: "admin_settings.trial.pdf_desc", descDefault: "Enable PDF download for stories." },
+    { key: "audio", icon: Volume2, labelKey: "admin_settings.trial.audio_label", labelDefault: "Audio narration", descKey: "admin_settings.trial.audio_desc", descDefault: "Enable text-to-speech narration." },
   ];
 
   return (
@@ -140,31 +140,28 @@ export default function AdminSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FlaskConical className="h-5 w-5 text-primary" />
-              {i18n.language?.startsWith("ar") ? "مزايا التجربة (للأدمن فقط)" : "Trial features (admin only)"}
+              {t("admin_settings.trial_features_admin_only", "Trial features (admin only)")}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              {i18n.language?.startsWith("ar")
-                ? "تحكّم في المزايا المدفوعة المتاحة لك أثناء التجربة بدون التأثير على المستخدمين."
-                : "Toggle paid features for your own admin testing without affecting users."}
+              {t("admin_settings.toggle_paid_features_for_your_own_admin_", "Toggle paid features for your own admin testing without affecting users.")}
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {trialToggles.map(({ key, icon: Icon, labelAr, labelEn, descAr, descEn }) => {
-              const isAr = i18n.language?.startsWith("ar");
+            {trialToggles.map(({ key, icon: Icon, labelKey, labelDefault, descKey, descDefault }) => {
               return (
                 <div key={key} className="flex items-center justify-between rounded-xl border-2 border-kids-softPurple/30 dark:border-primary/20 p-4 bg-kids-softPurple/10 dark:bg-primary/5">
                   <div className="flex items-start gap-3">
                     <Icon className="h-5 w-5 text-primary mt-0.5" />
                     <div>
-                      <Label className="text-base font-bold">{isAr ? labelAr : labelEn}</Label>
-                      <p className="text-xs text-muted-foreground mt-1">{isAr ? descAr : descEn}</p>
+                      <Label className="text-base font-bold">{t(labelKey, labelDefault)}</Label>
+                      <p className="text-xs text-muted-foreground mt-1">{t(descKey, descDefault)}</p>
                     </div>
                   </div>
                   <Switch
                     checked={overrides[key]}
                     onCheckedChange={(v) => {
                       update({ [key]: v });
-                      toast.success(isAr ? (v ? "تم التفعيل" : "تم التعطيل") : v ? "Enabled" : "Disabled");
+                      toast.success(v ? t("admin_settings.enabled", "Enabled") : t("admin_settings.disabled", "Disabled"));
                     }}
                   />
                 </div>

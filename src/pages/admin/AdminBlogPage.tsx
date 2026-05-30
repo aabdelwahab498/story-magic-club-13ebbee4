@@ -109,7 +109,7 @@ export default function AdminBlogPage() {
       })
       .catch((err) => {
         console.error(err);
-        toast.error(isAr ? "تعذّر التحميل" : "Failed to load");
+        toast.error(t("admin_blog.failed_to_load", "Failed to load"));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -131,13 +131,13 @@ export default function AdminBlogPage() {
   const handleSave = async () => {
     if (!editing) return;
     if (!editing.title.en?.trim()) {
-      toast.error(isAr ? "العنوان بالإنجليزية مطلوب" : "English title required");
+      toast.error(t("admin_blog.english_title_required", "English title required"));
       return;
     }
     let slug = editing.slug?.trim();
     if (!slug) slug = slugify(editing.title.en);
     if (!slug) {
-      toast.error(isAr ? "الـ slug مطلوب" : "Slug required");
+      toast.error(t("admin_blog.slug_required", "Slug required"));
       return;
     }
     setSaving(true);
@@ -148,12 +148,12 @@ export default function AdminBlogPage() {
         if (exists) return prev.map((p) => (p.id === editing.id ? saved : p));
         return [saved, ...prev];
       });
-      toast.success(isAr ? "تم الحفظ" : "Saved");
+      toast.success(t("admin_blog.saved", "Saved"));
       setEditing(null);
       setTagInput("");
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message ?? (isAr ? "فشل الحفظ" : "Save failed"));
+      toast.error(err?.message ?? (t("admin_blog.save_failed", "Save failed")));
     } finally {
       setSaving(false);
     }
@@ -164,10 +164,10 @@ export default function AdminBlogPage() {
     try {
       await deleteBlogPost(deleteId);
       setPosts((prev) => prev.filter((p) => p.id !== deleteId));
-      toast.success(isAr ? "تم الحذف" : "Deleted");
+      toast.success(t("admin_blog.deleted", "Deleted"));
     } catch (err) {
       console.error(err);
-      toast.error(isAr ? "فشل الحذف" : "Delete failed");
+      toast.error(t("admin_blog.delete_failed", "Delete failed"));
     } finally {
       setDeleteId(null);
     }
@@ -192,15 +192,15 @@ export default function AdminBlogPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold bg-magic bg-clip-text text-transparent">
-            {isAr ? "المدونة" : "Blog"}
+            {t("admin_blog.blog", "Blog")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isAr ? "إدارة المقالات والكلمات المفتاحية وSEO" : "Manage posts, tags & SEO"}
+            {t("admin_blog.manage_posts_tags_seo", "Manage posts, tags & SEO")}
           </p>
         </div>
         <Button onClick={() => setEditing(emptyPost())} className="gap-2 rounded-full shadow-soft hover-pop">
           <Plus className="h-4 w-4" />
-          {isAr ? "مقالة جديدة" : "New post"}
+          {t("admin_blog.new_post", "New post")}
         </Button>
       </div>
 
@@ -209,7 +209,7 @@ export default function AdminBlogPage() {
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={isAr ? "ابحث بالعنوان أو الـ slug" : "Search title or slug"}
+              placeholder={t("admin_blog.search_title_or_slug", "Search title or slug")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 rounded-full"
@@ -220,9 +220,9 @@ export default function AdminBlogPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{isAr ? "كل الحالات" : "All status"}</SelectItem>
-              <SelectItem value="published">{isAr ? "منشور" : "Published"}</SelectItem>
-              <SelectItem value="draft">{isAr ? "مسودة" : "Draft"}</SelectItem>
+              <SelectItem value="all">{t("admin_blog.all_status", "All status")}</SelectItem>
+              <SelectItem value="published">{t("admin_blog.published", "Published")}</SelectItem>
+              <SelectItem value="draft">{t("admin_blog.draft", "Draft")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -234,13 +234,13 @@ export default function AdminBlogPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{isAr ? "العنوان" : "Title"}</TableHead>
+                  <TableHead>{t("admin_blog.title", "Title")}</TableHead>
                   <TableHead>Slug</TableHead>
-                  <TableHead>{isAr ? "الكلمات" : "Tags"}</TableHead>
-                  <TableHead>{isAr ? "اللغات" : "Langs"}</TableHead>
-                  <TableHead>{isAr ? "الحالة" : "Status"}</TableHead>
-                  <TableHead>{isAr ? "المشاهدات" : "Views"}</TableHead>
-                  <TableHead className="text-right">{isAr ? "إجراءات" : "Actions"}</TableHead>
+                  <TableHead>{t("admin_blog.tags", "Tags")}</TableHead>
+                  <TableHead>{t("admin_blog.langs", "Langs")}</TableHead>
+                  <TableHead>{t("admin_blog.status", "Status")}</TableHead>
+                  <TableHead>{t("admin_blog.views", "Views")}</TableHead>
+                  <TableHead className="text-right">{t("admin_blog.actions", "Actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -253,7 +253,7 @@ export default function AdminBlogPage() {
                 ) : filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      {isAr ? "لا توجد مقالات" : "No posts"}
+                      {t("admin_blog.no_posts", "No posts")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -290,12 +290,12 @@ export default function AdminBlogPage() {
                           {p.published ? (
                             <Badge className="gap-1 rounded-full bg-magic border-0">
                               <CheckCircle2 className="h-3 w-3" />
-                              {isAr ? "منشور" : "Published"}
+                              {t("admin_blog.published", "Published")}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="gap-1 rounded-full">
                               <Circle className="h-3 w-3" />
-                              {isAr ? "مسودة" : "Draft"}
+                              {t("admin_blog.draft", "Draft")}
                             </Badge>
                           )}
                         </TableCell>
@@ -338,14 +338,14 @@ export default function AdminBlogPage() {
           <DialogHeader>
             <DialogTitle>
               {editing?.id.startsWith("new-")
-                ? (isAr ? "مقالة جديدة" : "New post")
-                : (isAr ? "تعديل المقالة" : "Edit post")}
+                ? (t("admin_blog.new_post", "New post"))
+                : (t("admin_blog.edit_post", "Edit post"))}
             </DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-5">
               <MultilingualField
-                label={isAr ? "العنوان" : "Title"}
+                label={t("admin_blog.title", "Title")}
                 value={editing.title}
                 onChange={(v) => setEditing({ ...editing, title: v })}
               />
@@ -366,12 +366,12 @@ export default function AdminBlogPage() {
                         setEditing({ ...editing, slug: slugify(editing.title.en ?? "") })
                       }
                     >
-                      {isAr ? "توليد" : "Auto"}
+                      {t("admin_blog.auto", "Auto")}
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>{isAr ? "التصنيف" : "Category"}</Label>
+                  <Label>{t("admin_blog.category", "Category")}</Label>
                   <Select
                     value={editing.category_id ?? "none"}
                     onValueChange={(v) =>
@@ -382,7 +382,7 @@ export default function AdminBlogPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">{isAr ? "بدون" : "None"}</SelectItem>
+                      <SelectItem value="none">{t("admin_blog.none", "None")}</SelectItem>
                       {categories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {getLocalized(c.name, i18n.language) || c.slug}
@@ -394,14 +394,14 @@ export default function AdminBlogPage() {
               </div>
 
               <MultilingualField
-                label={isAr ? "مقتطف" : "Excerpt"}
+                label={t("admin_blog.excerpt", "Excerpt")}
                 value={editing.excerpt}
                 onChange={(v) => setEditing({ ...editing, excerpt: v })}
                 multiline
                 rows={2}
               />
               <MultilingualField
-                label={isAr ? "المحتوى (Markdown)" : "Content (Markdown)"}
+                label={t("admin_blog.content_markdown", "Content (Markdown)")}
                 value={editing.content}
                 onChange={(v) => setEditing({ ...editing, content: v })}
                 multiline
@@ -410,14 +410,14 @@ export default function AdminBlogPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>{isAr ? "الكاتب" : "Author"}</Label>
+                  <Label>{t("admin_blog.author", "Author")}</Label>
                   <Input
                     value={editing.author_name ?? ""}
                     onChange={(e) => setEditing({ ...editing, author_name: e.target.value || null })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{isAr ? "دقائق القراءة" : "Reading minutes"}</Label>
+                  <Label>{t("admin_blog.reading_minutes", "Reading minutes")}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -430,7 +430,7 @@ export default function AdminBlogPage() {
               </div>
 
               <FileUploadField
-                label={isAr ? "صورة الغلاف" : "Cover image"}
+                label={t("admin_blog.cover_image", "Cover image")}
                 value={editing.cover_image}
                 onChange={(url) => setEditing({ ...editing, cover_image: url })}
                 uploader={uploadBlogCover}
@@ -440,7 +440,7 @@ export default function AdminBlogPage() {
 
               {/* Tags */}
               <div className="space-y-2">
-                <Label>{isAr ? "الكلمات المفتاحية" : "Tags / Keywords"}</Label>
+                <Label>{t("admin_blog.tags_keywords", "Tags / Keywords")}</Label>
                 <div className="flex gap-2">
                   <Input
                     value={tagInput}
@@ -451,10 +451,10 @@ export default function AdminBlogPage() {
                         addTag();
                       }
                     }}
-                    placeholder={isAr ? "أضف كلمة واضغط Enter" : "Add tag and press Enter"}
+                    placeholder={t("admin_blog.add_tag_and_press_enter", "Add tag and press Enter")}
                   />
                   <Button type="button" variant="outline" onClick={addTag}>
-                    {isAr ? "أضف" : "Add"}
+                    {t("admin_blog.add", "Add")}
                   </Button>
                 </div>
                 {(editing.tags ?? []).length > 0 && (
@@ -480,30 +480,30 @@ export default function AdminBlogPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">SEO</h3>
                   <Badge variant="outline" className="rounded-full text-xs">
-                    {isAr ? "اختياري" : "Optional"}
+                    {t("admin_blog.optional", "Optional")}
                   </Badge>
                 </div>
                 <MultilingualField
-                  label={isAr ? "عنوان SEO (≤60 حرف)" : "SEO Title (≤60 chars)"}
+                  label={t("admin_blog.seo_title_60_chars", "SEO Title (≤60 chars)")}
                   value={editing.seo_title}
                   onChange={(v) => setEditing({ ...editing, seo_title: v })}
-                  placeholder={isAr ? "افتراضي: عنوان المقالة" : "Defaults to post title"}
+                  placeholder={t("admin_blog.defaults_to_post_title", "Defaults to post title")}
                 />
                 <MultilingualField
-                  label={isAr ? "وصف SEO (≤160 حرف)" : "SEO Description (≤160 chars)"}
+                  label={t("admin_blog.seo_description_160_chars", "SEO Description (≤160 chars)")}
                   value={editing.seo_description}
                   onChange={(v) => setEditing({ ...editing, seo_description: v })}
                   multiline
                   rows={2}
-                  placeholder={isAr ? "افتراضي: المقتطف" : "Defaults to excerpt"}
+                  placeholder={t("admin_blog.defaults_to_excerpt", "Defaults to excerpt")}
                 />
               </div>
 
               <div className="flex items-center justify-between rounded-xl border-2 border-kids-softPurple/30 dark:border-primary/20 p-3">
                 <div>
-                  <Label className="font-semibold">{isAr ? "نشر" : "Published"}</Label>
+                  <Label className="font-semibold">{t("admin_blog.published_2", "Published")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    {isAr ? "يظهر للزوار" : "Visible to readers"}
+                    {t("admin_blog.visible_to_readers", "Visible to readers")}
                   </p>
                 </div>
                 <Switch
@@ -515,11 +515,11 @@ export default function AdminBlogPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>
-              {isAr ? "إلغاء" : "Cancel"}
+              {t("admin_blog.cancel", "Cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isAr ? "حفظ" : "Save"}
+              {t("admin_blog.save", "Save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -528,18 +528,18 @@ export default function AdminBlogPage() {
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{isAr ? "حذف المقالة؟" : "Delete post?"}</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin_blog.delete_post", "Delete post?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {isAr ? "لا يمكن التراجع." : "This action cannot be undone."}
+              {t("admin_blog.this_action_cannot_be_undone", "This action cannot be undone.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogCancel>{t("admin_blog.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isAr ? "حذف" : "Delete"}
+              {t("admin_blog.delete", "Delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

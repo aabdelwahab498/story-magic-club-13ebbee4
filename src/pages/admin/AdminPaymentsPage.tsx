@@ -27,7 +27,7 @@ const tabs: { key: PaymentStatus | "all"; labelAr: string; labelEn: string }[] =
 ];
 
 const AdminPaymentsPage = () => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -61,7 +61,7 @@ const AdminPaymentsPage = () => {
     setBusy(true);
     try {
       await approvePaymentRequest(selected, user.id);
-      toast({ title: isAr ? "تمت الموافقة" : "Approved" });
+      toast({ title: t("admin_payments.approved", "Approved") });
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["admin-payment-requests"] });
     } catch (e) {
@@ -78,13 +78,13 @@ const AdminPaymentsPage = () => {
   const reject = async () => {
     if (!selected || !user) return;
     if (!rejectNote.trim()) {
-      toast({ title: isAr ? "اكتب سبب الرفض" : "Add rejection note", variant: "destructive" });
+      toast({ title: t("admin_payments.add_rejection_note", "Add rejection note"), variant: "destructive" });
       return;
     }
     setBusy(true);
     try {
       await rejectPaymentRequest(selected.id, user.id, rejectNote.trim());
-      toast({ title: isAr ? "تم الرفض" : "Rejected" });
+      toast({ title: t("admin_payments.rejected", "Rejected") });
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["admin-payment-requests"] });
     } catch (e) {
@@ -101,9 +101,9 @@ const AdminPaymentsPage = () => {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-extrabold">{isAr ? "طلبات الدفع" : "Payment Requests"}</h1>
+        <h1 className="text-2xl font-extrabold">{t("admin_payments.payment_requests", "Payment Requests")}</h1>
         <p className="text-sm text-muted-foreground">
-          {isAr ? "راجع إثباتات الدفع وفعّل الاشتراكات" : "Review proofs and activate subscriptions"}
+          {t("admin_payments.review_proofs_and_activate_subscriptions", "Review proofs and activate subscriptions")}
         </p>
       </header>
 
@@ -129,12 +129,12 @@ const AdminPaymentsPage = () => {
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs uppercase">
             <tr>
-              <th className="text-start p-3">{isAr ? "التاريخ" : "Date"}</th>
-              <th className="text-start p-3">{isAr ? "الخطة" : "Plan"}</th>
-              <th className="text-start p-3">{isAr ? "المبلغ" : "Amount"}</th>
-              <th className="text-start p-3">{isAr ? "الطريقة" : "Method"}</th>
-              <th className="text-start p-3">{isAr ? "المرسل" : "Sender"}</th>
-              <th className="text-start p-3">{isAr ? "الحالة" : "Status"}</th>
+              <th className="text-start p-3">{t("admin_payments.date", "Date")}</th>
+              <th className="text-start p-3">{t("admin_payments.plan", "Plan")}</th>
+              <th className="text-start p-3">{t("admin_payments.amount", "Amount")}</th>
+              <th className="text-start p-3">{t("admin_payments.method", "Method")}</th>
+              <th className="text-start p-3">{t("admin_payments.sender", "Sender")}</th>
+              <th className="text-start p-3">{t("admin_payments.status", "Status")}</th>
               <th className="p-3"></th>
             </tr>
           </thead>
@@ -161,7 +161,7 @@ const AdminPaymentsPage = () => {
             {q.data?.length === 0 && (
               <tr>
                 <td colSpan={7} className="p-6 text-center text-muted-foreground">
-                  {isAr ? "لا توجد طلبات" : "No requests"}
+                  {t("admin_payments.no_requests", "No requests")}
                 </td>
               </tr>
             )}
@@ -172,37 +172,37 @@ const AdminPaymentsPage = () => {
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{isAr ? "تفاصيل الطلب" : "Request Details"}</DialogTitle>
+            <DialogTitle>{t("admin_payments.request_details", "Request Details")}</DialogTitle>
           </DialogHeader>
           {selected && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><b>{isAr ? "الخطة:" : "Plan:"}</b> {selected.plan_tier}</div>
-                <div><b>{isAr ? "المبلغ:" : "Amount:"}</b> {selected.amount} {selected.currency}</div>
-                <div><b>{isAr ? "الطريقة:" : "Method:"}</b> {selected.method}</div>
-                <div><b>{isAr ? "الحالة:" : "Status:"}</b> {selected.status}</div>
-                <div><b>{isAr ? "المرسل:" : "Sender:"}</b> {selected.sender_name}</div>
-                <div><b>{isAr ? "هاتف:" : "Phone:"}</b> {selected.sender_phone ?? "—"}</div>
+                <div><b>{t("admin_payments.plan_2", "Plan:")}</b> {selected.plan_tier}</div>
+                <div><b>{t("admin_payments.amount_2", "Amount:")}</b> {selected.amount} {selected.currency}</div>
+                <div><b>{t("admin_payments.method_2", "Method:")}</b> {selected.method}</div>
+                <div><b>{t("admin_payments.status_2", "Status:")}</b> {selected.status}</div>
+                <div><b>{t("admin_payments.sender_2", "Sender:")}</b> {selected.sender_name}</div>
+                <div><b>{t("admin_payments.phone", "Phone:")}</b> {selected.sender_phone ?? "—"}</div>
                 <div className="col-span-2"><b>Ref:</b> {selected.transaction_ref ?? "—"}</div>
               </div>
 
               {proofUrl ? (
                 <div>
-                  <p className="font-bold text-sm mb-2">{isAr ? "إثبات الدفع:" : "Proof:"}</p>
+                  <p className="font-bold text-sm mb-2">{t("admin_payments.proof", "Proof:")}</p>
                   <img src={proofUrl} alt="proof" className="max-h-96 w-auto rounded-xl border-2 border-muted" />
                   <a href={proofUrl} target="_blank" rel="noreferrer" className="text-xs text-primary inline-flex items-center gap-1 mt-1">
-                    <ExternalLink className="h-3 w-3" /> {isAr ? "فتح بحجم كامل" : "Open full size"}
+                    <ExternalLink className="h-3 w-3" /> {t("admin_payments.open_full_size", "Open full size")}
                   </a>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">{isAr ? "جارٍ تحميل الإثبات..." : "Loading proof..."}</p>
+                <p className="text-sm text-muted-foreground">{t("admin_payments.loading_proof", "Loading proof...")}</p>
               )}
 
               {selected.status === "pending" && (
                 <>
                   <div>
                     <label className="text-xs font-semibold mb-1 block">
-                      {isAr ? "ملاحظة الرفض (اختياري للموافقة)" : "Rejection note (required to reject)"}
+                      {t("admin_payments.rejection_note_required_to_reject", "Rejection note (required to reject)")}
                     </label>
                     <textarea
                       value={rejectNote}
@@ -217,14 +217,14 @@ const AdminPaymentsPage = () => {
                       disabled={busy}
                       className="flex-1 px-4 py-2.5 rounded-full bg-green-600 text-white font-bold inline-flex items-center justify-center gap-1 disabled:opacity-50"
                     >
-                      <CheckCircle2 className="h-4 w-4" /> {isAr ? "موافقة وتفعيل" : "Approve & activate"}
+                      <CheckCircle2 className="h-4 w-4" /> {t("admin_payments.approve_activate", "Approve & activate")}
                     </button>
                     <button
                       onClick={reject}
                       disabled={busy}
                       className="flex-1 px-4 py-2.5 rounded-full bg-red-600 text-white font-bold inline-flex items-center justify-center gap-1 disabled:opacity-50"
                     >
-                      <XCircle className="h-4 w-4" /> {isAr ? "رفض" : "Reject"}
+                      <XCircle className="h-4 w-4" /> {t("admin_payments.reject", "Reject")}
                     </button>
                   </div>
                 </>

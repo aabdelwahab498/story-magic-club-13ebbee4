@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
   Smartphone,
@@ -36,22 +37,26 @@ interface MethodConfig {
   receiver: { label: string; value: string | null }[];
 }
 
-const buildMethods = (s: PaymentSettings, isAr: boolean): MethodConfig[] => [
+const buildMethods = (
+  s: PaymentSettings,
+  isAr: boolean,
+  t: TFunction,
+): MethodConfig[] => [
   {
     id: "instapay",
-    label: isAr ? "انستا باي" : "InstaPay",
+    label: t("page_checkout_manual.instapay", "InstaPay"),
     icon: Smartphone,
     enabled: s.instapay_enabled && !!s.instapay_handle,
     currencies: s.instapay_currencies as PayCurrency[],
-    receiver: [{ label: isAr ? "حساب الاستلام" : "Handle", value: s.instapay_handle }],
+    receiver: [{ label: t("page_checkout_manual.handle", "Handle"), value: s.instapay_handle }],
   },
   {
     id: "vodafone_cash",
-    label: isAr ? "فودافون كاش" : "Vodafone Cash",
+    label: t("page_checkout_manual.vodafone_cash", "Vodafone Cash"),
     icon: Wallet,
     enabled: s.vodafone_enabled && !!s.vodafone_number,
     currencies: s.vodafone_currencies as PayCurrency[],
-    receiver: [{ label: isAr ? "الرقم" : "Number", value: s.vodafone_number }],
+    receiver: [{ label: t("page_checkout_manual.number", "Number"), value: s.vodafone_number }],
   },
   {
     id: "payoneer",
@@ -59,20 +64,20 @@ const buildMethods = (s: PaymentSettings, isAr: boolean): MethodConfig[] => [
     icon: Globe,
     enabled: s.payoneer_enabled && !!s.payoneer_email,
     currencies: s.payoneer_currencies as PayCurrency[],
-    receiver: [{ label: isAr ? "بريد Payoneer" : "Payoneer email", value: s.payoneer_email }],
+    receiver: [{ label: t("page_checkout_manual.payoneer_email", "Payoneer email"), value: s.payoneer_email }],
   },
   {
     id: "bank_transfer",
-    label: isAr ? "تحويل بنكي" : "Bank transfer",
+    label: t("page_checkout_manual.bank_transfer", "Bank transfer"),
     icon: Building2,
     enabled:
       s.bank_enabled &&
       !!(s.bank_account_number || s.bank_iban),
     currencies: s.bank_currencies as PayCurrency[],
     receiver: [
-      { label: isAr ? "البنك" : "Bank", value: s.bank_name },
-      { label: isAr ? "صاحب الحساب" : "Account holder", value: s.bank_account_name },
-      { label: isAr ? "رقم الحساب" : "Account number", value: s.bank_account_number },
+      { label: t("page_checkout_manual.bank", "Bank"), value: s.bank_name },
+      { label: t("page_checkout_manual.account_holder", "Account holder"), value: s.bank_account_name },
+      { label: t("page_checkout_manual.account_number", "Account number"), value: s.bank_account_number },
       { label: "IBAN", value: s.bank_iban },
       { label: "SWIFT", value: s.bank_swift },
     ],
@@ -80,7 +85,7 @@ const buildMethods = (s: PaymentSettings, isAr: boolean): MethodConfig[] => [
 ];
 
 const CheckoutManual = () => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const lang = i18n.language?.startsWith("ar") ? "ar" : "en";
   const isAr = lang === "ar";
   const [params] = useSearchParams();
@@ -99,7 +104,7 @@ const CheckoutManual = () => {
 
   const enabledMethods = useMemo<MethodConfig[]>(() => {
     if (!settingsQ.data) return [];
-    return buildMethods(settingsQ.data, isAr).filter((m) => m.enabled && m.currencies.length > 0);
+    return buildMethods(settingsQ.data, isAr, t).filter((m) => m.enabled && m.currencies.length > 0);
   }, [settingsQ.data, isAr]);
 
   const [method, setMethod] = useState<PaymentMethod | null>(null);
@@ -138,18 +143,16 @@ const CheckoutManual = () => {
     return (
       <div className="max-w-xl mx-auto py-12 text-center space-y-3">
         <h1 className="text-2xl font-extrabold">
-          {isAr ? "الدفع غير متاح حالياً" : "Payments are currently unavailable"}
+          {t("page_checkout_manual.payments_are_currently_unavailable", "Payments are currently unavailable")}
         </h1>
         <p className="text-muted-foreground">
-          {isAr
-            ? "لم يقم المسؤول بتفعيل أي وسيلة دفع. حاول لاحقاً أو تواصل معنا."
-            : "The administrator has not enabled any payment method yet. Please try later or contact us."}
+          {t("page_checkout_manual.the_administrator_has_not_enabled_any_pa", "The administrator has not enabled any payment method yet. Please try later or contact us.")}
         </p>
         <Link
           to="/contact"
           className="inline-block px-5 py-2.5 rounded-full bg-primary text-primary-foreground font-bold"
         >
-          {isAr ? "تواصل معنا" : "Contact us"}
+          {t("page_checkout_manual.contact_us", "Contact us")}
         </Link>
       </div>
     );
@@ -169,14 +172,14 @@ const CheckoutManual = () => {
   const copy = (val: string | null) => {
     if (!val) return;
     navigator.clipboard.writeText(val);
-    toast({ title: isAr ? "تم النسخ" : "Copied", description: val });
+    toast({ title: t("page_checkout_manual.copied", "Copied"), description: val });
   };
 
   const submit = async () => {
     if (!user || !proof || !senderName.trim()) {
       toast({
-        title: isAr ? "بيانات ناقصة" : "Missing fields",
-        description: isAr ? "ارفع إثبات الدفع وأدخل اسمك" : "Upload proof and enter your name",
+        title: t("page_checkout_manual.missing_fields", "Missing fields"),
+        description: t("page_checkout_manual.upload_proof_and_enter_your_name", "Upload proof and enter your name"),
         variant: "destructive",
       });
       return;
@@ -184,16 +187,16 @@ const CheckoutManual = () => {
     // Basic file validation (image up to 5 MB)
     if (!proof.type.startsWith("image/")) {
       toast({
-        title: isAr ? "ملف غير صالح" : "Invalid file",
-        description: isAr ? "يجب أن يكون إثبات الدفع صورة" : "Proof must be an image",
+        title: t("page_checkout_manual.invalid_file", "Invalid file"),
+        description: t("page_checkout_manual.proof_must_be_an_image", "Proof must be an image"),
         variant: "destructive",
       });
       return;
     }
     if (proof.size > 5 * 1024 * 1024) {
       toast({
-        title: isAr ? "حجم كبير" : "File too large",
-        description: isAr ? "الحد الأقصى 5 ميجابايت" : "Max 5 MB",
+        title: t("page_checkout_manual.file_too_large", "File too large"),
+        description: t("page_checkout_manual.max_5_mb", "Max 5 MB"),
         variant: "destructive",
       });
       return;
@@ -214,12 +217,12 @@ const CheckoutManual = () => {
       });
       setDone(true);
       toast({
-        title: isAr ? "تم الإرسال!" : "Submitted!",
-        description: isAr ? "ستتم المراجعة خلال 24 ساعة" : "Reviewed within 24 hours",
+        title: t("page_checkout_manual.submitted", "Submitted!"),
+        description: t("page_checkout_manual.reviewed_within_24_hours", "Reviewed within 24 hours"),
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
-      toast({ title: isAr ? "خطأ" : "Error", description: msg, variant: "destructive" });
+      toast({ title: t("page_checkout_manual.error", "Error"), description: msg, variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -229,24 +232,22 @@ const CheckoutManual = () => {
     return (
       <div className="max-w-xl mx-auto py-12 text-center space-y-5">
         <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-        <h1 className="text-2xl font-extrabold">{isAr ? "تم استلام طلبك" : "Request Received"}</h1>
+        <h1 className="text-2xl font-extrabold">{t("page_checkout_manual.request_received", "Request Received")}</h1>
         <p className="text-muted-foreground">
-          {isAr
-            ? "سنراجع إثبات الدفع وستجد تأكيد الاشتراك في صفحة حسابك."
-            : "We'll review your proof and confirm the subscription in your account page."}
+          {t("page_checkout_manual.we_ll_review_your_proof_and_confirm_the_", "We'll review your proof and confirm the subscription in your account page.")}
         </p>
         <div className="flex gap-2 justify-center">
           <Link
             to="/account/subscription"
             className="px-5 py-2.5 rounded-full bg-primary text-primary-foreground font-bold hover-pop"
           >
-            {isAr ? "حسابي" : "My Account"}
+            {t("page_checkout_manual.my_account", "My Account")}
           </Link>
           <Link
             to="/"
             className="px-5 py-2.5 rounded-full border-2 border-primary/30 text-primary font-bold"
           >
-            {isAr ? "الرئيسية" : "Home"}
+            {t("page_checkout_manual.home", "Home")}
           </Link>
         </div>
       </div>
@@ -257,18 +258,18 @@ const CheckoutManual = () => {
     <div className="max-w-2xl mx-auto py-6 space-y-6">
       <header>
         <h1 className="text-2xl sm:text-3xl font-extrabold mb-1">
-          {isAr ? "إتمام الاشتراك يدوياً" : "Complete Subscription Manually"}
+          {t("page_checkout_manual.complete_subscription_manually", "Complete Subscription Manually")}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {isAr
-            ? `خطة ${plan.name.ar ?? plan.name.en}`
-            : `${plan.name.en ?? plan.name.ar} plan`}
+          {t("page_checkout_manual.plan_label", "{{name}} plan", {
+            name: plan.name.en ?? plan.name.ar,
+          })}
         </p>
       </header>
 
       {/* Method */}
       <section className="bg-white/95 dark:bg-card/80 rounded-2xl p-5 border-2 border-white/60 space-y-4">
-        <h2 className="font-bold">{isAr ? "طريقة الدفع" : "Payment method"}</h2>
+        <h2 className="font-bold">{t("page_checkout_manual.payment_method", "Payment method")}</h2>
         <div className="grid grid-cols-2 gap-3">
           {enabledMethods.map((m) => {
             const Icon = m.icon;
@@ -299,7 +300,7 @@ const CheckoutManual = () => {
         {/* Receiver details */}
         <div className="bg-muted/50 rounded-xl p-3 space-y-2">
           <p className="text-xs text-muted-foreground">
-            {isAr ? "حوّل إلى:" : "Transfer to:"}
+            {t("page_checkout_manual.transfer_to", "Transfer to:")}
           </p>
           {activeMethod.receiver
             .filter((r) => !!r.value)
@@ -332,7 +333,7 @@ const CheckoutManual = () => {
 
       {/* Currency & amount */}
       <section className="bg-white/95 dark:bg-card/80 rounded-2xl p-5 border-2 border-white/60 space-y-3">
-        <h2 className="font-bold">{isAr ? "العملة والمبلغ" : "Currency & amount"}</h2>
+        <h2 className="font-bold">{t("page_checkout_manual.currency_amount", "Currency & amount")}</h2>
         <div className="flex gap-2">
           {availableCurrencies.map((c) => (
             <button
@@ -349,32 +350,32 @@ const CheckoutManual = () => {
           ))}
         </div>
         <div className="text-3xl font-extrabold text-primary">
-          {safeCurrency === "EGP" ? `${plan.price_egp} ج.م` : `$${plan.price_usd}`}
+          {safeCurrency === "EGP" ? `${plan.price_egp} ${t("page_checkout_manual.egp_short", "EGP")}` : `$${plan.price_usd}`}
           <span className="text-sm font-normal text-muted-foreground ms-2">
-            / {isAr ? "شهر" : "month"}
+            / {t("page_checkout_manual.month", "month")}
           </span>
         </div>
       </section>
 
       {/* Sender info + proof */}
       <section className="bg-white/95 dark:bg-card/80 rounded-2xl p-5 border-2 border-white/60 space-y-3">
-        <h2 className="font-bold">{isAr ? "بيانات التحويل" : "Transfer details"}</h2>
+        <h2 className="font-bold">{t("page_checkout_manual.transfer_details", "Transfer details")}</h2>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block">
             <span className="text-xs font-semibold mb-1 block">
-              {isAr ? "اسم المرسل *" : "Sender name *"}
+              {t("page_checkout_manual.sender_name", "Sender name *")}
             </span>
             <input
               value={senderName}
               onChange={(e) => setSenderName(e.target.value)}
               maxLength={100}
               className="w-full px-3 py-2.5 rounded-xl border-2 border-muted focus:border-primary outline-none bg-background"
-              placeholder={isAr ? "اسمك بالكامل" : "Your full name"}
+              placeholder={t("page_checkout_manual.your_full_name", "Your full name")}
             />
           </label>
           <label className="block">
             <span className="text-xs font-semibold mb-1 block">
-              {isAr ? "رقم الهاتف" : "Phone"}
+              {t("page_checkout_manual.phone", "Phone")}
             </span>
             <input
               value={senderPhone}
@@ -388,7 +389,7 @@ const CheckoutManual = () => {
         </div>
         <label className="block">
           <span className="text-xs font-semibold mb-1 block">
-            {isAr ? "رقم العملية (اختياري)" : "Transaction ref (optional)"}
+            {t("page_checkout_manual.transaction_ref_optional", "Transaction ref (optional)")}
           </span>
           <input
             value={txRef}
@@ -401,12 +402,12 @@ const CheckoutManual = () => {
         {/* Upload */}
         <label className="block">
           <span className="text-xs font-semibold mb-1 block">
-            {isAr ? "إثبات الدفع (صورة، حتى 5MB) *" : "Payment proof (image, up to 5MB) *"}
+            {t("page_checkout_manual.payment_proof_image_up_to_5mb", "Payment proof (image, up to 5MB) *")}
           </span>
           <div className="border-2 border-dashed border-muted rounded-xl p-4 flex flex-col items-center gap-2 hover:border-primary cursor-pointer">
             <UploadCloud className="h-8 w-8 text-muted-foreground" />
             <span className="text-sm font-semibold">
-              {proof ? proof.name : isAr ? "اضغط لاختيار صورة" : "Click to choose image"}
+              {proof ? proof.name : t("page_checkout_manual.click_to_choose_image", "Click to choose image")}
             </span>
             <input
               type="file"
@@ -425,10 +426,8 @@ const CheckoutManual = () => {
       >
         {submitting ? (
           <Loader2 className="h-5 w-5 animate-spin mx-auto" />
-        ) : isAr ? (
-          "إرسال الطلب"
         ) : (
-          "Submit Request"
+          t("page_checkout_manual.submit_request", "Submit Request")
         )}
       </button>
     </div>

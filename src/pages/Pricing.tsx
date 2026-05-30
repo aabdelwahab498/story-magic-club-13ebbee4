@@ -9,7 +9,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useState } from "react";
 
 const Pricing = () => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -31,15 +31,13 @@ const Pricing = () => {
     <div className="py-4 sm:py-6">
       <header className="text-center mb-8 animate-fade-in">
         <span className="inline-block px-4 py-1.5 rounded-full bg-kids-softPurple text-primary text-sm font-bold mb-3">
-          💰 {isAr ? "اختر خطتك" : "Choose your plan"}
+          💰 {t("page_pricing.choose_your_plan", "Choose your plan")}
         </span>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground mb-3">
-          {isAr ? "خطط بسيطة وعادلة" : "Simple, fair pricing"}
+          {t("page_pricing.simple_fair_pricing", "Simple, fair pricing")}
         </h1>
         <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-          {isAr
-            ? "ادفع بالجنيه أو الدولار — InstaPay أو Vodafone Cash — مع إثبات يدوي."
-            : "Pay in EGP or USD — InstaPay or Vodafone Cash — with manual proof."}
+          {t("page_pricing.pay_in_egp_or_usd_instapay_or_vodafone_c", "Pay in EGP or USD — InstaPay or Vodafone Cash — with manual proof.")}
         </p>
 
         <div className="inline-flex items-center bg-white/90 dark:bg-card/80 rounded-full p-1 mt-5 border-2 border-white/60 shadow-soft">
@@ -86,7 +84,7 @@ const Pricing = () => {
             >
               {isPremium && (
                 <span className="absolute -top-3 start-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-sunset text-kids-midnight text-xs font-bold shadow-soft whitespace-nowrap">
-                  ⭐ {isAr ? "الأكثر طلباً" : "Most popular"}
+                  ⭐ {t("page_pricing.most_popular", "Most popular")}
                 </span>
               )}
               <div className="flex items-center gap-2 mb-2">
@@ -108,7 +106,7 @@ const Pricing = () => {
                 {currency === "USD" && <span className="text-2xl font-bold text-primary">{symbol}</span>}
                 <span className="text-5xl font-extrabold text-primary">{price}</span>
                 {currency === "EGP" && <span className="text-lg font-bold">{symbol}</span>}
-                <span className="text-muted-foreground text-sm ms-1">/ {isAr ? "شهر" : "mo"}</span>
+                <span className="text-muted-foreground text-sm ms-1">/ {t("page_pricing.mo", "mo")}</span>
               </div>
 
               <ul className="space-y-2 mb-5">
@@ -116,9 +114,7 @@ const Pricing = () => {
                   <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <span>
                     {plan.monthly_story_limit >= 999
-                      ? isAr
-                        ? "قصص غير محدودة"
-                        : "Unlimited stories"
+                      ? t("page_pricing.unlimited_stories", "Unlimited stories")
                       : isAr
                       ? `${plan.monthly_story_limit} قصة شهرياً`
                       : `${plan.monthly_story_limit} stories/month`}
@@ -143,16 +139,10 @@ const Pricing = () => {
                 )}
               >
                 {isCurrent
-                  ? isAr
-                    ? "خطتك الحالية"
-                    : "Current plan"
+                  ? t("page_pricing.current_plan", "Current plan")
                   : isFree
-                  ? isAr
-                    ? "ابدأ مجاناً"
-                    : "Start free"
-                  : isAr
-                  ? "اشترك الآن"
-                  : "Subscribe"}
+                  ? t("page_pricing.start_free", "Start free")
+                  : t("page_pricing.subscribe", "Subscribe")}
               </button>
             </article>
           );
@@ -160,9 +150,7 @@ const Pricing = () => {
       </div>
 
       <p className="text-center text-xs text-muted-foreground max-w-xl mx-auto mt-8">
-        {isAr
-          ? "بعد التحويل ارفع إثبات الدفع وسيتم تفعيل اشتراكك خلال 24 ساعة."
-          : "After transferring, upload your proof — your subscription is activated within 24 hours."}
+        {t("page_pricing.after_transferring_upload_your_proof_you", "After transferring, upload your proof — your subscription is activated within 24 hours.")}
       </p>
     </div>
   );

@@ -28,7 +28,7 @@ export default function AdminPlansPage() {
       setPlans(await fetchAllPlans());
     } catch (e) {
       console.error(e);
-      toast.error(isAr ? "فشل تحميل الباقات" : "Failed to load plans");
+      toast.error(t("admin_plans.failed_to_load_plans", "Failed to load plans"));
     } finally {
       setLoading(false);
     }
@@ -54,10 +54,10 @@ export default function AdminPlansPage() {
         active: !!plan.active,
         sort_order: Number(plan.sort_order) || 0,
       });
-      toast.success(isAr ? "تم الحفظ" : "Saved");
+      toast.success(t("admin_plans.saved", "Saved"));
     } catch (e) {
       console.error(e);
-      toast.error(isAr ? "فشل الحفظ" : "Save failed");
+      toast.error(t("admin_plans.save_failed", "Save failed"));
     } finally {
       setSaving(null);
     }
@@ -76,12 +76,10 @@ export default function AdminPlansPage() {
       <header>
         <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
           <Crown className="h-6 w-6 text-primary" />
-          {isAr ? "باقات الاشتراك" : "Subscription Plans"}
+          {t("admin_plans.subscription_plans", "Subscription Plans")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {isAr
-            ? "تحكم في الأسعار وحدود القصص والميزات المدفوعة (الرسوم، PDF، الصوت)."
-            : "Control pricing, monthly story limits, and paid features (illustrations, PDF, audio)."}
+          {t("admin_plans.control_pricing_monthly_story_limits_and", "Control pricing, monthly story limits, and paid features (illustrations, PDF, audio).")}
         </p>
       </header>
 
@@ -99,7 +97,7 @@ export default function AdminPlansPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">{isAr ? "السعر (جنيه)" : "Price (EGP)"}</Label>
+                <Label className="text-xs">{t("admin_plans.price_egp", "Price (EGP)")}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -109,7 +107,7 @@ export default function AdminPlansPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs">{isAr ? "السعر (دولار)" : "Price (USD)"}</Label>
+                <Label className="text-xs">{t("admin_plans.price_usd", "Price (USD)")}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -122,7 +120,7 @@ export default function AdminPlansPage() {
 
             <div>
               <Label className="text-xs">
-                {isAr ? "حد القصص الشهري" : "Monthly story limit"}
+                {t("admin_plans.monthly_story_limit", "Monthly story limit")}
               </Label>
               <Input
                 type="number"
@@ -135,25 +133,25 @@ export default function AdminPlansPage() {
             <div className="space-y-2 pt-2 border-t">
               <FeatureToggle
                 icon={<ImageIcon className="h-4 w-4" />}
-                label={isAr ? "توليد الرسوم" : "Illustrations"}
+                label={t("admin_plans.illustrations", "Illustrations")}
                 checked={plan.allow_illustrations}
                 onChange={(v) => patch(plan.id, { allow_illustrations: v })}
               />
               <FeatureToggle
                 icon={<FileText className="h-4 w-4" />}
-                label={isAr ? "تنزيل PDF" : "Download PDF"}
+                label={t("admin_plans.download_pdf", "Download PDF")}
                 checked={plan.allow_pdf}
                 onChange={(v) => patch(plan.id, { allow_pdf: v })}
               />
               <FeatureToggle
                 icon={<Headphones className="h-4 w-4" />}
-                label={isAr ? "كتاب صوتي (ElevenLabs)" : "Audio Book (ElevenLabs)"}
+                label={t("admin_plans.audio_book_elevenlabs", "Audio Book (ElevenLabs)")}
                 checked={plan.allow_audio}
                 onChange={(v) => patch(plan.id, { allow_audio: v })}
               />
               <FeatureToggle
                 icon={<Power className="h-4 w-4" />}
-                label={isAr ? "الباقة مفعلة" : "Plan active"}
+                label={t("admin_plans.plan_active", "Plan active")}
                 checked={plan.active}
                 onChange={(v) => patch(plan.id, { active: v })}
               />
@@ -171,7 +169,7 @@ export default function AdminPlansPage() {
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              {isAr ? "حفظ" : "Save"}
+              {t("admin_plans.save", "Save")}
             </Button>
           </Card>
         ))}
@@ -180,22 +178,19 @@ export default function AdminPlansPage() {
   );
 }
 
-function PermissionsPreview({ plan, isAr }: { plan: SubscriptionPlan; isAr: boolean }) {
+function PermissionsPreview({ plan }: { plan: SubscriptionPlan; isAr?: boolean }) {
+  const { t } = useTranslation();
   const limit = Number(plan.monthly_story_limit) || 0;
   const unlimited = limit >= 999;
   const limitText = unlimited
-    ? isAr ? "غير محدود" : "Unlimited"
-    : isAr ? `${limit} قصة/شهر` : `${limit} stories/month`;
+    ? t("admin_plans.unlimited", "Unlimited")
+    : t("admin_plans.stories_per_month", "{{count}} stories/month", { count: limit });
 
   const overLimitMsg = unlimited
-    ? isAr ? "لا حدود." : "No cap."
+    ? t("admin_plans.no_cap", "No cap.")
     : limit <= 1
-    ? isAr
-      ? "بعد التجربة المجانية: تُخفى أزرار التوليد ويظهر شارة Premium تنقل إلى /pricing."
-      : "After the free trial: generate buttons are hidden and a Premium badge linking to /pricing is shown."
-    : isAr
-      ? "عند تجاوز الحد: يُمنع التوليد ويظهر toast بترقية الباقة مع زر يفتح /pricing."
-      : "When over limit: generation is blocked and a toast prompts an upgrade with a button to /pricing.";
+    ? t("admin_plans.after_the_free_trial_generate_buttons_ar", "After the free trial: generate buttons are hidden and a Premium badge linking to /pricing is shown.")
+    : t("admin_plans.when_over_limit_generation_is_blocked_an", "When over limit: generation is blocked and a toast prompts an upgrade with a button to /pricing.");
 
   const Row = ({ on, label }: { on: boolean; label: string }) => (
     <div className={`flex items-center justify-between text-xs rounded-lg px-2 py-1 ${on ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>
@@ -207,16 +202,16 @@ function PermissionsPreview({ plan, isAr }: { plan: SubscriptionPlan; isAr: bool
   return (
     <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-3 space-y-2">
       <div className="text-xs font-bold text-primary">
-        {isAr ? "ملخص الصلاحيات (معاينة)" : "Permissions Summary (Preview)"}
+        {t("admin_plans.permissions_summary_preview", "Permissions Summary (Preview)")}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Row on={true} label={isAr ? "إنشاء قصة" : "Create story"} />
-        <Row on={plan.allow_illustrations} label={isAr ? "الصور" : "Illustrations"} />
-        <Row on={plan.allow_pdf} label={isAr ? "PDF" : "PDF"} />
-        <Row on={plan.allow_audio} label={isAr ? "الصوت" : "Audio"} />
+        <Row on={true} label={t("admin_plans.create_story", "Create story")} />
+        <Row on={plan.allow_illustrations} label={t("admin_plans.illustrations_2", "Illustrations")} />
+        <Row on={plan.allow_pdf} label="PDF" />
+        <Row on={plan.allow_audio} label={t("admin_plans.audio", "Audio")} />
       </div>
       <div className="text-[11px] flex items-center justify-between border-t border-primary/20 pt-2">
-        <span className="text-muted-foreground">{isAr ? "الحد الشهري:" : "Monthly limit:"}</span>
+        <span className="text-muted-foreground">{t("admin_plans.monthly_limit", "Monthly limit:")}</span>
         <span className="font-bold">{limitText}</span>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed">{overLimitMsg}</p>
