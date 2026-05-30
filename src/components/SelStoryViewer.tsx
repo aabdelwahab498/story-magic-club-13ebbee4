@@ -42,6 +42,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // Cached playback position so pause → play resumes exactly where we left off,
   // even if the browser drops the decoded buffer for a data: URL.
   const audioPositionRef = useRef<number>(0);
+  // Client-side dedup: any (storyId,pageIndex) currently being illustrated is
+  // tracked here. Repeated Retry presses for the same page are no-ops while a
+  // job is in-flight — this prevents duplicate edge function calls / charges.
+  const inFlightPagesRef = useRef<Set<number>>(new Set());
   const page = pages[idx];
 
   const currentPath = `${location.pathname}${location.search}`;
