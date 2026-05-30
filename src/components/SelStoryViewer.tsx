@@ -247,13 +247,16 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
       audio.onended = () => {
         audioRef.current = null;
+        audioPositionRef.current = 0;
         setAudioState("idle");
       };
       audio.onerror = () => {
         audioRef.current = null;
+        audioPositionRef.current = 0;
         setAudioState("idle");
         toast.error("Playback failed");
       };
+      audioPositionRef.current = 0;
       audioRef.current = audio;
       await audio.play();
       setAudioState("playing");
