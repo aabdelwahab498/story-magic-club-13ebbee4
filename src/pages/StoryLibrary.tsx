@@ -61,15 +61,35 @@ const StoryLibrary = () => {
     const load = async () => {
       const { data, error } = await supabase
         .from("stories")
-        .select("id,title,description,content,image,age_range,duration,gallery")
+        .select("id,title,description,content,image,age_range,duration,gallery,created_by")
         .eq("published", true)
         .order("created_at", { ascending: true });
       if (error) {
         toast.error(t("common.error"));
       } else {
         const list = (data as unknown as DBStory[]) || [];
-        setStories(list);
-        setSelected(list[0] || null);
+        const creatorIds = Array.from(
+          new Set(list.map((s) => s.created_by).filter((v): v is string => !!v)),
+        );
+        let authorMap: Record<string, string> = {};
+        if (creatorIds.length > 0) {
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("user_id,display_name")
+            .in("user_id", creatorIds);
+          authorMap = Object.fromEntries(
+            (profs ?? []).map((p) => [
+              p.user_id as string,
+              (p.display_name as string | null)?.trim() || "",
+            ]),
+          );
+        }
+        const enriched = list.map((s) => ({
+          ...s,
+          author_name: s.created_by ? authorMap[s.created_by] || "" : "",
+        }));
+        setStories(enriched);
+        setSelected(enriched[0] || null);
       }
       setLoading(false);
     };
