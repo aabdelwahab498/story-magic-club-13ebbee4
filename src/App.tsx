@@ -123,6 +123,7 @@ const App = () => (
                       <Route path="settings" element={<AdminSettingsPage />} />
                     </Route>
                   </Route>
+                  <Route path="/test/illustrate-harness" element={<IllustrateHarness />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
