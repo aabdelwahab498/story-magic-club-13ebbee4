@@ -5,6 +5,10 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { decryptApiKey } from "./byokCrypto.ts";
+
+// Only these tiers may use a personal API key in the generation pipeline.
+const BYOK_ELIGIBLE_TIERS = new Set(["pro_creator", "elite_publisher"]);
 
 export interface UserProvider {
   source: "user";
