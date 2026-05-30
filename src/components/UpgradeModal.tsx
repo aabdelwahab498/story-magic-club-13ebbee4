@@ -100,7 +100,7 @@ const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
                       {t("upgrade_modal.pdf", "PDF export")}
                     </li>
                   )}
-                  {(p.tier === "pro_creator" || p.tier === "elite_publisher") && (
+                  {(String(p.tier) === "pro_creator" || String(p.tier) === "elite_publisher") && (
                     <li className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                       <KeyRound className="h-3 w-3" />
                       {t("upgrade_modal.byok", "Bring your own API key (unlimited)")}
