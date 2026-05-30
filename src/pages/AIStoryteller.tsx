@@ -217,15 +217,18 @@ const AIStoryteller = () => {
       // ── Step 2: Illustrations (background, non-blocking)
       // Guest gets all images via Pollinations (no AI credits burned).
       setGuestIllustrating(true);
-      generateTrialIllustrations({
-        pages: res.pages.map((p) => ({
-          index: p.index,
-          illustrationPrompt: p.illustrationPrompt,
-          emotionTag: p.emotionTag,
-        })),
-        childName,
-        theme: themeLabel,
-      })
+      generateTrialIllustrations(
+        {
+          pages: res.pages.map((p) => ({
+            index: p.index,
+            illustrationPrompt: p.illustrationPrompt,
+            emotionTag: p.emotionTag,
+          })),
+          childName,
+          theme: themeLabel,
+        },
+        { trigger: "user", source: "AIStoryteller.guestTrialChained" },
+      )
         .then((ill) => {
           // Map into the shape the existing UI expects (ClassicIllustration[]).
           setIllustrations(

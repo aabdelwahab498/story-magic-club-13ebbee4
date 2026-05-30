@@ -144,12 +144,24 @@ export interface TrialIllustrateResponse {
   ready: number;
 }
 
-export async function generateTrialIllustrations(input: {
-  pages: { index: number; illustrationPrompt: string; emotionTag?: string }[];
-  childName?: string;
-  theme?: string;
-}): Promise<TrialIllustrateResponse> {
-  const { data, error } = await supabase.functions.invoke("trial-illustrate", { body: input });
+export async function generateTrialIllustrations(
+  input: {
+    pages: { index: number; illustrationPrompt: string; emotionTag?: string }[];
+    childName?: string;
+    theme?: string;
+  },
+  meta: { trigger?: "user" | "auto"; source?: string } = {},
+): Promise<TrialIllustrateResponse> {
+  const trigger = meta.trigger ?? "auto";
+  const source = meta.source ?? "unknown";
+  if (trigger !== "user") {
+    console.error("[trial-illustrate] BLOCKED auto/unattributed invoke", { source, stack: new Error().stack });
+    throw new Error("trial-illustrate must be user-triggered (pass { trigger: 'user' })");
+  }
+  console.info("[trial-illustrate] user-triggered invoke", { source, pages: input.pages.length });
+  const { data, error } = await supabase.functions.invoke("trial-illustrate", {
+    body: { ...input, trigger: "user", triggerSource: source },
+  });
   if (error) {
     console.warn("[trial-illustrate] soft-fail:", error);
     return { illustrations: [], total: 0, ready: 0 };

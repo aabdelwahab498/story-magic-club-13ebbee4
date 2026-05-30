@@ -111,7 +111,11 @@ serve(async (req) => {
   if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
   try {
-    const raw = (await req.json().catch(() => ({}))) as ReqBody;
+    const raw = (await req.json().catch(() => ({}))) as ReqBody & { trigger?: string; triggerSource?: string };
+    if ((raw as { trigger?: string })?.trigger !== "user") {
+      console.error("[trial-illustrate] BLOCKED non-user trigger", { trigger: (raw as { trigger?: string })?.trigger, source: (raw as { triggerSource?: string })?.triggerSource });
+      return json({ error: "trigger_required", message: "trial-illustrate requires { trigger: 'user' }" }, 403, corsHeaders);
+    }
     if (!Array.isArray(raw?.pages) || raw.pages.length === 0) {
       return json({ error: "missing_pages" }, 400, corsHeaders);
     }

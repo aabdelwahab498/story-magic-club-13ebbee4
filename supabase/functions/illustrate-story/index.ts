@@ -212,7 +212,13 @@ serve(async (req) => {
     if (cl > 65_536) return json({ error: "payload_too_large" }, 413, corsHeaders);
 
   try {
-    const body = (await req.json().catch(() => ({}))) as ReqBody;
+    const body = (await req.json().catch(() => ({}))) as ReqBody & { trigger?: string; triggerSource?: string };
+    // Function B contract: illustration generation MUST be user-triggered.
+    // Reject any unattributed call even if a client bug slips through.
+    if (body?.trigger !== "user") {
+      console.error("[illustrate-story] BLOCKED non-user trigger", { trigger: body?.trigger, source: body?.triggerSource });
+      return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
+    }
     if (!body?.storyId || typeof body.storyId !== "string" || body.storyId.length > 64
         || !Array.isArray(body?.pages) || body.pages.length === 0 || body.pages.length > 20
         || !body?.characterVisualHash || typeof body.characterVisualHash !== "string") {

@@ -380,28 +380,77 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         const ready = pages.filter((p) => !!p.imageUrl).length;
         const total = pages.length;
         const allReady = ready === total && total > 0;
+        const failedCount = Object.values(pageStatus).filter((s) => s === "failed").length;
+        const pendingCount = Object.values(pageStatus).filter((s) => s === "pending").length;
         return (
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs">
-            <ImageIcon className="h-3.5 w-3.5 text-foreground/60 dark:text-white/60" />
-            <span
-              className={`px-2 py-0.5 rounded-full font-semibold ${
-                allReady
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                  : ready > 0
-                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                  : "bg-foreground/10 text-foreground/70 dark:text-white/70"
-              }`}
-              aria-live="polite"
-            >
-              {illustrating
-                ? t("sel.illustrations_pending", `Generating illustrations… ${ready}/${total}`)
-                : allReady
-                ? t("sel.illustrations_ready", `All illustrations ready (${total}/${total})`)
-                : t("sel.illustrations_status", `Illustrations: ${ready}/${total} ready`)}
-            </span>
+          <div className="mt-4 flex flex-col items-center gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5 text-foreground/60 dark:text-white/60" />
+              <span
+                data-testid="illustration-readiness-badge"
+                className={`px-2 py-0.5 rounded-full font-semibold ${
+                  allReady
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    : ready > 0
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    : "bg-foreground/10 text-foreground/70 dark:text-white/70"
+                }`}
+                aria-live="polite"
+              >
+                {illustrating
+                  ? t("sel.illustrations_pending", `Generating illustrations… ${ready}/${total}`)
+                  : allReady
+                  ? t("sel.illustrations_ready", `All illustrations ready (${total}/${total})`)
+                  : t("sel.illustrations_status", `Illustrations: ${ready}/${total} ready`)}
+              </span>
+            </div>
+            {/* Per-page progress dots: queued / generating / complete / error */}
+            <div className="flex flex-wrap gap-1 justify-center" data-testid="illustration-progress-strip">
+              {pages.map((p) => {
+                const status = p.imageUrl
+                  ? "complete"
+                  : pageStatus[p.index] === "pending"
+                  ? "generating"
+                  : pageStatus[p.index] === "failed"
+                  ? "error"
+                  : "queued";
+                const cls =
+                  status === "complete"
+                    ? "bg-emerald-500"
+                    : status === "generating"
+                    ? "bg-primary animate-pulse"
+                    : status === "error"
+                    ? "bg-destructive"
+                    : "bg-foreground/20 dark:bg-white/30";
+                return (
+                  <span
+                    key={p.index}
+                    data-testid={`illustration-page-${p.index}`}
+                    data-status={status}
+                    title={`Page ${p.index}: ${status}${pageError[p.index] ? ` — ${pageError[p.index]}` : ""}`}
+                    className={`h-2 w-4 rounded-sm ${cls}`}
+                  />
+                );
+              })}
+            </div>
+            {failedCount > 0 && !illustrating && (
+              <button
+                data-testid="illustration-retry-failed"
+                onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
+                className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1"
+              >
+                {t("sel.retry_failed", `Retry ${failedCount} failed`)}
+              </button>
+            )}
+            {pendingCount > 0 && (
+              <span className="text-[11px] text-muted-foreground dark:text-white/60">
+                {t("sel.illustrations_queue", `${pendingCount} in queue`)}
+              </span>
+            )}
           </div>
         );
       })()}
+
 
       <div className="mt-6 flex flex-wrap justify-center gap-3">
 
@@ -448,6 +497,8 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
             const allReady = pages.length > 0 && pages.every((p) => !!p.imageUrl);
             return (
               <button
+                data-testid="illustrate-download-button"
+                data-all-ready={allReady ? "true" : "false"}
                 onClick={async () => {
                   if (!allReady) await runIllustrate(pages);
                   if (!requireSubscription("pdf")) return;

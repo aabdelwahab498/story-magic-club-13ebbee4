@@ -98,7 +98,7 @@ export async function generateClassicIllustrations(
   }
   const { data, error } = await supabase.functions.invoke(
     "generate-classic-illustrations",
-    { body: input },
+    { body: { ...input, trigger: "user", triggerSource: source } },
   );
   if (error) throw error;
   return data as ClassicIllustrationsResponse;

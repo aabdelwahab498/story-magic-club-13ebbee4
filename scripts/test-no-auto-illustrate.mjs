@@ -41,17 +41,32 @@ if (/useEffect\([^}]*generateSceneIllustrations\(/s.test(teller))
   fail("AIStoryteller has a useEffect that calls generateSceneIllustrations.");
 else ok("AIStoryteller does not auto-trigger illustrations.");
 
-// 4. ripgrep cross-check: every invoke("illustrate-story" | "generate-classic-illustrations")
-//    must live inside the lib helpers (selStoryApi.ts / aiStoryApi.ts).
+// 4. ripgrep cross-check: every invoke("illustrate-story" | "generate-classic-illustrations" | "trial-illustrate")
+//    must live inside the lib helpers (selStoryApi.ts / aiStoryApi.ts / trialStoryApi.ts).
 const grep = execSync(
-  `grep -RIn --include='*.ts' --include='*.tsx' -E 'invoke\\("(illustrate-story|generate-classic-illustrations)"' src/ || true`,
+  `grep -RIn --include='*.ts' --include='*.tsx' -E 'invoke\\("(illustrate-story|generate-classic-illustrations|trial-illustrate)"' src/ || true`,
   { encoding: "utf8" },
 );
-const offenders = grep.split("\n").filter(Boolean).filter((l) => !/src\/lib\/(selStoryApi|aiStoryApi)\.ts/.test(l));
+const offenders = grep.split("\n").filter(Boolean).filter((l) => !/src\/lib\/(selStoryApi|aiStoryApi|trialStoryApi)\.ts/.test(l));
 if (offenders.length) {
   fail("Illustration edge function invoked outside lib helpers:\n" + offenders.join("\n"));
 } else {
   ok("All illustration invokes go through lib helpers (single chokepoint).");
+}
+
+// 5. Server-side hardening: every illustration edge function must reject calls
+//    without trigger:"user" — defense in depth if a client bug slips through.
+for (const fn of [
+  "supabase/functions/illustrate-story/index.ts",
+  "supabase/functions/generate-classic-illustrations/index.ts",
+  "supabase/functions/trial-illustrate/index.ts",
+]) {
+  const src = readFileSync(fn, "utf8");
+  if (!/trigger\s*!==\s*"user"/.test(src) || !/trigger_required/.test(src)) {
+    fail(`${fn} is missing server-side trigger:"user" guard.`);
+  } else {
+    ok(`${fn} rejects non-user triggers (403 trigger_required).`);
+  }
 }
 
 if (process.exitCode) {
