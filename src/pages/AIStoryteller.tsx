@@ -438,6 +438,8 @@ const AIStoryteller = () => {
   const [narrationState, setNarrationState] = useState<"idle" | "loading" | "playing" | "paused">("idle");
   const browserTtsRef = useRef<BrowserTtsHandle | null>(null);
   const hdAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Remember the last playback position so we resume exactly where the user paused.
+  const hdAudioPositionRef = useRef<number>(0);
   // Which voice engine is currently driving the narration (null = idle)
   const [activeVoiceSource, setActiveVoiceSource] = useState<"hd" | "browser" | null>(null);
 
@@ -628,6 +630,7 @@ const AIStoryteller = () => {
       hdAudioRef.current.src = "";
       hdAudioRef.current = null;
     }
+    hdAudioPositionRef.current = 0;
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
@@ -668,13 +671,28 @@ const AIStoryteller = () => {
     if (!story) return;
 
     if (narrationState === "playing") {
-      hdAudioRef.current?.pause();
+      // Capture current position BEFORE pausing so we can resume exactly here.
+      if (hdAudioRef.current) {
+        hdAudioPositionRef.current = hdAudioRef.current.currentTime;
+        hdAudioRef.current.pause();
+      }
       browserTtsRef.current?.pause();
       setNarrationState("paused");
       return;
     }
     if (narrationState === "paused") {
-      hdAudioRef.current?.play().catch(() => {});
+      if (hdAudioRef.current) {
+        // Restore position in case the browser reset it (some engines reset
+        // currentTime when src is a data: URL and the buffer was evicted).
+        try {
+          if (hdAudioPositionRef.current > 0) {
+            hdAudioRef.current.currentTime = hdAudioPositionRef.current;
+          }
+        } catch {
+          /* setting currentTime can throw if media isn't ready — ignore */
+        }
+        hdAudioRef.current.play().catch(() => {});
+      }
       browserTtsRef.current?.resume();
       setNarrationState("playing");
       return;
@@ -693,14 +711,17 @@ const AIStoryteller = () => {
           const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
           audio.onended = () => {
             hdAudioRef.current = null;
+            hdAudioPositionRef.current = 0;
             setNarrationState("idle");
             setActiveVoiceSource(null);
           };
           audio.onerror = () => {
             hdAudioRef.current = null;
+            hdAudioPositionRef.current = 0;
             setNarrationState("idle");
             setActiveVoiceSource(null);
           };
+          hdAudioPositionRef.current = 0;
           hdAudioRef.current = audio;
           await audio.play();
           setNarrationState("playing");

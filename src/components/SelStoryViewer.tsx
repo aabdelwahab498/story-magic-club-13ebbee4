@@ -32,6 +32,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
   const [audioState, setAudioState] = useState<"idle" | "loading" | "playing" | "paused">("idle");
   const audioRef = useRef<HTMLAudioElement | BrowserTtsHandle | null>(null);
+  // Cached playback position so pause → play resumes exactly where we left off,
+  // even if the browser drops the decoded buffer for a data: URL.
+  const audioPositionRef = useRef<number>(0);
   const page = pages[idx];
 
   const currentPath = `${location.pathname}${location.search}`;
@@ -178,19 +181,36 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       }
       audioRef.current = null;
     }
+    audioPositionRef.current = 0;
     setAudioState("idle");
   };
 
   const handleNarrate = async () => {
     if (audioState === "playing") {
-      audioRef.current?.pause();
+      if (audioRef.current && !("cancel" in audioRef.current)) {
+        // HTMLAudioElement → remember position before pausing.
+        audioPositionRef.current = audioRef.current.currentTime;
+        audioRef.current.pause();
+      } else {
+        audioRef.current?.pause();
+      }
       setAudioState("paused");
       return;
     }
     if (audioState === "idle" && !requireSubscription("audio")) return;
     if (audioState === "paused") {
-      if (audioRef.current && "resume" in audioRef.current) audioRef.current.resume();
-      else if (audioRef.current && "play" in audioRef.current) audioRef.current.play().catch(() => {});
+      if (audioRef.current && "resume" in audioRef.current) {
+        audioRef.current.resume();
+      } else if (audioRef.current && "play" in audioRef.current) {
+        try {
+          if (audioPositionRef.current > 0) {
+            audioRef.current.currentTime = audioPositionRef.current;
+          }
+        } catch {
+          /* currentTime assignment can throw before metadata loads */
+        }
+        audioRef.current.play().catch(() => {});
+      }
       setAudioState("playing");
       return;
     }
@@ -227,13 +247,16 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
       audio.onended = () => {
         audioRef.current = null;
+        audioPositionRef.current = 0;
         setAudioState("idle");
       };
       audio.onerror = () => {
         audioRef.current = null;
+        audioPositionRef.current = 0;
         setAudioState("idle");
         toast.error("Playback failed");
       };
+      audioPositionRef.current = 0;
       audioRef.current = audio;
       await audio.play();
       setAudioState("playing");
