@@ -154,7 +154,9 @@ export async function illustrateSelStory(
     console.error("[illustrate-story] BLOCKED auto/unattributed invoke", { source, stack: new Error().stack });
     throw new Error("illustrate-story must be user-triggered (pass { trigger: 'user' })");
   }
-  const { data, error } = await supabase.functions.invoke("illustrate-story", { body: input });
+  const { data, error } = await supabase.functions.invoke("illustrate-story", {
+    body: { ...input, trigger: "user", triggerSource: source },
+  });
   if (error) throw error;
   if ((data as { blocked?: boolean })?.blocked) {
     throw new SubscriptionRequiredError((data as { feature?: string }).feature ?? "illustrations");
