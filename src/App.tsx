@@ -29,6 +29,8 @@ const Store = lazy(() => import("./pages/Store"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Family = lazy(() => import("./pages/Family"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
 const ParentDashboard = lazy(() => import("./pages/ParentDashboard"));
 const AdminDashboardLayout = lazy(() => import("./pages/admin/AdminDashboardLayout"));
 const AdminDashboardOverview = lazy(() => import("./pages/admin/AdminDashboardOverview"));
@@ -97,6 +99,8 @@ const App = () => (
                     <Route path="pricing" element={<Pricing />} />
                     <Route path="family" element={<Family />} />
                     <Route path="about" element={<About />} />
+                    <Route path="privacy" element={<Privacy />} />
+                    <Route path="terms" element={<Terms />} />
                     <Route element={<ProtectedRoute />}>
                       <Route path="parent" element={<ParentDashboard />} />
                     <Route path="checkout/manual" element={<CheckoutManual />} />

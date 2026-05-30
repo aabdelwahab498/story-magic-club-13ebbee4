@@ -69,6 +69,14 @@ const Footer = () => {
           <Link to="/contact" className="hover:text-primary transition-colors">
             {t("nav.contact")}
           </Link>
+          <span aria-hidden="true" className="opacity-40">•</span>
+          <Link to="/privacy" className="hover:text-primary transition-colors">
+            {t("nav.privacy", "Privacy Policy")}
+          </Link>
+          <span aria-hidden="true" className="opacity-40">•</span>
+          <Link to="/terms" className="hover:text-primary transition-colors">
+            {t("nav.terms", "Terms of Service")}
+          </Link>
         </nav>
 
         <p className="text-xs text-muted-foreground text-center">
