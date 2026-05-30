@@ -1525,6 +1525,15 @@ const AIStoryteller = () => {
           )}
         </div>
       )}
+      <UpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        reason={
+          sub.plan?.monthly_story_limit
+            ? t("upgrade_modal.reason_used_all", "You've used all {{count}} stories on your current plan this month.", { count: sub.plan.monthly_story_limit })
+            : undefined
+        }
+      />
     </div>
   );
 };
