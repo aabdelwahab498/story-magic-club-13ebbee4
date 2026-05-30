@@ -47,6 +47,14 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // tracked here. Repeated Retry presses for the same page are no-ops while a
   // job is in-flight — this prevents duplicate edge function calls / charges.
   const inFlightPagesRef = useRef<Set<number>>(new Set());
+  // Mirrored in state so the Retry button can disable per-page (the button
+  // must stay disabled WHILE a failed page is being retried, then re-enable
+  // only after the new result returns).
+  const [retryingFailedPages, setRetryingFailedPages] = useState<Set<number>>(new Set());
+  // Polite, screen-reader-only announcer for status transitions and toast
+  // phases (queued / generating / page X ready / page X failed). Mirrors the
+  // toast lifecycle so blind users get the same progress narrative.
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const page = pages[idx];
 
   const currentPath = `${location.pathname}${location.search}`;
