@@ -1421,45 +1421,66 @@ export type Database = {
       user_api_keys: {
         Row: {
           api_key: string
+          api_key_ciphertext: string | null
+          api_key_iv: string | null
           base_url: string | null
           capabilities: string[]
           created_at: string
           enabled: boolean
+          encryption_version: number
           id: string
           image_model: string | null
+          key_fingerprint: string | null
+          key_last4: string | null
           label: string | null
+          last_validated_at: string | null
           provider: string
           text_model: string | null
           updated_at: string
           user_id: string
+          validation_status: string | null
         }
         Insert: {
           api_key: string
+          api_key_ciphertext?: string | null
+          api_key_iv?: string | null
           base_url?: string | null
           capabilities?: string[]
           created_at?: string
           enabled?: boolean
+          encryption_version?: number
           id?: string
           image_model?: string | null
+          key_fingerprint?: string | null
+          key_last4?: string | null
           label?: string | null
+          last_validated_at?: string | null
           provider: string
           text_model?: string | null
           updated_at?: string
           user_id: string
+          validation_status?: string | null
         }
         Update: {
           api_key?: string
+          api_key_ciphertext?: string | null
+          api_key_iv?: string | null
           base_url?: string | null
           capabilities?: string[]
           created_at?: string
           enabled?: boolean
+          encryption_version?: number
           id?: string
           image_model?: string | null
+          key_fingerprint?: string | null
+          key_last4?: string | null
           label?: string | null
+          last_validated_at?: string | null
           provider?: string
           text_model?: string | null
           updated_at?: string
           user_id?: string
+          validation_status?: string | null
         }
         Relationships: []
       }
