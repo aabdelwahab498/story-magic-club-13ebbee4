@@ -40,7 +40,9 @@ export function getUserContext(): UserAIContext | undefined {
 
 interface KeyRow {
   provider: string;
-  api_key: string;
+  api_key: string | null;
+  api_key_ciphertext: string | null;
+  api_key_iv: string | null;
   base_url: string | null;
   text_model: string | null;
   image_model: string | null;
