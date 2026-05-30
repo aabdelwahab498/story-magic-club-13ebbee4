@@ -42,6 +42,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // Cached playback position so pause → play resumes exactly where we left off,
   // even if the browser drops the decoded buffer for a data: URL.
   const audioPositionRef = useRef<number>(0);
+  // Client-side dedup: any (storyId,pageIndex) currently being illustrated is
+  // tracked here. Repeated Retry presses for the same page are no-ops while a
+  // job is in-flight — this prevents duplicate edge function calls / charges.
+  const inFlightPagesRef = useRef<Set<number>>(new Set());
   const page = pages[idx];
 
   const currentPath = `${location.pathname}${location.search}`;
@@ -80,33 +84,71 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       toast.error("Sign in to generate illustrations");
       return;
     }
+    // Idempotency / dedup — drop pages already being illustrated. If the user
+    // mashes Retry the second press becomes a no-op (no duplicate jobs).
+    const pending = targetPages.filter((p) => !inFlightPagesRef.current.has(p.index));
+    if (pending.length === 0) {
+      toast.message(t("sel.illustrations_already_running", "Illustration already in progress"));
+      return;
+    }
+    pending.forEach((p) => inFlightPagesRef.current.add(p.index));
+
+    const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
+    // Idempotency key: stable for this batch so a server with dedup support can
+    // reject duplicate posts and the UI can correlate toasts.
+    const idempotencyKey = `${story.story_id}:${pending
+      .map((p) => p.index)
+      .join("-")}:${Date.now()}`;
+
     setIllustrating(true);
+    const queuedAt = Date.now();
+    setPageQueuedAt((s) => {
+      const n = { ...s };
+      pending.forEach((p) => (n[p.index] = queuedAt));
+      return n;
+    });
     setPageStatus((s) => {
       const n = { ...s };
-      targetPages.forEach((p) => (n[p.index] = "pending"));
+      pending.forEach((p) => (n[p.index] = "pending"));
       return n;
     });
     const startedAt = Date.now();
     setPageStartedAt((s) => {
       const n = { ...s };
-      targetPages.forEach((p) => (n[p.index] = startedAt));
+      pending.forEach((p) => (n[p.index] = startedAt));
       return n;
     });
+    // Toast lifecycle: queued → generating → success/error. Same id so each
+    // phase replaces the prior toast instead of stacking.
+    toast.message(
+      t("sel.toast_queued", `Queued ${pending.length} illustration${pending.length === 1 ? "" : "s"}`),
+      { id: batchKey, description: t("sel.toast_queued_desc", "Sending request to the AI illustrator…") },
+    );
+    setTimeout(() => {
+      if (inFlightPagesRef.current.size > 0) {
+        toast.loading(
+          t("sel.toast_generating", `Generating ${pending.length} illustration${pending.length === 1 ? "" : "s"}…`),
+          { id: batchKey },
+        );
+      }
+    }, 250);
     try {
       console.info("[SelStoryViewer] illustrate requested by user", {
         storyId: story.story_id,
-        pages: targetPages.map((p) => p.index),
+        pages: pending.map((p) => p.index),
         startedAt,
+        idempotencyKey,
       });
       const res = await illustrateSelStory({
         storyId: story.story_id,
-        pages: targetPages.map((p) => ({
+        pages: pending.map((p) => ({
           index: p.index,
           illustrationPrompt: p.illustrationPrompt,
           emotionTag: p.emotionTag,
         })),
         characterVisualHash: story.character_visual_hash,
         characterProfile: (story.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? null,
+        idempotencyKey,
       }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
 
       const map = new Map(res.illustrations.map((i) => [i.index, i]));
@@ -125,24 +167,39 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         return n;
       });
       const failed = res.illustrations.filter((r) => r.status !== "ready").length;
-      if (failed === 0) toast.success("Illustrations ready");
-      else toast.warning(`${res.illustrations.length - failed} ready, ${failed} failed`);
+      if (failed === 0) {
+        toast.success(t("sel.toast_success", "Illustrations ready"), { id: batchKey });
+      } else {
+        toast.error(
+          t("sel.toast_partial_fail", `${res.illustrations.length - failed} ready, ${failed} failed`),
+          {
+            id: batchKey,
+            description: t("sel.toast_retry_hint", "Tap Retry to try the failed pages again."),
+          },
+        );
+      }
     } catch (e) {
       console.error(e);
       if (e instanceof SubscriptionRequiredError) {
         toast.error(t("paywall.feature_requires_paid", "This feature requires a paid plan"), {
+          id: batchKey,
           description: t("paywall.illustrations", "Illustrations"),
           action: { label: t("paywall.upgrade_cta", "Upgrade"), onClick: goPricing },
         });
       } else {
+        toast.error(t("sel.toast_failed", "Illustration job failed"), {
+          id: batchKey,
+          description: t("sel.toast_failed_desc", "Something went wrong — tap Retry to try again."),
+        });
         await handleEdgeError(e, t, { context: "illustrate-story" });
       }
       setPageStatus((s) => {
         const n = { ...s };
-        targetPages.forEach((p) => (n[p.index] = "failed"));
+        pending.forEach((p) => (n[p.index] = "failed"));
         return n;
       });
     } finally {
+      pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
       setIllustrating(false);
     }
   };

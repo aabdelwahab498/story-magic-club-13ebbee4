@@ -44,6 +44,7 @@ const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminStoryEnginePage = lazy(() => import("./pages/admin/AdminStoryEnginePage"));
 const AdminAiModelsPage = lazy(() => import("./pages/admin/AdminAiModelsPage"));
 const CheckoutManual = lazy(() => import("./pages/CheckoutManual"));
+const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
 const AccountSubscription = lazy(() => import("./pages/AccountSubscription"));
 const MyAiStories = lazy(() => import("./pages/MyAiStories"));
@@ -123,6 +124,7 @@ const App = () => (
                       <Route path="settings" element={<AdminSettingsPage />} />
                     </Route>
                   </Route>
+                  <Route path="/test/illustrate-harness" element={<IllustrateHarness />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

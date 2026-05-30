@@ -125,6 +125,12 @@ export interface IllustrateInput {
   characterVisualHash: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
+  /**
+   * Optional client-generated idempotency key. The frontend dedups in-flight
+   * jobs locally; this key lets the server (when it supports it) collapse
+   * duplicate POSTs from retries or accidental double-clicks into one job.
+   */
+  idempotencyKey?: string;
 }
 
 export interface IllustrateResponse {
