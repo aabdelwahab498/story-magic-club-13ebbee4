@@ -52,14 +52,14 @@ Deno.serve(async (req) => {
     const todayStr = today.toISOString().slice(0, 10);
 
     if (!existing) {
-      const { error } = await admin.from("reading_streaks").insert({
+      const { error } = await admin.from("reading_streaks").upsert({
         user_id: userId,
         current_streak: 1,
         longest_streak: 1,
         last_active_date: todayStr,
         total_stories_read: 1,
         total_minutes: minutesRead,
-      });
+      }, { onConflict: "user_id" });
       if (error) throw error;
       return new Response(JSON.stringify({ current_streak: 1, longest_streak: 1 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
