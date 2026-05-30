@@ -200,7 +200,25 @@ interface ReqBody {
   characterVisualHash: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
+  idempotencyKey?: string;
 }
+
+// In-memory idempotency cache (best-effort, per warm instance). Collapses
+// concurrent + recently-completed duplicate jobs keyed by user + idempotencyKey
+// + the page set being requested. TTL keeps results retrievable while a slow
+// retry click is still in flight, but short enough that genuine future
+// regeneration with the same key still works.
+const IDEMPOTENCY_TTL_MS = 5 * 60_000;
+type IdempotencyEntry = {
+  expiresAt: number;
+  promise: Promise<{ storyId: string; illustrations: { index: number; imageUrl: string | null; status: string; error?: string }[] }>;
+};
+const idempotencyCache = new Map<string, IdempotencyEntry>();
+function gcIdempotency() {
+  const now = Date.now();
+  for (const [k, v] of idempotencyCache) if (v.expiresAt < now) idempotencyCache.delete(k);
+}
+
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -278,55 +296,77 @@ serve(async (req) => {
       return json({ error: "subscription_required", feature: "illustrations", blocked: true }, 200, corsHeaders);
     }
 
-    const results: { index: number; imageUrl: string | null; status: string; error?: string }[] = [];
     const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
 
     // Load user-supplied image API keys (used first so credits go on their account)
     const userCtx = await loadUserAIContext(userId);
     const userImageKeys = userCtx.imageKeys;
 
-    // Generate all pages in parallel to stay under the 150s edge idle timeout.
-    // Sequential generation of 10+ images at ~15-30s each would always time out.
-    const tasks = body.pages.map(async (page) => {
-      const palette = colorPaletteFor(page.emotionTag);
-      const prompt =
-        `${style}, consistent picture-book series, same main child in every image. ` +
-        `${characterLock} Scene: ${page.illustrationPrompt}. ` +
-        `Color palette: ${palette}. Emotion: ${page.emotionTag}. ` +
-        `Do not redesign the child, outfit, hair, skin tone, age, proportions, or signature item. ` +
-        `Child-safe, no text in image, gentle composition, full scene, no logos, no watermark.`;
+    const runGeneration = async () => {
+      // Generate all pages in parallel to stay under the 150s edge idle timeout.
+      const tasks = body.pages.map(async (page) => {
+        const palette = colorPaletteFor(page.emotionTag);
+        const prompt =
+          `${style}, consistent picture-book series, same main child in every image. ` +
+          `${characterLock} Scene: ${page.illustrationPrompt}. ` +
+          `Color palette: ${palette}. Emotion: ${page.emotionTag}. ` +
+          `Do not redesign the child, outfit, hair, skin tone, age, proportions, or signature item. ` +
+          `Child-safe, no text in image, gentle composition, full scene, no logos, no watermark.`;
 
-      try {
-        const seed = stableSeed(`${body.characterVisualHash}|${page.index}`);
-        const gen = await tryGenerate(prompt, seed, userImageKeys);
-        if (!gen.ok) {
-          console.error(`[illustrate] page ${page.index} pollinations failed status=${gen.status} body=${gen.body}`);
-          await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
-          return { index: page.index, imageUrl: null, status: "failed", error: `pollinations:${gen.status}` };
+        try {
+          const seed = stableSeed(`${body.characterVisualHash}|${page.index}`);
+          const gen = await tryGenerate(prompt, seed, userImageKeys);
+          if (!gen.ok) {
+            console.error(`[illustrate] page ${page.index} pollinations failed status=${gen.status} body=${gen.body}`);
+            await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
+            return { index: page.index, imageUrl: null, status: "failed", error: `pollinations:${gen.status}` };
+          }
+          const path = `${userId}/${body.storyId}/page-${page.index}.${gen.ext}`;
+          const { error: upErr } = await admin.storage
+            .from("story-images")
+            .upload(path, gen.bytes, { contentType: gen.mime, upsert: true });
+          if (upErr) {
+            console.error(`[illustrate] upload page ${page.index} failed`, upErr);
+            await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
+            return { index: page.index, imageUrl: null, status: "failed", error: "upload_failed" };
+          }
+          const { data: pub } = supabase.storage.from("story-images").getPublicUrl(path);
+          const url = pub.publicUrl;
+          await persist(supabase, body.storyId, userId, page, prompt, url, "ready", body.characterVisualHash, style);
+          return { index: page.index, imageUrl: url, status: "ready" };
+        } catch (e) {
+          console.error(`[illustrate] page ${page.index} unexpected error`, e);
+          return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
         }
-        const path = `${userId}/${body.storyId}/page-${page.index}.${gen.ext}`;
-        const { error: upErr } = await admin.storage
-          .from("story-images")
-          .upload(path, gen.bytes, { contentType: gen.mime, upsert: true });
-        if (upErr) {
-          console.error(`[illustrate] upload page ${page.index} failed`, upErr);
-          await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
-          return { index: page.index, imageUrl: null, status: "failed", error: "upload_failed" };
-        }
-        const { data: pub } = supabase.storage.from("story-images").getPublicUrl(path);
-        const url = pub.publicUrl;
-        await persist(supabase, body.storyId, userId, page, prompt, url, "ready", body.characterVisualHash, style);
-        return { index: page.index, imageUrl: url, status: "ready" };
-      } catch (e) {
-        console.error(`[illustrate] page ${page.index} unexpected error`, e);
-        return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
-      }
-    });
+      });
+      const settled = await Promise.all(tasks);
+      return {
+        storyId: body.storyId,
+        illustrations: settled.sort((a, b) => a.index - b.index),
+      };
+    };
 
-    const settled = await Promise.all(tasks);
-    results.push(...settled.sort((a, b) => a.index - b.index));
+    // Server-side idempotency: collapse duplicate posts with the same key +
+    // page set into one underlying job. In-flight calls await the same
+    // Promise; recently-completed calls (within TTL) replay the cached result.
+    gcIdempotency();
+    const pageSig = body.pages.map((p) => p.index).sort((a, b) => a - b).join(",");
+    const cacheKey = body.idempotencyKey
+      ? `u:${userId}|s:${body.storyId}|k:${body.idempotencyKey}|p:${pageSig}`
+      : null;
+    let payload;
+    if (cacheKey && idempotencyCache.has(cacheKey)) {
+      console.info("[illustrate-story] idempotency hit", { cacheKey });
+      payload = await idempotencyCache.get(cacheKey)!.promise;
+      return json({ ...payload, idempotent: true }, 200, corsHeaders);
+    }
+    const promise = runGeneration();
+    if (cacheKey) {
+      idempotencyCache.set(cacheKey, { promise, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
+    }
+    payload = await promise;
+    return json(payload, 200, corsHeaders);
 
-    return json({ storyId: body.storyId, illustrations: results }, 200, corsHeaders);
   } catch (e) {
     console.error("illustrate-story error", e);
     return json({ error: e instanceof Error ? e.message : "unknown" }, 500, corsHeaders);

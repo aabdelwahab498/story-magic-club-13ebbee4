@@ -144,4 +144,61 @@ test.describe("illustrate flow", () => {
     // Retry disables again once nothing has failed.
     await expect(retry).toBeDisabled();
   });
+
+  test("partial failure: retry payload only includes failed pages, others stay ready", async ({ page }) => {
+    const requestBodies: { pageIndices: number[]; idempotencyKey?: string }[] = [];
+    let calls = 0;
+    await page.route(ILLUSTRATE_URL, async (route) => {
+      calls += 1;
+      const post = route.request().postDataJSON() as {
+        pages?: { index: number }[];
+        idempotencyKey?: string;
+      };
+      requestBodies.push({
+        pageIndices: (post.pages ?? []).map((p) => p.index),
+        idempotencyKey: post.idempotencyKey,
+      });
+      const body = calls === 1
+        ? buildResponse([
+            { index: 1, ok: true },
+            { index: 2, ok: false, error: "ai_timeout" },
+            { index: 3, ok: false, error: "ai_timeout" },
+          ])
+        : buildResponse(
+            (post.pages ?? []).map((p) => ({ index: p.index, ok: true })),
+          );
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(body),
+      });
+    });
+
+    await page.goto("/test/illustrate-harness");
+    await page.getByTestId("harness-illustrate").click();
+
+    // Mixed state visible: 1 ready, 2 failed.
+    await expect(page.getByTestId("illustration-page-1")).toHaveAttribute("data-status", "complete");
+    await expect(page.getByTestId("illustration-page-2")).toHaveAttribute("data-status", "error");
+    await expect(page.getByTestId("illustration-page-3")).toHaveAttribute("data-status", "error");
+    await expect(page.getByTestId("illustration-readiness-badge"))
+      .toContainText(/1\/3 ready/);
+
+    const retry = page.getByTestId("illustration-retry-failed");
+    await expect(retry).toContainText(/Retry 2 failed/);
+    await retry.click();
+
+    await expect(page.getByTestId("illustration-readiness-badge"))
+      .toHaveText(/All illustrations ready \(3\/3\)/);
+
+    // Exactly two network calls: initial + one retry.
+    expect(calls).toBe(2);
+    // Retry must NOT re-request page 1 (already ready).
+    expect(requestBodies[1].pageIndices.sort()).toEqual([2, 3]);
+    // Both requests carry an idempotencyKey so the server can dedup.
+    expect(requestBodies[0].idempotencyKey).toBeTruthy();
+    expect(requestBodies[1].idempotencyKey).toBeTruthy();
+    expect(requestBodies[0].idempotencyKey).not.toBe(requestBodies[1].idempotencyKey);
+  });
 });
+
