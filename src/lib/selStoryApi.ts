@@ -171,8 +171,10 @@ export async function illustrateSelStory(
 }
 
 
-export async function exportStoryPdf(storyId: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("export-story-pdf", { body: { storyId } });
+export async function exportStoryPdf(storyId: string, opts: { force?: boolean } = {}): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("export-story-pdf", {
+    body: { storyId, force: opts.force === true },
+  });
   if (error) throw error;
   if ((data as { blocked?: boolean })?.blocked) {
     throw new SubscriptionRequiredError((data as { feature?: string }).feature ?? "pdf");
@@ -181,3 +183,4 @@ export async function exportStoryPdf(storyId: string): Promise<string> {
   if (!url) throw new Error("no_pdf_url");
   return url;
 }
+
