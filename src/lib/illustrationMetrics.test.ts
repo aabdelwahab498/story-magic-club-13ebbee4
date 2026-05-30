@@ -32,6 +32,7 @@ const ALL_CLIENT_EVENTS: IllustrationMetricEvent[] = [
   "complete",
   "failed",
   "idempotent_replay",
+  "idempotent_join",
   "trigger_rejected",
 ];
 
