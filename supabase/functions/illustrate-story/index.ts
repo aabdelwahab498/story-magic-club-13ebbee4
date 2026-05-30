@@ -200,7 +200,25 @@ interface ReqBody {
   characterVisualHash: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
+  idempotencyKey?: string;
 }
+
+// In-memory idempotency cache (best-effort, per warm instance). Collapses
+// concurrent + recently-completed duplicate jobs keyed by user + idempotencyKey
+// + the page set being requested. TTL keeps results retrievable while a slow
+// retry click is still in flight, but short enough that genuine future
+// regeneration with the same key still works.
+const IDEMPOTENCY_TTL_MS = 5 * 60_000;
+type IdempotencyEntry = {
+  expiresAt: number;
+  promise: Promise<{ storyId: string; illustrations: { index: number; imageUrl: string | null; status: string; error?: string }[] }>;
+};
+const idempotencyCache = new Map<string, IdempotencyEntry>();
+function gcIdempotency() {
+  const now = Date.now();
+  for (const [k, v] of idempotencyCache) if (v.expiresAt < now) idempotencyCache.delete(k);
+}
+
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
