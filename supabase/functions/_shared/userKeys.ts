@@ -71,6 +71,41 @@ const TEXT_DEFAULTS: Record<string, { url: string; model: string; headers?: Reco
   },
 };
 
+async function userIsByokEligible(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("user_subscriptions")
+    .select("plan_tier, status, expires_at")
+    .eq("user_id", userId)
+    .eq("status", "active");
+  if (error) {
+    console.error("[userKeys] tier lookup failed", error);
+    return false;
+  }
+  const now = Date.now();
+  return (data ?? []).some(
+    (s: any) =>
+      BYOK_ELIGIBLE_TIERS.has(s.plan_tier) &&
+      (!s.expires_at || new Date(s.expires_at).getTime() > now),
+  );
+}
+
+async function resolvePlaintextKey(row: KeyRow): Promise<string | null> {
+  // Prefer encrypted ciphertext (new path). Fall back to legacy plaintext only
+  // if the row was created before encryption was rolled out.
+  if (row.api_key_ciphertext && row.api_key_iv) {
+    try {
+      return await decryptApiKey(row.api_key_ciphertext, row.api_key_iv);
+    } catch (e) {
+      console.error("[userKeys] decrypt failed", e);
+      return null;
+    }
+  }
+  return row.api_key && row.api_key.length > 0 ? row.api_key : null;
+}
+
 export async function loadUserAIContext(userId: string): Promise<UserAIContext> {
   const empty: UserAIContext = { userId, textProviders: [], imageKeys: [] };
   try {
@@ -78,9 +113,17 @@ export async function loadUserAIContext(userId: string): Promise<UserAIContext> 
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Tier gate: only Pro Creator / Elite Publisher may inject personal keys.
+    if (!(await userIsByokEligible(supabase, userId))) {
+      return empty;
+    }
+
     const { data, error } = await supabase
       .from("user_api_keys")
-      .select("provider, api_key, base_url, text_model, image_model, capabilities, enabled, label")
+      .select(
+        "provider, api_key, api_key_ciphertext, api_key_iv, base_url, text_model, image_model, capabilities, enabled, label",
+      )
       .eq("user_id", userId)
       .eq("enabled", true);
     if (error) {
@@ -95,6 +138,8 @@ export async function loadUserAIContext(userId: string): Promise<UserAIContext> 
     for (const row of rows) {
       const caps = row.capabilities ?? ["text", "image"];
       const label = row.label ? row.label.replace(/[^a-z0-9_-]/gi, "").slice(0, 12) : "";
+      const plain = await resolvePlaintextKey(row);
+      if (!plain) continue;
 
       // text
       if (caps.includes("text")) {
@@ -104,7 +149,7 @@ export async function loadUserAIContext(userId: string): Promise<UserAIContext> 
             source: "user",
             name: `user:${row.provider}${label ? `:${label}` : ""}`,
             url: row.base_url || def.url,
-            key: row.api_key,
+            key: plain,
             models: [row.text_model || def.model],
             extraHeaders: def.headers,
           });
@@ -113,7 +158,7 @@ export async function loadUserAIContext(userId: string): Promise<UserAIContext> 
             source: "user",
             name: `user:custom${label ? `:${label}` : ""}`,
             url: row.base_url,
-            key: row.api_key,
+            key: plain,
             models: [row.text_model],
           });
         }
@@ -124,7 +169,7 @@ export async function loadUserAIContext(userId: string): Promise<UserAIContext> 
         if (row.provider === "openai" || row.provider === "google" || row.provider === "stability" || row.provider === "replicate" || row.provider === "custom") {
           imageKeys.push({
             provider: row.provider,
-            apiKey: row.api_key,
+            apiKey: plain,
             model: row.image_model ?? undefined,
             baseUrl: row.base_url ?? undefined,
           });
