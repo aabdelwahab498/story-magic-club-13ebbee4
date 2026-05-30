@@ -78,13 +78,24 @@ export interface ClassicIllustrationsResponse {
 
 /** Generates illustrations for the classic AI Storyteller flow.
  *  Cover image is free for everyone; additional scenes require a paid plan. */
-export async function generateClassicIllustrations(input: {
-  scenes: string[];
-  character?: string;
-  theme?: string;
-  ageId?: string;
-  language?: string;
-}): Promise<ClassicIllustrationsResponse> {
+export async function generateClassicIllustrations(
+  input: {
+    scenes: string[];
+    character?: string;
+    theme?: string;
+    ageId?: string;
+    language?: string;
+  },
+  meta: { trigger?: "user" | "auto"; source?: string } = {},
+): Promise<ClassicIllustrationsResponse> {
+  const trigger = meta.trigger ?? "auto";
+  const source = meta.source ?? "unknown";
+  if (trigger === "user") {
+    console.info("[generate-classic-illustrations] user-triggered invoke", { source, scenes: input.scenes.length });
+  } else {
+    console.error("[generate-classic-illustrations] BLOCKED auto/unattributed invoke", { source, stack: new Error().stack });
+    throw new Error("generate-classic-illustrations must be user-triggered (pass { trigger: 'user' })");
+  }
   const { data, error } = await supabase.functions.invoke(
     "generate-classic-illustrations",
     { body: input },
@@ -92,3 +103,4 @@ export async function generateClassicIllustrations(input: {
   if (error) throw error;
   return data as ClassicIllustrationsResponse;
 }
+
