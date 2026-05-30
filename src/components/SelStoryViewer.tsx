@@ -102,6 +102,19 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     }
     pending.forEach((p) => inFlightPagesRef.current.add(p.index));
 
+    // Track which of the in-flight pages were previously "failed" so the
+    // Retry button can stay disabled per-page until the retry returns.
+    const retryingNow = pending
+      .filter((p) => pageStatus[p.index] === "failed")
+      .map((p) => p.index);
+    if (retryingNow.length > 0) {
+      setRetryingFailedPages((s) => {
+        const n = new Set(s);
+        retryingNow.forEach((i) => n.add(i));
+        return n;
+      });
+    }
+
     const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
     // Idempotency key: stable for this batch so a server with dedup support can
     // reject duplicate posts and the UI can correlate toasts.
@@ -127,6 +140,18 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       pending.forEach((p) => (n[p.index] = startedAt));
       return n;
     });
+    setLiveAnnouncement(
+      t("sel.live_queued", `Queued ${pending.length} illustration${pending.length === 1 ? "" : "s"}.`),
+    );
+    pending.forEach((p) =>
+      recordIllustrationMetric({
+        event: "queued",
+        storyId: story.story_id!,
+        idempotencyKey,
+        pageIndex: p.index,
+        source: "SelStoryViewer",
+      }),
+    );
     // Toast lifecycle: queued → generating → success/error. Same id so each
     // phase replaces the prior toast instead of stacking.
     toast.message(
@@ -139,6 +164,15 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           t("sel.toast_generating", `Generating ${pending.length} illustration${pending.length === 1 ? "" : "s"}…`),
           { id: batchKey },
         );
+        setLiveAnnouncement(
+          t("sel.live_generating", `Generating ${pending.length} illustration${pending.length === 1 ? "" : "s"}.`),
+        );
+        recordIllustrationMetric({
+          event: "generating",
+          storyId: story.story_id!,
+          idempotencyKey,
+          source: "SelStoryViewer",
+        });
       }
     }, 250);
     try {
@@ -160,6 +194,17 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         idempotencyKey,
       }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
 
+      const latencyMs = Date.now() - startedAt;
+      if ((res as { idempotent?: boolean }).idempotent) {
+        recordIllustrationMetric({
+          event: "idempotent_replay",
+          storyId: story.story_id!,
+          idempotencyKey,
+          latencyMs,
+          source: "SelStoryViewer",
+        });
+      }
+
       const map = new Map(res.illustrations.map((i) => [i.index, i]));
       setPages((prev) => prev.map((p) => {
         const r = map.get(p.index);
@@ -175,9 +220,24 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         res.illustrations.forEach((r) => (n[r.index] = r.error));
         return n;
       });
+      res.illustrations.forEach((r) =>
+        recordIllustrationMetric({
+          event: r.status === "ready" ? "complete" : "failed",
+          storyId: story.story_id!,
+          idempotencyKey,
+          pageIndex: r.index,
+          status: r.status,
+          error: r.error,
+          latencyMs,
+          source: "SelStoryViewer",
+        }),
+      );
       const failed = res.illustrations.filter((r) => r.status !== "ready").length;
       if (failed === 0) {
         toast.success(t("sel.toast_success", "Illustrations ready"), { id: batchKey });
+        setLiveAnnouncement(
+          t("sel.live_all_ready", `All ${res.illustrations.length} illustrations are ready.`),
+        );
       } else {
         toast.error(
           t("sel.toast_partial_fail", `${res.illustrations.length - failed} ready, ${failed} failed`),
@@ -185,6 +245,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
             id: batchKey,
             description: t("sel.toast_retry_hint", "Tap Retry to try the failed pages again."),
           },
+        );
+        setLiveAnnouncement(
+          t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} failed. Retry available.`),
         );
       }
     } catch (e) {
@@ -207,14 +270,35 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         pending.forEach((p) => (n[p.index] = "failed"));
         return n;
       });
+      pending.forEach((p) =>
+        recordIllustrationMetric({
+          event: "failed",
+          storyId: story.story_id!,
+          idempotencyKey,
+          pageIndex: p.index,
+          error: e instanceof Error ? e.message : "unknown",
+          source: "SelStoryViewer",
+        }),
+      );
+      setLiveAnnouncement(
+        t("sel.live_failed", "Illustration job failed. You can retry."),
+      );
     } finally {
       pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
+      if (retryingNow.length > 0) {
+        setRetryingFailedPages((s) => {
+          const n = new Set(s);
+          retryingNow.forEach((i) => n.delete(i));
+          return n;
+        });
+      }
       setIllustrating(false);
     }
   };
 
   const handleIllustrate = () => runIllustrate(pages);
   const handleRetryPage = () => runIllustrate([page]);
+
 
   // Illustrations are user-triggered only — generation no longer auto-fires
   // when a story arrives. Users tap the "Illustrate" button (handleIllustrate)
