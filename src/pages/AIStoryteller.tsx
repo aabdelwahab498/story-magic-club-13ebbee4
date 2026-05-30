@@ -623,7 +623,14 @@ const AIStoryteller = () => {
         stopProgressTimeline("idle");
         const info = await handleEdgeError(error, t, { context: "generate-story" });
         setErrorDetails(info);
-        setLastError(error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
+        const fallback = error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed"));
+        if (looksLikeApiKeyFailure(info, fallback)) {
+          const msg = apiKeyErrorMessage();
+          toast.error(msg);
+          setLastError(msg);
+        } else {
+          setLastError(fallback);
+        }
         return;
       }
       const text = (data as { story: string }).story || "";
