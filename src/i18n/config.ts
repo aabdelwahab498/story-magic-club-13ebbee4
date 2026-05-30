@@ -35,10 +35,12 @@ i18n
       es: { translation: es },
     },
     fallbackLng: "en",
+    // Default to English; only switch if the user has explicitly chosen
+    // another language (persisted to localStorage by the LanguageSwitcher).
     supportedLngs: SUPPORTED_LANGUAGES.map((l) => l.code),
     interpolation: { escapeValue: false },
     detection: {
-      order: ["localStorage", "navigator", "htmlTag"],
+      order: ["localStorage"],
       caches: ["localStorage"],
       lookupLocalStorage: "starry-tales-language",
     },

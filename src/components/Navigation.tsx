@@ -291,7 +291,7 @@ const Navigation = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/parent" className="cursor-pointer gap-2">
-                      <UserIcon className="h-4 w-4" /> {t("nav.parent_dashboard", "My account")}
+                      <UserIcon className="h-4 w-4" /> {t("nav.profile", "Profile")}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

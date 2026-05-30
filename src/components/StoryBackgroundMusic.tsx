@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Music, MusicIcon, Loader2, VolumeX } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function StoryBackgroundMusic({ theme = "friendship", mood = "calm", active }: Props) {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -54,8 +56,8 @@ export default function StoryBackgroundMusic({ theme = "friendship", mood = "cal
       if (data?.fallback || !data?.audioUrl) {
         toast.info(
           data?.error === "subscription_required"
-            ? "موسيقى الخلفية متاحة في الباقة المدفوعة"
-            : "تعذّر توليد الموسيقى الآن",
+            ? t("story_music.subscription_required", "Background music is available on paid plans")
+            : t("story_music.generation_failed", "Could not generate music right now"),
         );
         return;
       }
@@ -63,7 +65,7 @@ export default function StoryBackgroundMusic({ theme = "friendship", mood = "cal
       setEnabled(true);
     } catch (e) {
       console.error(e);
-      toast.error("فشل تحميل الموسيقى");
+      toast.error(t("story_music.load_failed", "Failed to load music"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,9 @@ export default function StoryBackgroundMusic({ theme = "friendship", mood = "cal
           <Music className="h-4 w-4" />
         )}
         <span className="text-xs">
-          {enabled ? "موسيقى مشغّلة" : "موسيقى خلفية AI"}
+          {enabled
+            ? t("story_music.playing", "Music playing")
+            : t("story_music.enable", "AI background music")}
         </span>
       </Button>
       {enabled && (
