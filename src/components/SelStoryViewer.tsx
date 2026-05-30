@@ -132,19 +132,15 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const handleIllustrate = () => runIllustrate(pages);
   const handleRetryPage = () => runIllustrate([page]);
 
-  // Auto-generate illustrations as soon as the story arrives, if the user is allowed.
-  // This removes the manual "click Illustrate" step so images appear with the story.
+  // Illustrations are user-triggered only — generation no longer auto-fires
+  // when a story arrives. Users tap the "Illustrate" button (handleIllustrate)
+  // to request images. Keeping illustrations behind an explicit click separates
+  // the story-text pipeline from the image pipeline (per Function A / B split).
   const autoIllustratedRef = useRef(false);
   useEffect(() => {
-    if (autoIllustratedRef.current) return;
-    if (subLoading) return;
-    if (!user || !canIllustrate) return;
-    if (!story.story_id) return;
-    if (pages.some((p) => p.imageUrl)) { autoIllustratedRef.current = true; return; }
-    autoIllustratedRef.current = true;
-    runIllustrate(pages);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subLoading, canIllustrate, user, story.story_id]);
+    // Mark existing illustrated stories so we don't re-trigger if logic changes later.
+    if (pages.some((p) => p.imageUrl)) autoIllustratedRef.current = true;
+  }, [pages]);
 
   const handleExportPdf = async () => {
     if (!requireSubscription("pdf")) return;
