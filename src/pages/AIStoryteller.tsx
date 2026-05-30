@@ -97,6 +97,8 @@ const AIStoryteller = () => {
   const { active: activeChild } = useActiveChild();
   const { user } = useAuth();
   const sub = useSubscription();
+  const byok = useByokStatus();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const [characterId, setCharacterId] = useState<(typeof CHARACTER_KEYS)[number]>("wizard");
   const [themeId, setThemeId] = useState<(typeof THEME_KEYS)[number]>("adventure");
