@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Trophy, Brush, ArrowRight, Heart } from "lucide-react";
 import CountdownTimer from "./CountdownTimer";
-import { getWeeklyDeadline } from "@/lib/mockCompetition";
+import { getWeeklyDeadline } from "@/lib/competitionDates";
 import { useWinnerOfTheWeek } from "@/lib/contentApi";
 import { getLocalized } from "@/lib/multilingual";
 
