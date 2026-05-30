@@ -189,9 +189,16 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     if (audioState === "playing") {
       if (audioRef.current && !("cancel" in audioRef.current)) {
         // HTMLAudioElement → remember position before pausing.
-        audioPositionRef.current = audioRef.current.currentTime;
+        audioPositionRef.current = (audioRef.current as HTMLAudioElement).currentTime;
+        console.debug(
+          "[SelViewer] PAUSE @",
+          audioPositionRef.current.toFixed(3),
+          "s / duration",
+          (audioRef.current as HTMLAudioElement).duration,
+        );
         audioRef.current.pause();
       } else {
+        console.debug("[SelViewer] PAUSE (browser TTS)");
         audioRef.current?.pause();
       }
       setAudioState("paused");
@@ -200,16 +207,27 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     if (audioState === "idle" && !requireSubscription("audio")) return;
     if (audioState === "paused") {
       if (audioRef.current && "resume" in audioRef.current) {
+        console.debug("[SelViewer] RESUME (browser TTS)");
         audioRef.current.resume();
       } else if (audioRef.current && "play" in audioRef.current) {
+        const el = audioRef.current as HTMLAudioElement;
+        const before = el.currentTime;
         try {
           if (audioPositionRef.current > 0) {
-            audioRef.current.currentTime = audioPositionRef.current;
+            el.currentTime = audioPositionRef.current;
           }
-        } catch {
-          /* currentTime assignment can throw before metadata loads */
+        } catch (err) {
+          console.debug("[SelViewer] currentTime restore failed", err);
         }
-        audioRef.current.play().catch(() => {});
+        console.debug(
+          "[SelViewer] RESUME — saved",
+          audioPositionRef.current.toFixed(3),
+          "before",
+          before.toFixed(3),
+          "after",
+          el.currentTime.toFixed(3),
+        );
+        el.play().catch((err) => console.debug("[SelViewer] play() rejected", err));
       }
       setAudioState("playing");
       return;
