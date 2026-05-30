@@ -540,6 +540,81 @@ export type Database = {
           },
         ]
       }
+      illustration_job_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          idempotency_key: string
+          page_signature: string
+          result: Json
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          idempotency_key: string
+          page_signature: string
+          result: Json
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          idempotency_key?: string
+          page_signature?: string
+          result?: Json
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      illustration_job_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string
+          id: string
+          idempotency_key: string | null
+          latency_ms: number | null
+          page_index: number | null
+          source: string | null
+          status: string | null
+          story_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event: string
+          id?: string
+          idempotency_key?: string | null
+          latency_ms?: number | null
+          page_index?: number | null
+          source?: string | null
+          status?: string | null
+          story_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string
+          id?: string
+          idempotency_key?: string | null
+          latency_ms?: number | null
+          page_index?: number | null
+          source?: string | null
+          status?: string | null
+          story_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       manual_payment_requests: {
         Row: {
           admin_note: string | null

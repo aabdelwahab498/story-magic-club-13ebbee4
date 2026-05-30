@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Lock, Volume2, Pause, Square } from "lucide-react";
 import type { SelStoryResponse, SelStoryPage } from "@/lib/selStoryApi";
 import { illustrateSelStory, exportStoryPdf, SubscriptionRequiredError } from "@/lib/selStoryApi";
+import { recordIllustrationMetric } from "@/lib/illustrationMetrics";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +47,14 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // tracked here. Repeated Retry presses for the same page are no-ops while a
   // job is in-flight — this prevents duplicate edge function calls / charges.
   const inFlightPagesRef = useRef<Set<number>>(new Set());
+  // Mirrored in state so the Retry button can disable per-page (the button
+  // must stay disabled WHILE a failed page is being retried, then re-enable
+  // only after the new result returns).
+  const [retryingFailedPages, setRetryingFailedPages] = useState<Set<number>>(new Set());
+  // Polite, screen-reader-only announcer for status transitions and toast
+  // phases (queued / generating / page X ready / page X failed). Mirrors the
+  // toast lifecycle so blind users get the same progress narrative.
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const page = pages[idx];
 
   const currentPath = `${location.pathname}${location.search}`;
@@ -93,6 +102,19 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     }
     pending.forEach((p) => inFlightPagesRef.current.add(p.index));
 
+    // Track which of the in-flight pages were previously "failed" so the
+    // Retry button can stay disabled per-page until the retry returns.
+    const retryingNow = pending
+      .filter((p) => pageStatus[p.index] === "failed")
+      .map((p) => p.index);
+    if (retryingNow.length > 0) {
+      setRetryingFailedPages((s) => {
+        const n = new Set(s);
+        retryingNow.forEach((i) => n.add(i));
+        return n;
+      });
+    }
+
     const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
     // Idempotency key: stable for this batch so a server with dedup support can
     // reject duplicate posts and the UI can correlate toasts.
@@ -118,6 +140,18 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       pending.forEach((p) => (n[p.index] = startedAt));
       return n;
     });
+    setLiveAnnouncement(
+      t("sel.live_queued", `Queued ${pending.length} illustration${pending.length === 1 ? "" : "s"}.`),
+    );
+    pending.forEach((p) =>
+      recordIllustrationMetric({
+        event: "queued",
+        storyId: story.story_id!,
+        idempotencyKey,
+        pageIndex: p.index,
+        source: "SelStoryViewer",
+      }),
+    );
     // Toast lifecycle: queued → generating → success/error. Same id so each
     // phase replaces the prior toast instead of stacking.
     toast.message(
@@ -130,6 +164,15 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           t("sel.toast_generating", `Generating ${pending.length} illustration${pending.length === 1 ? "" : "s"}…`),
           { id: batchKey },
         );
+        setLiveAnnouncement(
+          t("sel.live_generating", `Generating ${pending.length} illustration${pending.length === 1 ? "" : "s"}.`),
+        );
+        recordIllustrationMetric({
+          event: "generating",
+          storyId: story.story_id!,
+          idempotencyKey,
+          source: "SelStoryViewer",
+        });
       }
     }, 250);
     try {
@@ -151,6 +194,17 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         idempotencyKey,
       }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
 
+      const latencyMs = Date.now() - startedAt;
+      if ((res as { idempotent?: boolean }).idempotent) {
+        recordIllustrationMetric({
+          event: "idempotent_replay",
+          storyId: story.story_id!,
+          idempotencyKey,
+          latencyMs,
+          source: "SelStoryViewer",
+        });
+      }
+
       const map = new Map(res.illustrations.map((i) => [i.index, i]));
       setPages((prev) => prev.map((p) => {
         const r = map.get(p.index);
@@ -166,9 +220,24 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         res.illustrations.forEach((r) => (n[r.index] = r.error));
         return n;
       });
+      res.illustrations.forEach((r) =>
+        recordIllustrationMetric({
+          event: r.status === "ready" ? "complete" : "failed",
+          storyId: story.story_id!,
+          idempotencyKey,
+          pageIndex: r.index,
+          status: r.status,
+          error: r.error,
+          latencyMs,
+          source: "SelStoryViewer",
+        }),
+      );
       const failed = res.illustrations.filter((r) => r.status !== "ready").length;
       if (failed === 0) {
         toast.success(t("sel.toast_success", "Illustrations ready"), { id: batchKey });
+        setLiveAnnouncement(
+          t("sel.live_all_ready", `All ${res.illustrations.length} illustrations are ready.`),
+        );
       } else {
         toast.error(
           t("sel.toast_partial_fail", `${res.illustrations.length - failed} ready, ${failed} failed`),
@@ -176,6 +245,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
             id: batchKey,
             description: t("sel.toast_retry_hint", "Tap Retry to try the failed pages again."),
           },
+        );
+        setLiveAnnouncement(
+          t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} failed. Retry available.`),
         );
       }
     } catch (e) {
@@ -198,14 +270,35 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         pending.forEach((p) => (n[p.index] = "failed"));
         return n;
       });
+      pending.forEach((p) =>
+        recordIllustrationMetric({
+          event: "failed",
+          storyId: story.story_id!,
+          idempotencyKey,
+          pageIndex: p.index,
+          error: e instanceof Error ? e.message : "unknown",
+          source: "SelStoryViewer",
+        }),
+      );
+      setLiveAnnouncement(
+        t("sel.live_failed", "Illustration job failed. You can retry."),
+      );
     } finally {
       pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
+      if (retryingNow.length > 0) {
+        setRetryingFailedPages((s) => {
+          const n = new Set(s);
+          retryingNow.forEach((i) => n.delete(i));
+          return n;
+        });
+      }
       setIllustrating(false);
     }
   };
 
   const handleIllustrate = () => runIllustrate(pages);
   const handleRetryPage = () => runIllustrate([page]);
+
 
   // Illustrations are user-triggered only — generation no longer auto-fires
   // when a story arrives. Users tap the "Illustrate" button (handleIllustrate)
@@ -506,32 +599,72 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     data-queued-at={pageQueuedAt[p.index] ?? ""}
                     data-started-at={pageStartedAt[p.index] ?? ""}
                     title={tip}
+                    role="img"
+                    aria-label={t("sel.page_status_aria", `Page ${p.index} ${status}`)}
                     className={`h-2 w-4 rounded-sm ${cls}`}
                   />
                 );
+
               })}
             </div>
             {/*
-              Retry button is always rendered so it occupies stable layout
-              space, but stays disabled until at least one failed job is
-              detected (and never while a generation is in flight).
+              Per-page retry rule: stay disabled while ANY currently-failed
+              page is mid-retry (so a second click can't requeue the same
+              page), and re-enable only after the new result returns. Also
+              disabled when no failures exist and during fresh full-batch
+              generations.
             */}
-            <button
-              data-testid="illustration-retry-failed"
-              onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
-              disabled={failedCount === 0 || illustrating}
-              aria-disabled={failedCount === 0 || illustrating}
-              className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {failedCount > 0
-                ? t("sel.retry_failed", `Retry ${failedCount} failed`)
-                : t("sel.retry_failed_idle", "Retry failed")}
-            </button>
+            {(() => {
+              const failedPagesNow = pages
+                .filter((p) => pageStatus[p.index] === "failed")
+                .map((p) => p.index);
+              const someFailedRetrying = failedPagesNow.some((i) => retryingFailedPages.has(i));
+              const disabled = failedCount === 0 || someFailedRetrying || illustrating;
+              return (
+                <button
+                  data-testid="illustration-retry-failed"
+                  onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
+                  disabled={disabled}
+                  aria-disabled={disabled}
+                  aria-label={
+                    someFailedRetrying
+                      ? t("sel.retry_in_progress", "Retrying failed pages")
+                      : failedCount > 0
+                      ? t("sel.retry_failed", `Retry ${failedCount} failed`)
+                      : t("sel.retry_failed_idle", "Retry failed")
+                  }
+                  className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {someFailedRetrying
+                    ? t("sel.retry_in_progress", "Retrying…")
+                    : failedCount > 0
+                    ? t("sel.retry_failed", `Retry ${failedCount} failed`)
+                    : t("sel.retry_failed_idle", "Retry failed")}
+                </button>
+              );
+            })()}
+
             {pendingCount > 0 && (
               <span className="text-[11px] text-muted-foreground dark:text-white/60">
                 {t("sel.illustrations_queue", `${pendingCount} in queue`)}
               </span>
             )}
+            {/*
+              Screen-reader-only live region: announces toast phases and
+              per-batch status changes (queued → generating → ready/failed)
+              for users who can't see the visual toasts or the progress dots.
+              `polite` so it never interrupts in-progress speech.
+            */}
+            <div
+              data-testid="illustration-live-region"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="sr-only"
+            >
+              {liveAnnouncement}
+            </div>
+
           </div>
         );
       })()}
