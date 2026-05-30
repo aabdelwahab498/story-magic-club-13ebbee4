@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   Crown,
   Bot,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,7 @@ const navItems = [
   { titleKey: "admin_dashboard.nav.stories", url: "/admin/dashboard/stories", icon: BookOpen, gradient: "from-kids-pink to-kids-purple", labelFallback: "Stories" },
   { titleKey: "admin_dashboard.nav.story_engine", url: "/admin/dashboard/story-engine", icon: Sparkles, gradient: "from-fuchsia-500 to-violet-500", labelFallback: "Story Engine" },
   { titleKey: "admin_dashboard.nav.ai_models", url: "/admin/dashboard/ai-models", icon: Bot, gradient: "from-violet-500 to-indigo-500", labelFallback: "AI Models" },
+  { titleKey: "admin_dashboard.nav.illustration_analytics", url: "/admin/dashboard/illustration-analytics", icon: Activity, gradient: "from-sky-500 to-cyan-500", labelFallback: "Illustration Analytics" },
   { titleKey: "admin_dashboard.nav.videos", url: "/admin/dashboard/videos", icon: Video, gradient: "from-kids-blue to-accent", labelFallback: "Videos" },
   { titleKey: "admin_dashboard.nav.blog", url: "/admin/dashboard/blog", icon: FileText, gradient: "from-kids-purple to-kids-pink", labelFallback: "Blog" },
   { titleKey: "admin_dashboard.nav.products", url: "/admin/dashboard/products", icon: ShoppingBag, gradient: "from-amber-400 to-orange-500", labelFallback: "Products" },

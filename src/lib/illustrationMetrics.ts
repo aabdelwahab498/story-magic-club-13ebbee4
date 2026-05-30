@@ -25,6 +25,7 @@ export type IllustrationMetricEvent =
   | "complete"
   | "failed"
   | "idempotent_replay"
+  | "idempotent_join"
   | "trigger_rejected";
 
 export interface IllustrationMetric {
