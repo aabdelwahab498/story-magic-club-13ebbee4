@@ -700,12 +700,14 @@ const AIStoryteller = () => {
         if (data?.audioContent && !data?.fallback) {
           const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
           audio.onended = () => {
+            logAudio({ source: "Narrator/HD", kind: "ended", after: audio.currentTime, duration: audio.duration });
             hdAudioRef.current = null;
             hdAudioPositionRef.current = 0;
             setNarrationState("idle");
             setActiveVoiceSource(null);
           };
           audio.onerror = () => {
+            logAudio({ source: "Narrator/HD", kind: "error", message: "audio element error event" });
             hdAudioRef.current = null;
             hdAudioPositionRef.current = 0;
             setNarrationState("idle");
