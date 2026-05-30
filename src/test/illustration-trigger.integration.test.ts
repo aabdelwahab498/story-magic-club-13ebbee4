@@ -25,7 +25,11 @@ const ENDPOINTS = [
 ] as const;
 
 // Allow opt-out (e.g. air-gapped CI) and auto-skip when env not present.
-const ENABLE = !!SUPABASE_URL && !!ANON_KEY && process.env.SKIP_INTEGRATION !== "1";
+const ENABLE =
+  !!SUPABASE_URL &&
+  !!ANON_KEY &&
+  (globalThis as { process?: { env?: Record<string, string> } }).process?.env
+    ?.SKIP_INTEGRATION !== "1";
 
 const post = (fn: string, body: unknown) =>
   fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
