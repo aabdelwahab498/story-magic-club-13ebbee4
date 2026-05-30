@@ -105,6 +105,16 @@ const bucketLabel = (iso: string, bucket: "minute" | "hour" | "day"): string => 
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 };
 
+interface AuditRow {
+  id: string;
+  admin_user_id: string;
+  viewed_at: string;
+  filter_story_id: string | null;
+  filter_idempotency_key: string | null;
+  filter_range: string | null;
+  user_agent: string | null;
+}
+
 export default function AdminIllustrationAnalyticsPage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<EventRow[]>([]);
@@ -112,8 +122,49 @@ export default function AdminIllustrationAnalyticsPage() {
   const [range, setRange] = useState("24h");
   const [storyFilter, setStoryFilter] = useState("");
   const [keyFilter, setKeyFilter] = useState("");
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   const rangeMeta = RANGE_OPTIONS.find((r) => r.value === range) ?? RANGE_OPTIONS[1];
+
+  const loadAudit = async () => {
+    setAuditLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("illustration_analytics_audit")
+        .select(
+          "id, admin_user_id, viewed_at, filter_story_id, filter_idempotency_key, filter_range, user_agent",
+        )
+        .order("viewed_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setAuditRows((data ?? []) as AuditRow[]);
+    } catch (e) {
+      console.error("audit load failed", e);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const recordAudit = async () => {
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return;
+      await supabase.from("illustration_analytics_audit").insert({
+        admin_user_id: uid,
+        filter_story_id: storyFilter.trim() || null,
+        filter_idempotency_key: keyFilter.trim() || null,
+        filter_range: range,
+        user_agent:
+          typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : null,
+        path: typeof window !== "undefined" ? window.location.pathname : null,
+      });
+    } catch (e) {
+      // Non-fatal: audit log should never block analytics use.
+      console.warn("audit insert failed", e);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -132,6 +183,8 @@ export default function AdminIllustrationAnalyticsPage() {
       const { data, error } = await q;
       if (error) throw error;
       setRows((data ?? []) as EventRow[]);
+      void recordAudit();
+      void loadAudit();
     } catch (e) {
       console.error(e);
       toast.error(
