@@ -16,6 +16,8 @@ import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
 import IllustrateButton from "@/components/IllustrateButton";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useByokStatus } from "@/hooks/useByokStatus";
+import UpgradeModal from "@/components/UpgradeModal";
 import { useAuth } from "@/hooks/useAuth";
 import {
   generateTrialStory,
