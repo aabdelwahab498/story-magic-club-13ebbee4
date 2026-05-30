@@ -16,6 +16,8 @@ import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
 import IllustrateButton from "@/components/IllustrateButton";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useByokStatus } from "@/hooks/useByokStatus";
+import UpgradeModal from "@/components/UpgradeModal";
 import { useAuth } from "@/hooks/useAuth";
 import {
   generateTrialStory,
@@ -95,6 +97,8 @@ const AIStoryteller = () => {
   const { active: activeChild } = useActiveChild();
   const { user } = useAuth();
   const sub = useSubscription();
+  const byok = useByokStatus();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const [characterId, setCharacterId] = useState<(typeof CHARACTER_KEYS)[number]>("wizard");
   const [themeId, setThemeId] = useState<(typeof THEME_KEYS)[number]>("adventure");
@@ -144,7 +148,9 @@ const AIStoryteller = () => {
 
   // Gating: signed-in users have a real limit; guests are allowed a couple of trial stories per session.
   const guestMode = !user;
-  const limitReached = !guestMode && !sub.loading && !sub.canCreateStory;
+  // Pro Creator / Elite Publisher with a valid personal key bypass monthly credit cap.
+  const creditsExhausted = !guestMode && !sub.loading && !sub.canCreateStory;
+  const limitReached = creditsExhausted && !byok.bypass;
 
   const buildSelInput = (): SelInput => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
@@ -162,6 +168,24 @@ const AIStoryteller = () => {
     };
   };
 
+  // Heuristic: classify an edge error as a personal-API-key failure when the
+  // user is generating via BYOK and the provider returned an auth/quota error.
+  const looksLikeApiKeyFailure = (info: EdgeErrorInfo | null, rawMsg: string): boolean => {
+    if (!byok.bypass) return false;
+    const status = info?.status ?? 0;
+    const blob = `${rawMsg} ${info?.message ?? ""} ${JSON.stringify(info?.raw ?? {})}`.toLowerCase();
+    if (status === 401 || status === 402 || status === 403) return true;
+    return /api[_ ]?key|invalid_api_key|unauthor|insufficient_quota|billing|payment_required|ai_credits_exhausted|ai_provider_quota/.test(
+      blob,
+    );
+  };
+
+  const apiKeyErrorMessage = () =>
+    t(
+      "ai.errors.api_key_error",
+      "API Key Error: Please check your external billing or key configuration.",
+    );
+
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
     const info = await handleEdgeError(e, t, { context: "compose-story" });
@@ -174,13 +198,18 @@ const AIStoryteller = () => {
     };
     setErrorDetails(mergedInfo);
     console.error("[compose-story] failed", { mergedInfo, raw: e });
-    setLastError(
-      (typeof mergedInfo.raw === "object" && mergedInfo.raw && typeof (mergedInfo.raw as { message?: string }).message === "string"
-        ? (mergedInfo.raw as { message: string }).message
-        : null) ||
+    const fallback = (typeof mergedInfo.raw === "object" && mergedInfo.raw && typeof (mergedInfo.raw as { message?: string }).message === "string"
+      ? (mergedInfo.raw as { message: string }).message
+      : null) ||
       mergedInfo.message ||
-      (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")))
-    );
+      (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
+    if (looksLikeApiKeyFailure(mergedInfo, fallback)) {
+      const msg = apiKeyErrorMessage();
+      toast.error(msg);
+      setLastError(msg);
+      return;
+    }
+    setLastError(fallback);
   };
 
   // Guest path: route to the trial-story edge function (anonymous-friendly).
@@ -320,7 +349,7 @@ const AIStoryteller = () => {
     if (guestMode) return runGuestTrial();
 
     if (limitReached) {
-      toast.error(t("page_ai_storyteller.monthly_limit_reached_upgrade_to_continu", "Monthly limit reached — upgrade to continue"));
+      setUpgradeOpen(true);
       return;
     }
     lastModeRef.current = "sel";
@@ -563,7 +592,7 @@ const AIStoryteller = () => {
   const handleGenerate = async () => {
     if (guestMode) return runGuestTrial();
     if (limitReached) {
-      toast.error(t("page_ai_storyteller.monthly_limit_reached_upgrade_to_continu", "Monthly limit reached — upgrade to continue"));
+      setUpgradeOpen(true);
       return;
     }
 
@@ -594,7 +623,14 @@ const AIStoryteller = () => {
         stopProgressTimeline("idle");
         const info = await handleEdgeError(error, t, { context: "generate-story" });
         setErrorDetails(info);
-        setLastError(error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
+        const fallback = error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed"));
+        if (looksLikeApiKeyFailure(info, fallback)) {
+          const msg = apiKeyErrorMessage();
+          toast.error(msg);
+          setLastError(msg);
+        } else {
+          setLastError(fallback);
+        }
         return;
       }
       const text = (data as { story: string }).story || "";
@@ -896,6 +932,11 @@ const AIStoryteller = () => {
             <span>
               {t("page_ai_storyteller.remaining", "Remaining")}: {sub.remainingStories}/{sub.plan?.monthly_story_limit ?? 0}
             </span>
+            {byok.bypass && creditsExhausted && (
+              <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                🔑 {t("page_ai_storyteller.byok_unlimited", "Unlimited via personal key")}
+              </span>
+            )}
           </div>
           {(sub.tier === "free" || limitReached) && (
             <Link
@@ -1484,6 +1525,15 @@ const AIStoryteller = () => {
           )}
         </div>
       )}
+      <UpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        reason={
+          sub.plan?.monthly_story_limit
+            ? t("upgrade_modal.reason_used_all", "You've used all {{count}} stories on your current plan this month.", { count: sub.plan.monthly_story_limit })
+            : undefined
+        }
+      />
     </div>
   );
 };

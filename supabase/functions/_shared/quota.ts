@@ -64,6 +64,21 @@ export async function enforceMonthlyStoryQuota(userId: string): Promise<QuotaRes
     .maybeSingle();
   const tier = (sub?.plan_tier as string) ?? "free";
 
+  // BYOK bypass: Pro Creator / Elite Publisher with an enabled, validated
+  // personal API key may generate unlimited stories using their own key.
+  if (tier === "pro_creator" || tier === "elite_publisher") {
+    const { data: keys } = await sb
+      .from("user_api_keys")
+      .select("provider, enabled, validation_status")
+      .eq("user_id", userId)
+      .eq("enabled", true)
+      .in("provider", ["openai", "openrouter"]);
+    const hasValid = (keys ?? []).some(
+      (k: { validation_status: string | null }) => k.validation_status === "valid",
+    );
+    if (hasValid) return { allowed: true, tier };
+  }
+
   // Resolve plan limit
   const { data: plan } = await sb
     .from("subscription_plans")
