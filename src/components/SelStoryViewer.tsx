@@ -442,27 +442,40 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           <PremiumBadge featureKey="audio" size="lg" />
         )}
 
-        {/* ILLUSTRATE + PDF — Family / Premium tiers */}
+        {/* ILLUSTRATE + PDF — Family / Premium tiers. User-triggered only (Function B). */}
         {canIllustrate && canExportPdf ? (
-          <button
-            onClick={async () => {
-              await runIllustrate(pages);
-              if (!requireSubscription("pdf")) return;
-              await handleExportPdf();
-            }}
-            disabled={illustrating || exporting}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
-          >
-            {illustrating || exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            {illustrating ? "Illustrating…" : exporting ? "Exporting…" : "Illustrate & Download"}
-          </button>
+          (() => {
+            const allReady = pages.length > 0 && pages.every((p) => !!p.imageUrl);
+            return (
+              <button
+                onClick={async () => {
+                  if (!allReady) await runIllustrate(pages);
+                  if (!requireSubscription("pdf")) return;
+                  await handleExportPdf();
+                }}
+                disabled={illustrating || exporting}
+                title={allReady ? t("sel.illustrations_ready_title", "Illustrations already generated — will export PDF") : undefined}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
+              >
+                {illustrating || exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {illustrating
+                  ? t("sel.illustrating", "Illustrating…")
+                  : exporting
+                  ? t("sel.exporting", "Exporting…")
+                  : allReady
+                  ? t("sel.download_pdf", "Download PDF")
+                  : t("sel.illustrate_download", "Illustrate & Download")}
+              </button>
+            );
+          })()
         ) : (
           <PremiumBadge featureKey="illustrations" size="lg" />
         )}
+
 
         <button
           onClick={onBack}
