@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Lock, Volume2, Pause, Square } from "lucide-react";
 import type { SelStoryResponse, SelStoryPage } from "@/lib/selStoryApi";
 import { illustrateSelStory, exportStoryPdf, SubscriptionRequiredError } from "@/lib/selStoryApi";
+import { recordIllustrationMetric } from "@/lib/illustrationMetrics";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
