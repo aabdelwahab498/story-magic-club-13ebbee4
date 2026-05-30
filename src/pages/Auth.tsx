@@ -149,13 +149,7 @@ const Auth = () => {
         <p className="text-center text-sm text-muted-foreground mb-4">
           {t("auth.role_hint", "Admins are taken to the dashboard, kids to the magical home page ✨")}
         </p>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="flex items-center gap-2 rounded-2xl border-2 border-kids-softPurple/40 bg-kids-softPurple/20 px-3 py-2">
-            <Shield className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs font-medium">
-              {t("auth.role_admin", "Admin → Dashboard")}
-            </span>
-          </div>
+        <div className="mb-4 flex justify-center">
           <div className="flex items-center gap-2 rounded-2xl border-2 border-kids-softBlue/40 bg-kids-softBlue/20 px-3 py-2">
             <UserIcon className="h-4 w-4 text-kids-blue shrink-0" />
             <span className="text-xs font-medium">
@@ -202,19 +196,34 @@ const Auth = () => {
 
 
           <TabsContent value="signin">
-            {new URLSearchParams(location.search).get("owner") === "1" && (
+            <div className="mt-3 rounded-2xl border-2 border-primary/30 bg-primary/5 p-3 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-semibold text-primary">
+                <Shield className="h-3.5 w-3.5" />
+                {t("auth.demo_admin_title", "Demo admin access")}
+              </div>
+              <p className="text-muted-foreground leading-snug">
+                {t(
+                  "auth.demo_admin_desc",
+                  "Use these credentials to preview the full admin dashboard."
+                )}
+              </p>
+              <div className="rounded-lg bg-background/60 px-2 py-1.5 font-mono text-[11px] leading-relaxed">
+                <div>demo-admin@najmah.app</div>
+                <div>NajmahDemo2026!</div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
-                  setEmail("owner@starrytales.test");
-                  setPassword("StarryAdmin2026!");
-                  toast.info(t("auth.test_filled", "Owner credentials filled ✨"));
+                  setEmail("demo-admin@najmah.app");
+                  setPassword("NajmahDemo2026!");
+                  toast.info(t("auth.demo_filled", "Demo admin credentials filled ✨"));
                 }}
-                className="w-full mt-3 text-xs rounded-full border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 px-3 py-2 text-primary transition-colors"
+                className="w-full rounded-full bg-primary/10 hover:bg-primary/20 px-3 py-1.5 font-medium text-primary transition-colors"
               >
-                🔑 {t("auth.fill_test", "Fill owner credentials")}
+                {t("auth.demo_fill", "Fill demo admin credentials")}
               </button>
-            )}
+            </div>
+            
             <form onSubmit={handleSignIn} className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="si-email">{t("auth.email")}</Label>
