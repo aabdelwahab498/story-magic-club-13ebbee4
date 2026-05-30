@@ -536,6 +536,7 @@ const AIStoryteller = () => {
     // Truncate each scene to keep prompts compact.
     const trimmed = scenes.map((s) => s.slice(0, 280));
     setIllustrating(true);
+    console.info("[AIStoryteller] illustrate requested by user", { scenes: trimmed.length });
     try {
       const res = await generateClassicIllustrations({
         scenes: trimmed,
@@ -543,7 +544,8 @@ const AIStoryteller = () => {
         theme: t(`ai.themes.${themeId}`),
         ageId,
         language: lang,
-      });
+      }, { trigger: "user", source: "AIStoryteller.generateSceneIllustrations" });
+
       setIllustrations(res.illustrations);
       setIllustrationsGated(res.gated && res.tier !== "paid");
     } catch (e) {
