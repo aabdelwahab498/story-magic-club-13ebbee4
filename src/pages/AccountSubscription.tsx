@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { fetchMyPaymentRequests } from "@/lib/subscriptionApi";
 
-const statusBadge = (s: string, isAr: boolean) => {
+const statusBadge = (s: string, t: (key: string, fallback?: string) => string) => {
   const map: Record<string, { cls: string; label: string }> = {
     pending: { cls: "bg-amber-100 text-amber-800", label: t("page_subscription.pending", "Pending") },
     approved: { cls: "bg-green-100 text-green-800", label: t("page_subscription.approved", "Approved") },
@@ -114,7 +114,7 @@ const AccountSubscription = () => {
                 </p>
                 {r.admin_note && <p className="text-xs text-red-600 mt-1">{r.admin_note}</p>}
               </div>
-              {statusBadge(r.status, !!isAr)}
+              {statusBadge(r.status, t)}
             </li>
           ))}
         </ul>

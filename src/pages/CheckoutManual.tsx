@@ -36,7 +36,11 @@ interface MethodConfig {
   receiver: { label: string; value: string | null }[];
 }
 
-const buildMethods = (s: PaymentSettings, isAr: boolean): MethodConfig[] => [
+const buildMethods = (
+  s: PaymentSettings,
+  isAr: boolean,
+  t: (key: string, fallback?: string) => string,
+): MethodConfig[] => [
   {
     id: "instapay",
     label: t("page_checkout_manual.instapay", "InstaPay"),
@@ -99,7 +103,7 @@ const CheckoutManual = () => {
 
   const enabledMethods = useMemo<MethodConfig[]>(() => {
     if (!settingsQ.data) return [];
-    return buildMethods(settingsQ.data, isAr).filter((m) => m.enabled && m.currencies.length > 0);
+    return buildMethods(settingsQ.data, isAr, t).filter((m) => m.enabled && m.currencies.length > 0);
   }, [settingsQ.data, isAr]);
 
   const [method, setMethod] = useState<PaymentMethod | null>(null);

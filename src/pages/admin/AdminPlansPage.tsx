@@ -178,12 +178,13 @@ export default function AdminPlansPage() {
   );
 }
 
-function PermissionsPreview({ plan, isAr }: { plan: SubscriptionPlan; isAr: boolean }) {
+function PermissionsPreview({ plan }: { plan: SubscriptionPlan; isAr?: boolean }) {
+  const { t } = useTranslation();
   const limit = Number(plan.monthly_story_limit) || 0;
   const unlimited = limit >= 999;
   const limitText = unlimited
     ? t("admin_plans.unlimited", "Unlimited")
-    : isAr ? `${limit} قصة/شهر` : `${limit} stories/month`;
+    : t("admin_plans.stories_per_month", "{{count}} stories/month", { count: limit });
 
   const overLimitMsg = unlimited
     ? t("admin_plans.no_cap", "No cap.")
@@ -206,7 +207,7 @@ function PermissionsPreview({ plan, isAr }: { plan: SubscriptionPlan; isAr: bool
       <div className="grid grid-cols-2 gap-2">
         <Row on={true} label={t("admin_plans.create_story", "Create story")} />
         <Row on={plan.allow_illustrations} label={t("admin_plans.illustrations_2", "Illustrations")} />
-        <Row on={plan.allow_pdf} label={isAr ? "PDF" : "PDF"} />
+        <Row on={plan.allow_pdf} label="PDF" />
         <Row on={plan.allow_audio} label={t("admin_plans.audio", "Audio")} />
       </div>
       <div className="text-[11px] flex items-center justify-between border-t border-primary/20 pt-2">
