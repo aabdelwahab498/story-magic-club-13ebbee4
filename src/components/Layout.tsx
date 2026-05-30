@@ -6,6 +6,7 @@ import Footer from "./Footer";
 import SocialMediaIcons from "./SocialMediaIcons";
 import AiAssistantButton from "./AiAssistantButton";
 import BottomNav from "./BottomNav";
+import AdPlaceholder from "./AdPlaceholder";
 import { useTheme } from "@/hooks/useTheme";
 
 const Layout = () => {
