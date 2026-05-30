@@ -73,6 +73,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <AudioDebugPanel />
         <BrowserRouter>
           <AuthProvider>
             <BedtimeWatcher />
