@@ -43,6 +43,7 @@ import {
 import { useSoundEffects } from "@/hooks/useSoundEffects";
 import najmahLogoFull from "@/assets/najmah-logo-full.webp";
 import StreakBadge from "./StreakBadge";
+import CreditCounter from "./CreditCounter";
 import SocialMediaIcons from "./SocialMediaIcons";
 import ChildPicker from "./ChildPicker";
 
