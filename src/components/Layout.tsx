@@ -6,6 +6,7 @@ import Footer from "./Footer";
 import SocialMediaIcons from "./SocialMediaIcons";
 import AiAssistantButton from "./AiAssistantButton";
 import BottomNav from "./BottomNav";
+import AdPlaceholder from "./AdPlaceholder";
 import { useTheme } from "@/hooks/useTheme";
 
 const Layout = () => {
@@ -46,6 +47,7 @@ const Layout = () => {
       <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 animate-fade-in relative z-10 flex-1 w-full pb-24 lg:pb-8">
         <Outlet />
       </main>
+      <AdPlaceholder />
       <Footer />
       <AiAssistantButton />
       <BottomNav />
