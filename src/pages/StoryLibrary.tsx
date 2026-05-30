@@ -343,6 +343,13 @@ const StoryLibrary = () => {
               <h3 className="text-xl sm:text-2xl font-bold text-kids-midnight mb-2">
                 {getLocalized(selected.title, lang)}
               </h3>
+              <p className="text-sm text-muted-foreground mb-3 italic">
+                {t("stories.written_by", "Written by")}:{" "}
+                <span className="font-semibold not-italic text-foreground">
+                  {selected.author_name?.trim() ||
+                    t("stories.default_author", "NajmaH Team")}
+                </span>
+              </p>
               <p className="text-muted-foreground mb-4">
                 {getLocalized(selected.description, lang)}
               </p>
