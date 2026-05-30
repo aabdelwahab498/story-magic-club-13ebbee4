@@ -12,13 +12,14 @@ import { useSubscription } from "@/hooks/useSubscription";
 const CreditCounter = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { loading, tier, plan, storiesUsedThisMonth } = useSubscription();
+  const { loading, plan, storiesUsedThisMonth } = useSubscription();
 
   if (!user) return null;
 
   const label = t("nav.credits", "Credits");
-  const unlimited = tier === "elite";
   const limit = plan?.monthly_story_limit;
+  const unlimited =
+    limit === null || (typeof limit === "number" && limit >= 9999);
 
   const unavailable = loading || (!unlimited && (limit === undefined || limit === null));
 
