@@ -115,6 +115,8 @@ interface AuditRow {
   user_agent: string | null;
 }
 
+const AUDIT_PAGE_SIZE = 25;
+
 export default function AdminIllustrationAnalyticsPage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<EventRow[]>([]);
@@ -124,21 +126,39 @@ export default function AdminIllustrationAnalyticsPage() {
   const [keyFilter, setKeyFilter] = useState("");
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditTotal, setAuditTotal] = useState<number | null>(null);
+  // Audit panel filters (server-enforced through Supabase + RLS)
+  const [auditAdminFilter, setAuditAdminFilter] = useState("");
+  const [auditUaFilter, setAuditUaFilter] = useState("");
+  const [auditFrom, setAuditFrom] = useState("");
+  const [auditTo, setAuditTo] = useState("");
 
   const rangeMeta = RANGE_OPTIONS.find((r) => r.value === range) ?? RANGE_OPTIONS[1];
 
-  const loadAudit = async () => {
+  const loadAudit = async (pageOverride?: number) => {
+    const page = pageOverride ?? auditPage;
     setAuditLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = page * AUDIT_PAGE_SIZE;
+      const to = from + AUDIT_PAGE_SIZE - 1;
+      let q = supabase
         .from("illustration_analytics_audit")
         .select(
           "id, admin_user_id, viewed_at, filter_story_id, filter_idempotency_key, filter_range, user_agent",
+          { count: "exact" },
         )
-        .order("viewed_at", { ascending: false })
-        .limit(50);
+        .order("viewed_at", { ascending: false });
+      if (auditAdminFilter.trim())
+        q = q.ilike("admin_user_id", `%${auditAdminFilter.trim()}%`);
+      if (auditUaFilter.trim()) q = q.ilike("user_agent", `%${auditUaFilter.trim()}%`);
+      if (auditFrom) q = q.gte("viewed_at", new Date(auditFrom).toISOString());
+      if (auditTo) q = q.lte("viewed_at", new Date(auditTo).toISOString());
+      const { data, error, count } = await q.range(from, to);
       if (error) throw error;
       setAuditRows((data ?? []) as AuditRow[]);
+      setAuditTotal(count ?? null);
+      if (pageOverride !== undefined) setAuditPage(page);
     } catch (e) {
       console.error("audit load failed", e);
     } finally {
@@ -516,8 +536,9 @@ export default function AdminIllustrationAnalyticsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadAudit}
+            onClick={() => loadAudit(0)}
             disabled={auditLoading}
+            data-testid="audit-refresh"
           >
             {auditLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -536,13 +557,68 @@ export default function AdminIllustrationAnalyticsPage() {
               "Every page load and filter change is recorded. Visible only to admins via row-level security.",
             )}
           </p>
+
+          {/* Audit filters */}
+          <div className="grid gap-3 md:grid-cols-5 mb-4">
+            <div>
+              <Label htmlFor="audit-admin">Admin ID</Label>
+              <Input
+                id="audit-admin"
+                data-testid="audit-filter-admin"
+                value={auditAdminFilter}
+                onChange={(e) => setAuditAdminFilter(e.target.value)}
+                placeholder="uuid…"
+              />
+            </div>
+            <div>
+              <Label htmlFor="audit-ua">User agent</Label>
+              <Input
+                id="audit-ua"
+                data-testid="audit-filter-ua"
+                value={auditUaFilter}
+                onChange={(e) => setAuditUaFilter(e.target.value)}
+                placeholder="Chrome / Mobile…"
+              />
+            </div>
+            <div>
+              <Label htmlFor="audit-from">From</Label>
+              <Input
+                id="audit-from"
+                data-testid="audit-filter-from"
+                type="datetime-local"
+                value={auditFrom}
+                onChange={(e) => setAuditFrom(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="audit-to">To</Label>
+              <Input
+                id="audit-to"
+                data-testid="audit-filter-to"
+                type="datetime-local"
+                value={auditTo}
+                onChange={(e) => setAuditTo(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={() => loadAudit(0)}
+                disabled={auditLoading}
+                className="w-full"
+                data-testid="audit-apply"
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+
           {auditRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {t("admin_illustration_analytics.audit_empty", "No access events yet.")}
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" data-testid="audit-table">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground">
                     <th className="py-2">When</th>
@@ -581,6 +657,39 @@ export default function AdminIllustrationAnalyticsPage() {
               </table>
             </div>
           )}
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <span className="text-muted-foreground" data-testid="audit-page-info">
+              {auditTotal !== null
+                ? `Page ${auditPage + 1} of ${Math.max(1, Math.ceil(auditTotal / AUDIT_PAGE_SIZE))} · ${auditTotal} total`
+                : `Page ${auditPage + 1}`}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="audit-prev"
+                disabled={auditLoading || auditPage === 0}
+                onClick={() => loadAudit(Math.max(0, auditPage - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="audit-next"
+                disabled={
+                  auditLoading ||
+                  (auditTotal !== null &&
+                    (auditPage + 1) * AUDIT_PAGE_SIZE >= auditTotal)
+                }
+                onClick={() => loadAudit(auditPage + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
