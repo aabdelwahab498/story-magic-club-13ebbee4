@@ -435,26 +435,41 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     : status === "error"
                     ? "bg-destructive"
                     : "bg-foreground/20 dark:bg-white/30";
+                const fmt = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
+                const tip =
+                  `Page ${p.index}: ${status}` +
+                  ` · queued ${fmt(pageQueuedAt[p.index])}` +
+                  (pageStartedAt[p.index] ? ` · started ${fmt(pageStartedAt[p.index])}` : "") +
+                  (pageError[p.index] ? ` — ${pageError[p.index]}` : "");
                 return (
                   <span
                     key={p.index}
                     data-testid={`illustration-page-${p.index}`}
                     data-status={status}
-                    title={`Page ${p.index}: ${status}${pageError[p.index] ? ` — ${pageError[p.index]}` : ""}`}
+                    data-queued-at={pageQueuedAt[p.index] ?? ""}
+                    data-started-at={pageStartedAt[p.index] ?? ""}
+                    title={tip}
                     className={`h-2 w-4 rounded-sm ${cls}`}
                   />
                 );
               })}
             </div>
-            {failedCount > 0 && !illustrating && (
-              <button
-                data-testid="illustration-retry-failed"
-                onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
-                className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1"
-              >
-                {t("sel.retry_failed", `Retry ${failedCount} failed`)}
-              </button>
-            )}
+            {/*
+              Retry button is always rendered so it occupies stable layout
+              space, but stays disabled until at least one failed job is
+              detected (and never while a generation is in flight).
+            */}
+            <button
+              data-testid="illustration-retry-failed"
+              onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
+              disabled={failedCount === 0 || illustrating}
+              aria-disabled={failedCount === 0 || illustrating}
+              className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {failedCount > 0
+                ? t("sel.retry_failed", `Retry ${failedCount} failed`)
+                : t("sel.retry_failed_idle", "Retry failed")}
+            </button>
             {pendingCount > 0 && (
               <span className="text-[11px] text-muted-foreground dark:text-white/60">
                 {t("sel.illustrations_queue", `${pendingCount} in queue`)}
