@@ -5,6 +5,7 @@ import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen,
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
+import { pauseAudio, resumeAudio, logAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
 import { saveAiStory, generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
@@ -671,16 +672,8 @@ const AIStoryteller = () => {
     if (!story) return;
 
     if (narrationState === "playing") {
-      // Capture current position BEFORE pausing so we can resume exactly here.
       if (hdAudioRef.current) {
-        hdAudioPositionRef.current = hdAudioRef.current.currentTime;
-        console.debug(
-          "[Narrator][HD] PAUSE @",
-          hdAudioPositionRef.current.toFixed(3),
-          "s / duration",
-          hdAudioRef.current.duration,
-        );
-        hdAudioRef.current.pause();
+        pauseAudio(hdAudioRef.current, hdAudioPositionRef, "Narrator/HD");
       }
       browserTtsRef.current?.pause();
       setNarrationState("paused");
@@ -688,27 +681,7 @@ const AIStoryteller = () => {
     }
     if (narrationState === "paused") {
       if (hdAudioRef.current) {
-        const before = hdAudioRef.current.currentTime;
-        // Restore position in case the browser reset it (some engines reset
-        // currentTime when src is a data: URL and the buffer was evicted).
-        try {
-          if (hdAudioPositionRef.current > 0) {
-            hdAudioRef.current.currentTime = hdAudioPositionRef.current;
-          }
-        } catch (err) {
-          console.debug("[Narrator][HD] currentTime restore failed", err);
-        }
-        console.debug(
-          "[Narrator][HD] RESUME — saved",
-          hdAudioPositionRef.current.toFixed(3),
-          "before",
-          before.toFixed(3),
-          "after",
-          hdAudioRef.current.currentTime.toFixed(3),
-        );
-        hdAudioRef.current
-          .play()
-          .catch((err) => console.debug("[Narrator][HD] play() rejected", err));
+        resumeAudio(hdAudioRef.current, hdAudioPositionRef, "Narrator/HD");
       }
       browserTtsRef.current?.resume();
       setNarrationState("playing");
@@ -727,12 +700,14 @@ const AIStoryteller = () => {
         if (data?.audioContent && !data?.fallback) {
           const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
           audio.onended = () => {
+            logAudio({ source: "Narrator/HD", kind: "ended", after: audio.currentTime, duration: audio.duration });
             hdAudioRef.current = null;
             hdAudioPositionRef.current = 0;
             setNarrationState("idle");
             setActiveVoiceSource(null);
           };
           audio.onerror = () => {
+            logAudio({ source: "Narrator/HD", kind: "error", message: "audio element error event" });
             hdAudioRef.current = null;
             hdAudioPositionRef.current = 0;
             setNarrationState("idle");

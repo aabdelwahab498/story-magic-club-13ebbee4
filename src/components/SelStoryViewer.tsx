@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { speakWithBrowser, type BrowserTtsHandle } from "@/lib/browserTts";
+import { pauseAudio, resumeAudio, logAudio } from "@/lib/audioDebug";
 import { handleEdgeError } from "@/lib/edgeErrors";
 import PremiumBadge from "@/components/PremiumBadge";
 
@@ -188,17 +189,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const handleNarrate = async () => {
     if (audioState === "playing") {
       if (audioRef.current && !("cancel" in audioRef.current)) {
-        // HTMLAudioElement → remember position before pausing.
-        audioPositionRef.current = (audioRef.current as HTMLAudioElement).currentTime;
-        console.debug(
-          "[SelViewer] PAUSE @",
-          audioPositionRef.current.toFixed(3),
-          "s / duration",
-          (audioRef.current as HTMLAudioElement).duration,
-        );
-        audioRef.current.pause();
+        pauseAudio(audioRef.current as HTMLAudioElement, audioPositionRef, "SelViewer");
       } else {
-        console.debug("[SelViewer] PAUSE (browser TTS)");
+        logAudio({ source: "SelViewer/TTS", kind: "pause" });
         audioRef.current?.pause();
       }
       setAudioState("paused");
@@ -207,27 +200,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     if (audioState === "idle" && !requireSubscription("audio")) return;
     if (audioState === "paused") {
       if (audioRef.current && "resume" in audioRef.current) {
-        console.debug("[SelViewer] RESUME (browser TTS)");
+        logAudio({ source: "SelViewer/TTS", kind: "resume-playing" });
         audioRef.current.resume();
       } else if (audioRef.current && "play" in audioRef.current) {
-        const el = audioRef.current as HTMLAudioElement;
-        const before = el.currentTime;
-        try {
-          if (audioPositionRef.current > 0) {
-            el.currentTime = audioPositionRef.current;
-          }
-        } catch (err) {
-          console.debug("[SelViewer] currentTime restore failed", err);
-        }
-        console.debug(
-          "[SelViewer] RESUME — saved",
-          audioPositionRef.current.toFixed(3),
-          "before",
-          before.toFixed(3),
-          "after",
-          el.currentTime.toFixed(3),
-        );
-        el.play().catch((err) => console.debug("[SelViewer] play() rejected", err));
+        resumeAudio(audioRef.current as HTMLAudioElement, audioPositionRef, "SelViewer");
       }
       setAudioState("playing");
       return;
