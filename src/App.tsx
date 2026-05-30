@@ -52,6 +52,7 @@ const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
 const AccountSubscription = lazy(() => import("./pages/AccountSubscription"));
 const MyAiStories = lazy(() => import("./pages/MyAiStories"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
+const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -108,6 +109,7 @@ const App = () => (
                       <Route path="account/subscription" element={<AccountSubscription />} />
                       <Route path="my-stories" element={<MyAiStories />} />
                       <Route path="account/api-keys" element={<ApiKeys />} />
+                      <Route path="account/profile" element={<AccountProfile />} />
                     </Route>
                     <Route element={<ProtectedRoute requireAdmin />}>
                       <Route path="admin" element={<Admin />} />

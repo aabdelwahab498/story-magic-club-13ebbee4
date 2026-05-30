@@ -20,6 +20,8 @@ interface DBStory {
   age_range: string | null;
   duration: string | null;
   gallery: string[] | null;
+  created_by: string | null;
+  author_name?: string | null;
 }
 
 const DEFAULT_NARRATOR: NarratorId = "wizard";
@@ -59,15 +61,35 @@ const StoryLibrary = () => {
     const load = async () => {
       const { data, error } = await supabase
         .from("stories")
-        .select("id,title,description,content,image,age_range,duration,gallery")
+        .select("id,title,description,content,image,age_range,duration,gallery,created_by")
         .eq("published", true)
         .order("created_at", { ascending: true });
       if (error) {
         toast.error(t("common.error"));
       } else {
         const list = (data as unknown as DBStory[]) || [];
-        setStories(list);
-        setSelected(list[0] || null);
+        const creatorIds = Array.from(
+          new Set(list.map((s) => s.created_by).filter((v): v is string => !!v)),
+        );
+        let authorMap: Record<string, string> = {};
+        if (creatorIds.length > 0) {
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("user_id,display_name")
+            .in("user_id", creatorIds);
+          authorMap = Object.fromEntries(
+            (profs ?? []).map((p) => [
+              p.user_id as string,
+              (p.display_name as string | null)?.trim() || "",
+            ]),
+          );
+        }
+        const enriched = list.map((s) => ({
+          ...s,
+          author_name: s.created_by ? authorMap[s.created_by] || "" : "",
+        }));
+        setStories(enriched);
+        setSelected(enriched[0] || null);
       }
       setLoading(false);
     };
@@ -321,6 +343,13 @@ const StoryLibrary = () => {
               <h3 className="text-xl sm:text-2xl font-bold text-kids-midnight mb-2">
                 {getLocalized(selected.title, lang)}
               </h3>
+              <p className="text-sm text-muted-foreground mb-3 italic">
+                {t("stories.written_by", "Written by")}:{" "}
+                <span className="font-semibold not-italic text-foreground">
+                  {selected.author_name?.trim() ||
+                    t("stories.default_author", "NajmaH Team")}
+                </span>
+              </p>
               <p className="text-muted-foreground mb-4">
                 {getLocalized(selected.description, lang)}
               </p>
