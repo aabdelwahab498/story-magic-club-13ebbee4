@@ -605,21 +605,42 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
               })}
             </div>
             {/*
-              Retry button is always rendered so it occupies stable layout
-              space, but stays disabled until at least one failed job is
-              detected (and never while a generation is in flight).
+              Per-page retry rule: stay disabled while ANY currently-failed
+              page is mid-retry (so a second click can't requeue the same
+              page), and re-enable only after the new result returns. Also
+              disabled when no failures exist and during fresh full-batch
+              generations.
             */}
-            <button
-              data-testid="illustration-retry-failed"
-              onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
-              disabled={failedCount === 0 || illustrating}
-              aria-disabled={failedCount === 0 || illustrating}
-              className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {failedCount > 0
-                ? t("sel.retry_failed", `Retry ${failedCount} failed`)
-                : t("sel.retry_failed_idle", "Retry failed")}
-            </button>
+            {(() => {
+              const failedPagesNow = pages
+                .filter((p) => pageStatus[p.index] === "failed")
+                .map((p) => p.index);
+              const someFailedRetrying = failedPagesNow.some((i) => retryingFailedPages.has(i));
+              const disabled = failedCount === 0 || someFailedRetrying || illustrating;
+              return (
+                <button
+                  data-testid="illustration-retry-failed"
+                  onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
+                  disabled={disabled}
+                  aria-disabled={disabled}
+                  aria-label={
+                    someFailedRetrying
+                      ? t("sel.retry_in_progress", "Retrying failed pages")
+                      : failedCount > 0
+                      ? t("sel.retry_failed", `Retry ${failedCount} failed`)
+                      : t("sel.retry_failed_idle", "Retry failed")
+                  }
+                  className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {someFailedRetrying
+                    ? t("sel.retry_in_progress", "Retrying…")
+                    : failedCount > 0
+                    ? t("sel.retry_failed", `Retry ${failedCount} failed`)
+                    : t("sel.retry_failed_idle", "Retry failed")}
+                </button>
+              );
+            })()}
+
             {pendingCount > 0 && (
               <span className="text-[11px] text-muted-foreground dark:text-white/60">
                 {t("sel.illustrations_queue", `${pendingCount} in queue`)}
