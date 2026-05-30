@@ -326,7 +326,7 @@ const AIStoryteller = () => {
     if (guestMode) return runGuestTrial();
 
     if (limitReached) {
-      toast.error(t("page_ai_storyteller.monthly_limit_reached_upgrade_to_continu", "Monthly limit reached — upgrade to continue"));
+      setUpgradeOpen(true);
       return;
     }
     lastModeRef.current = "sel";
