@@ -223,7 +223,7 @@ const Auth = () => {
                 {t("auth.demo_fill", "Fill demo admin credentials")}
               </button>
             </div>
-            {new URLSearchParams(location.search).get("owner") === "1" && (
+            
             <form onSubmit={handleSignIn} className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="si-email">{t("auth.email")}</Label>
