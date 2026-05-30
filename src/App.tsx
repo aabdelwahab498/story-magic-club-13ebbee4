@@ -13,6 +13,7 @@ import { useBedtimeAutoTheme } from "@/hooks/useBedtimeAutoTheme";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { AudioDebugPanel } from "@/components/AudioDebugPanel";
 
 // Lazy-load every non-home route so the initial bundle stays small.
 // This is the single biggest win for first-paint performance.
