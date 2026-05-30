@@ -168,6 +168,24 @@ const AIStoryteller = () => {
     };
   };
 
+  // Heuristic: classify an edge error as a personal-API-key failure when the
+  // user is generating via BYOK and the provider returned an auth/quota error.
+  const looksLikeApiKeyFailure = (info: EdgeErrorInfo | null, rawMsg: string): boolean => {
+    if (!byok.bypass) return false;
+    const status = info?.status ?? 0;
+    const blob = `${rawMsg} ${info?.message ?? ""} ${JSON.stringify(info?.raw ?? {})}`.toLowerCase();
+    if (status === 401 || status === 402 || status === 403) return true;
+    return /api[_ ]?key|invalid_api_key|unauthor|insufficient_quota|billing|payment_required|ai_credits_exhausted|ai_provider_quota/.test(
+      blob,
+    );
+  };
+
+  const apiKeyErrorMessage = () =>
+    t(
+      "ai.errors.api_key_error",
+      "API Key Error: Please check your external billing or key configuration.",
+    );
+
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
     const info = await handleEdgeError(e, t, { context: "compose-story" });
@@ -180,13 +198,18 @@ const AIStoryteller = () => {
     };
     setErrorDetails(mergedInfo);
     console.error("[compose-story] failed", { mergedInfo, raw: e });
-    setLastError(
-      (typeof mergedInfo.raw === "object" && mergedInfo.raw && typeof (mergedInfo.raw as { message?: string }).message === "string"
-        ? (mergedInfo.raw as { message: string }).message
-        : null) ||
+    const fallback = (typeof mergedInfo.raw === "object" && mergedInfo.raw && typeof (mergedInfo.raw as { message?: string }).message === "string"
+      ? (mergedInfo.raw as { message: string }).message
+      : null) ||
       mergedInfo.message ||
-      (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")))
-    );
+      (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
+    if (looksLikeApiKeyFailure(mergedInfo, fallback)) {
+      const msg = apiKeyErrorMessage();
+      toast.error(msg);
+      setLastError(msg);
+      return;
+    }
+    setLastError(fallback);
   };
 
   // Guest path: route to the trial-story edge function (anonymous-friendly).
