@@ -20,6 +20,8 @@ interface DBStory {
   age_range: string | null;
   duration: string | null;
   gallery: string[] | null;
+  created_by: string | null;
+  author_name?: string | null;
 }
 
 const DEFAULT_NARRATOR: NarratorId = "wizard";
