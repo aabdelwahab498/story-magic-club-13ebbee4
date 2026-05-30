@@ -497,6 +497,8 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
             const allReady = pages.length > 0 && pages.every((p) => !!p.imageUrl);
             return (
               <button
+                data-testid="illustrate-download-button"
+                data-all-ready={allReady ? "true" : "false"}
                 onClick={async () => {
                   if (!allReady) await runIllustrate(pages);
                   if (!requireSubscription("pdf")) return;
