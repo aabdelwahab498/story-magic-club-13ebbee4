@@ -115,6 +115,8 @@ interface AuditRow {
   user_agent: string | null;
 }
 
+const AUDIT_PAGE_SIZE = 25;
+
 export default function AdminIllustrationAnalyticsPage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<EventRow[]>([]);
@@ -124,21 +126,39 @@ export default function AdminIllustrationAnalyticsPage() {
   const [keyFilter, setKeyFilter] = useState("");
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditTotal, setAuditTotal] = useState<number | null>(null);
+  // Audit panel filters (server-enforced through Supabase + RLS)
+  const [auditAdminFilter, setAuditAdminFilter] = useState("");
+  const [auditUaFilter, setAuditUaFilter] = useState("");
+  const [auditFrom, setAuditFrom] = useState("");
+  const [auditTo, setAuditTo] = useState("");
 
   const rangeMeta = RANGE_OPTIONS.find((r) => r.value === range) ?? RANGE_OPTIONS[1];
 
-  const loadAudit = async () => {
+  const loadAudit = async (pageOverride?: number) => {
+    const page = pageOverride ?? auditPage;
     setAuditLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = page * AUDIT_PAGE_SIZE;
+      const to = from + AUDIT_PAGE_SIZE - 1;
+      let q = supabase
         .from("illustration_analytics_audit")
         .select(
           "id, admin_user_id, viewed_at, filter_story_id, filter_idempotency_key, filter_range, user_agent",
+          { count: "exact" },
         )
-        .order("viewed_at", { ascending: false })
-        .limit(50);
+        .order("viewed_at", { ascending: false });
+      if (auditAdminFilter.trim())
+        q = q.ilike("admin_user_id", `%${auditAdminFilter.trim()}%`);
+      if (auditUaFilter.trim()) q = q.ilike("user_agent", `%${auditUaFilter.trim()}%`);
+      if (auditFrom) q = q.gte("viewed_at", new Date(auditFrom).toISOString());
+      if (auditTo) q = q.lte("viewed_at", new Date(auditTo).toISOString());
+      const { data, error, count } = await q.range(from, to);
       if (error) throw error;
       setAuditRows((data ?? []) as AuditRow[]);
+      setAuditTotal(count ?? null);
+      if (pageOverride !== undefined) setAuditPage(page);
     } catch (e) {
       console.error("audit load failed", e);
     } finally {
