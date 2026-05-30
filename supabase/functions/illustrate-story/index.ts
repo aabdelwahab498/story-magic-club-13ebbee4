@@ -203,21 +203,65 @@ interface ReqBody {
   idempotencyKey?: string;
 }
 
-// In-memory idempotency cache (best-effort, per warm instance). Collapses
-// concurrent + recently-completed duplicate jobs keyed by user + idempotencyKey
-// + the page set being requested. TTL keeps results retrievable while a slow
-// retry click is still in flight, but short enough that genuine future
-// regeneration with the same key still works.
+// Idempotency cache lives in TWO tiers:
+//   1) In-memory map (per warm instance) so concurrent duplicate requests
+//      share a single in-flight Promise.
+//   2) Postgres `illustration_job_cache` (durable across cold starts) so
+//      retries that arrive after the worker recycles still dedup reliably.
 const IDEMPOTENCY_TTL_MS = 5 * 60_000;
-type IdempotencyEntry = {
-  expiresAt: number;
-  promise: Promise<{ storyId: string; illustrations: { index: number; imageUrl: string | null; status: string; error?: string }[] }>;
-};
+type CachedResult = { storyId: string; illustrations: { index: number; imageUrl: string | null; status: string; error?: string }[] };
+type IdempotencyEntry = { expiresAt: number; promise: Promise<CachedResult> };
 const idempotencyCache = new Map<string, IdempotencyEntry>();
 function gcIdempotency() {
   const now = Date.now();
   for (const [k, v] of idempotencyCache) if (v.expiresAt < now) idempotencyCache.delete(k);
 }
+
+// Structured lifecycle logger. Mirrors the event into Postgres
+// (illustration_job_events) so we can audit / build dashboards, and
+// always emits a single-line JSON console.info so it's grep-friendly in
+// the Edge Function logs view.
+type LifecycleEvent =
+  | "queued"
+  | "complete"
+  | "failed"
+  | "idempotent_replay"
+  | "idempotent_join"
+  | "trigger_rejected";
+async function logLifecycle(
+  adminClient: ReturnType<typeof createClient>,
+  args: {
+    event: LifecycleEvent;
+    storyId: string;
+    userId?: string;
+    idempotencyKey?: string | null;
+    pageIndex?: number | null;
+    status?: string | null;
+    error?: string | null;
+    latencyMs?: number | null;
+    source?: string | null;
+  },
+) {
+  const payload = { ts: Date.now(), source: "illustrate-story", ...args };
+  console.info(`[illustrate-lifecycle] ${args.event}`, JSON.stringify(payload));
+  try {
+    await adminClient.from("illustration_job_events").insert([{
+      event: args.event,
+      story_id: args.storyId,
+      user_id: args.userId ?? null,
+      idempotency_key: args.idempotencyKey ?? null,
+      page_index: args.pageIndex ?? null,
+      status: args.status ?? null,
+      error: args.error ?? null,
+      latency_ms: args.latencyMs ?? null,
+      source: args.source ?? null,
+    }]);
+  } catch (e) {
+    // Logging must NEVER break the request.
+    console.error("[illustrate-lifecycle] insert failed", e instanceof Error ? e.message : e);
+  }
+}
+
 
 
 serve(async (req) => {
