@@ -37,29 +37,26 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const navItems = [
-  { titleKey: "admin_dashboard.nav.dashboard", url: "/admin/dashboard", icon: LayoutDashboard, gradient: "from-primary to-primary-glow" },
-  { titleKey: "admin_dashboard.nav.stories", url: "/admin/dashboard/stories", icon: BookOpen, gradient: "from-kids-pink to-kids-purple" },
-  { titleKey: "admin_dashboard.nav.story_engine", url: "/admin/dashboard/story-engine", icon: Sparkles, gradient: "from-fuchsia-500 to-violet-500", labelFallback: { ar: "محرك القصة الذكي", en: "Story Engine" } },
-  { titleKey: "admin_dashboard.nav.videos", url: "/admin/dashboard/videos", icon: Video, gradient: "from-kids-blue to-accent" },
-  { titleKey: "admin_dashboard.nav.blog", url: "/admin/dashboard/blog", icon: FileText, gradient: "from-kids-purple to-kids-pink", labelFallback: { ar: "المدونة", en: "Blog" } },
-  { titleKey: "admin_dashboard.nav.products", url: "/admin/dashboard/products", icon: ShoppingBag, gradient: "from-amber-400 to-orange-500", labelFallback: { ar: "المنتجات", en: "Products" } },
-  { titleKey: "admin_dashboard.nav.payments", url: "/admin/dashboard/payments", icon: CreditCard, gradient: "from-emerald-500 to-teal-500", labelFallback: { ar: "المدفوعات", en: "Payments" } },
-  { titleKey: "admin_dashboard.nav.payment_settings", url: "/admin/dashboard/payment-settings", icon: Wallet, gradient: "from-amber-500 to-orange-500", labelFallback: { ar: "إعدادات الدفع", en: "Payment Settings" } },
-  { titleKey: "admin_dashboard.nav.plans", url: "/admin/dashboard/plans", icon: Crown, gradient: "from-fuchsia-500 to-pink-500", labelFallback: { ar: "باقات الاشتراك", en: "Subscription Plans" } },
-  { titleKey: "admin_dashboard.nav.languages", url: "/admin/dashboard/languages", icon: Languages, gradient: "from-kids-green to-kids-blue" },
-  { titleKey: "admin_dashboard.nav.settings", url: "/admin/dashboard/settings", icon: Settings, gradient: "from-kids-orange to-kids-yellow" },
+  { titleKey: "admin_dashboard.nav.dashboard", url: "/admin/dashboard", icon: LayoutDashboard, gradient: "from-primary to-primary-glow", labelFallback: "Dashboard" },
+  { titleKey: "admin_dashboard.nav.stories", url: "/admin/dashboard/stories", icon: BookOpen, gradient: "from-kids-pink to-kids-purple", labelFallback: "Stories" },
+  { titleKey: "admin_dashboard.nav.story_engine", url: "/admin/dashboard/story-engine", icon: Sparkles, gradient: "from-fuchsia-500 to-violet-500", labelFallback: "Story Engine" },
+  { titleKey: "admin_dashboard.nav.videos", url: "/admin/dashboard/videos", icon: Video, gradient: "from-kids-blue to-accent", labelFallback: "Videos" },
+  { titleKey: "admin_dashboard.nav.blog", url: "/admin/dashboard/blog", icon: FileText, gradient: "from-kids-purple to-kids-pink", labelFallback: "Blog" },
+  { titleKey: "admin_dashboard.nav.products", url: "/admin/dashboard/products", icon: ShoppingBag, gradient: "from-amber-400 to-orange-500", labelFallback: "Products" },
+  { titleKey: "admin_dashboard.nav.payments", url: "/admin/dashboard/payments", icon: CreditCard, gradient: "from-emerald-500 to-teal-500", labelFallback: "Payments" },
+  { titleKey: "admin_dashboard.nav.payment_settings", url: "/admin/dashboard/payment-settings", icon: Wallet, gradient: "from-amber-500 to-orange-500", labelFallback: "Payment Settings" },
+  { titleKey: "admin_dashboard.nav.plans", url: "/admin/dashboard/plans", icon: Crown, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Subscription Plans" },
+  { titleKey: "admin_dashboard.nav.languages", url: "/admin/dashboard/languages", icon: Languages, gradient: "from-kids-green to-kids-blue", labelFallback: "Languages" },
+  { titleKey: "admin_dashboard.nav.settings", url: "/admin/dashboard/settings", icon: Settings, gradient: "from-kids-orange to-kids-yellow", labelFallback: "Settings" },
 ];
 
 const AdminSidebar = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { state } = useSidebar();
   const location = useLocation();
   const collapsed = state === "collapsed";
-  const isAr = i18n.language?.startsWith("ar");
-  const labelFor = (item: { titleKey: string; labelFallback?: { ar: string; en: string } }) => {
-    const v = t(item.titleKey);
-    if (v === item.titleKey && item.labelFallback) return isAr ? item.labelFallback.ar : item.labelFallback.en;
-    return v;
+  const labelFor = (item: { titleKey: string; labelFallback?: string }) => {
+    return t(item.titleKey, item.labelFallback ?? "");
   };
 
   return (

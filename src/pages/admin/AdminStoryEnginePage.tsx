@@ -25,15 +25,15 @@ interface Settings {
   banned_words: string[];
 }
 
-const FIELD_KEYS: { key: string; labelAr: string; labelEn: string }[] = [
-  { key: "voiceOver", labelAr: "🎙️ تعليق صوتي (Voice-Over)", labelEn: "🎙️ Voice-Over" },
-  { key: "dialogue", labelAr: "💬 حوار الشخصيات (Dialogue)", labelEn: "💬 Dialogue" },
-  { key: "soundEffects", labelAr: "🔊 المؤثرات الصوتية (SFX)", labelEn: "🔊 Sound Effects" },
-  { key: "backgroundMusic", labelAr: "🎵 موسيقى الخلفية", labelEn: "🎵 Background Music" },
-  { key: "visualPrompt", labelAr: "🖼️ وصف الصورة السينمائي", labelEn: "🖼️ Visual Prompt" },
-  { key: "animationPrompt", labelAr: "🎬 توجيه الحركة/الكاميرا", labelEn: "🎬 Animation Prompt" },
-  { key: "imagePrompt", labelAr: "🪄 برومبت Midjourney/DALL·E", labelEn: "🪄 Image Prompt" },
-  { key: "videoPrompt", labelAr: "📹 برومبت Runway/Sora/Pika", labelEn: "📹 Video Prompt" },
+const FIELD_KEYS: { key: string; labelKey: string; labelDefault: string }[] = [
+  { key: "voiceOver", labelKey: "admin_story_engine.fields.voice_over", labelDefault: "🎙️ Voice-Over" },
+  { key: "dialogue", labelKey: "admin_story_engine.fields.dialogue", labelDefault: "💬 Dialogue" },
+  { key: "soundEffects", labelKey: "admin_story_engine.fields.sound_effects", labelDefault: "🔊 Sound Effects" },
+  { key: "backgroundMusic", labelKey: "admin_story_engine.fields.background_music", labelDefault: "🎵 Background Music" },
+  { key: "visualPrompt", labelKey: "admin_story_engine.fields.visual_prompt", labelDefault: "🖼️ Visual Prompt" },
+  { key: "animationPrompt", labelKey: "admin_story_engine.fields.animation_prompt", labelDefault: "🎬 Animation Prompt" },
+  { key: "imagePrompt", labelKey: "admin_story_engine.fields.image_prompt", labelDefault: "🪄 Image Prompt" },
+  { key: "videoPrompt", labelKey: "admin_story_engine.fields.video_prompt", labelDefault: "📹 Video Prompt" },
 ];
 
 const MODELS = [
@@ -131,7 +131,7 @@ export default function AdminStoryEnginePage() {
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {FIELD_KEYS.map((f) => (
             <div key={f.key} className="flex items-center justify-between rounded-lg border p-3">
-              <Label htmlFor={f.key} className="cursor-pointer">{isAr ? f.labelAr : f.labelEn}</Label>
+              <Label htmlFor={f.key} className="cursor-pointer">{t(f.labelKey, f.labelDefault)}</Label>
               <Switch
                 id={f.key}
                 checked={s.cinematic_fields_enabled[f.key] !== false}

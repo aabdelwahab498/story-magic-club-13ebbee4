@@ -27,46 +27,53 @@ interface KeyRow {
   created_at: string;
 }
 
-const PROVIDER_INFO: Record<Provider, { name: string; help: { en: string; ar: string }; defaults: { text?: string; image?: string }; supports: ("text" | "image")[] }> = {
+const PROVIDER_INFO: Record<Provider, { name: string; helpKey: string; helpDefault: string; defaults: { text?: string; image?: string }; supports: ("text" | "image")[] }> = {
   openai: {
     name: "OpenAI",
-    help: { en: "Get a key at platform.openai.com → API keys", ar: "أحصل على مفتاح من platform.openai.com → API keys" },
+    helpKey: "page_api_keys.help.openai",
+    helpDefault: "Get a key at platform.openai.com → API keys",
     defaults: { text: "gpt-4o-mini", image: "gpt-image-1" },
     supports: ["text", "image"],
   },
   google: {
     name: "Google Gemini",
-    help: { en: "Get a key at aistudio.google.com/apikey", ar: "أحصل على مفتاح من aistudio.google.com/apikey" },
+    helpKey: "page_api_keys.help.google",
+    helpDefault: "Get a key at aistudio.google.com/apikey",
     defaults: { text: "gemini-2.5-flash", image: "gemini-2.5-flash-image" },
     supports: ["text", "image"],
   },
   openrouter: {
     name: "OpenRouter",
-    help: { en: "Get a key at openrouter.ai/keys (text only)", ar: "أحصل على مفتاح من openrouter.ai/keys (نصوص فقط)" },
+    helpKey: "page_api_keys.help.openrouter",
+    helpDefault: "Get a key at openrouter.ai/keys (text only)",
     defaults: { text: "openai/gpt-4o-mini" },
     supports: ["text"],
   },
   anthropic: {
     name: "Anthropic Claude",
-    help: { en: "console.anthropic.com — text only", ar: "console.anthropic.com — نصوص فقط" },
+    helpKey: "page_api_keys.help.anthropic",
+    helpDefault: "console.anthropic.com — text only",
     defaults: { text: "claude-3-5-sonnet-latest" },
     supports: ["text"],
   },
   stability: {
     name: "Stability AI",
-    help: { en: "platform.stability.ai — images only", ar: "platform.stability.ai — صور فقط" },
+    helpKey: "page_api_keys.help.stability",
+    helpDefault: "platform.stability.ai — images only",
     defaults: {},
     supports: ["image"],
   },
   replicate: {
     name: "Replicate",
-    help: { en: "replicate.com — images only", ar: "replicate.com — صور فقط" },
+    helpKey: "page_api_keys.help.replicate",
+    helpDefault: "replicate.com — images only",
     defaults: {},
     supports: ["image"],
   },
   custom: {
     name: "Custom (OpenAI-compatible)",
-    help: { en: "Any OpenAI-compatible API. Provide Base URL.", ar: "أي API متوافق مع OpenAI. أدخل Base URL." },
+    helpKey: "page_api_keys.help.custom",
+    helpDefault: "Any OpenAI-compatible API. Provide Base URL.",
     defaults: {},
     supports: ["text", "image"],
   },
@@ -277,7 +284,7 @@ const ApiKeys = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-1">{isAr ? info.help.ar : info.help.en}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t(info.helpKey, info.helpDefault)}</p>
             </div>
             <div>
               <Label>{t("page_api_keys.label_optional", "Label (optional)")}</Label>
