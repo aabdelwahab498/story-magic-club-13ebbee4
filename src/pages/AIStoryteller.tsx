@@ -711,14 +711,17 @@ const AIStoryteller = () => {
           const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
           audio.onended = () => {
             hdAudioRef.current = null;
+            hdAudioPositionRef.current = 0;
             setNarrationState("idle");
             setActiveVoiceSource(null);
           };
           audio.onerror = () => {
             hdAudioRef.current = null;
+            hdAudioPositionRef.current = 0;
             setNarrationState("idle");
             setActiveVoiceSource(null);
           };
+          hdAudioPositionRef.current = 0;
           hdAudioRef.current = audio;
           await audio.play();
           setNarrationState("playing");
