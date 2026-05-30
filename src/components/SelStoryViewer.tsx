@@ -31,6 +31,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const [exporting, setExporting] = useState(false);
   const [pageStatus, setPageStatus] = useState<Record<number, "idle" | "pending" | "ready" | "failed">>({});
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
+  // Per-page queued/started timestamps surfaced in the progress strip tooltip
+  // so users can see exactly when an illustration entered each phase.
+  const [pageQueuedAt, setPageQueuedAt] = useState<Record<number, number>>(() =>
+    Object.fromEntries(story.pages.map((p) => [p.index, Date.now()])),
+  );
+  const [pageStartedAt, setPageStartedAt] = useState<Record<number, number>>({});
   const [audioState, setAudioState] = useState<"idle" | "loading" | "playing" | "paused">("idle");
   const audioRef = useRef<HTMLAudioElement | BrowserTtsHandle | null>(null);
   // Cached playback position so pause → play resumes exactly where we left off,
@@ -80,10 +86,17 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       targetPages.forEach((p) => (n[p.index] = "pending"));
       return n;
     });
+    const startedAt = Date.now();
+    setPageStartedAt((s) => {
+      const n = { ...s };
+      targetPages.forEach((p) => (n[p.index] = startedAt));
+      return n;
+    });
     try {
       console.info("[SelStoryViewer] illustrate requested by user", {
         storyId: story.story_id,
         pages: targetPages.map((p) => p.index),
+        startedAt,
       });
       const res = await illustrateSelStory({
         storyId: story.story_id,
@@ -422,26 +435,41 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     : status === "error"
                     ? "bg-destructive"
                     : "bg-foreground/20 dark:bg-white/30";
+                const fmt = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
+                const tip =
+                  `Page ${p.index}: ${status}` +
+                  ` · queued ${fmt(pageQueuedAt[p.index])}` +
+                  (pageStartedAt[p.index] ? ` · started ${fmt(pageStartedAt[p.index])}` : "") +
+                  (pageError[p.index] ? ` — ${pageError[p.index]}` : "");
                 return (
                   <span
                     key={p.index}
                     data-testid={`illustration-page-${p.index}`}
                     data-status={status}
-                    title={`Page ${p.index}: ${status}${pageError[p.index] ? ` — ${pageError[p.index]}` : ""}`}
+                    data-queued-at={pageQueuedAt[p.index] ?? ""}
+                    data-started-at={pageStartedAt[p.index] ?? ""}
+                    title={tip}
                     className={`h-2 w-4 rounded-sm ${cls}`}
                   />
                 );
               })}
             </div>
-            {failedCount > 0 && !illustrating && (
-              <button
-                data-testid="illustration-retry-failed"
-                onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
-                className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1"
-              >
-                {t("sel.retry_failed", `Retry ${failedCount} failed`)}
-              </button>
-            )}
+            {/*
+              Retry button is always rendered so it occupies stable layout
+              space, but stays disabled until at least one failed job is
+              detected (and never while a generation is in flight).
+            */}
+            <button
+              data-testid="illustration-retry-failed"
+              onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
+              disabled={failedCount === 0 || illustrating}
+              aria-disabled={failedCount === 0 || illustrating}
+              className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {failedCount > 0
+                ? t("sel.retry_failed", `Retry ${failedCount} failed`)
+                : t("sel.retry_failed_idle", "Retry failed")}
+            </button>
             {pendingCount > 0 && (
               <span className="text-[11px] text-muted-foreground dark:text-white/60">
                 {t("sel.illustrations_queue", `${pendingCount} in queue`)}
