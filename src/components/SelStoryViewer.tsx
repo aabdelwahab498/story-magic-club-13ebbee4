@@ -599,9 +599,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     data-queued-at={pageQueuedAt[p.index] ?? ""}
                     data-started-at={pageStartedAt[p.index] ?? ""}
                     title={tip}
+                    role="img"
+                    aria-label={t("sel.page_status_aria", `Page ${p.index} ${status}`)}
                     className={`h-2 w-4 rounded-sm ${cls}`}
                   />
                 );
+
               })}
             </div>
             {/*
