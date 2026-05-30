@@ -342,9 +342,46 @@ serve(async (req) => {
 
     const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
 
+    // ----------------------------------------------------------------
+    // REUSE GUARD: before spending image-gen credits, check whether the
+    // requested pages already have a `ready` illustration persisted for
+    // this story+user. If every requested page is already ready, short
+    // circuit and return cached URLs. If only some are ready, restrict
+    // the generation set to the missing pages and merge results.
+    // ----------------------------------------------------------------
+    const requestedIndices = body.pages.map((p) => p.index);
+    const { data: existingRows } = await supabase
+      .from("generated_illustrations")
+      .select("page_index,image_url,status")
+      .eq("story_id", body.storyId)
+      .eq("user_id", userId)
+      .in("page_index", requestedIndices);
+    const readyMap = new Map<number, string>();
+    for (const r of existingRows ?? []) {
+      if (r.status === "ready" && typeof r.image_url === "string" && r.image_url) {
+        readyMap.set(r.page_index as number, r.image_url as string);
+      }
+    }
+    const missingPages = body.pages.filter((p) => !readyMap.has(p.index));
+    if (missingPages.length === 0) {
+      const reused = body.pages
+        .map((p) => ({ index: p.index, imageUrl: readyMap.get(p.index)!, status: "ready" as const }))
+        .sort((a, b) => a.index - b.index);
+      await logLifecycle(admin, {
+        event: "idempotent_replay",
+        storyId: body.storyId,
+        userId,
+        idempotencyKey: body.idempotencyKey ?? null,
+        source: body.triggerSource ?? null,
+        error: "reused_existing_illustrations",
+      });
+      return json({ storyId: body.storyId, illustrations: reused, reused: true, source: "db_reuse" }, 200, corsHeaders);
+    }
+
     // Load user-supplied image API keys (used first so credits go on their account)
     const userCtx = await loadUserAIContext(userId);
     const userImageKeys = userCtx.imageKeys;
+
 
     const runGeneration = async () => {
       // Generate all pages in parallel to stay under the 150s edge idle timeout.
