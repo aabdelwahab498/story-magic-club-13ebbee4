@@ -57,7 +57,11 @@ serve(async (req) => {
   if (cl > 16_384) return json({ error: "payload_too_large" }, 413);
 
   try {
-    const raw = (await req.json().catch(() => ({}))) as ReqBody;
+    const raw = (await req.json().catch(() => ({}))) as ReqBody & { trigger?: string; triggerSource?: string };
+    if ((raw as { trigger?: string })?.trigger !== "user") {
+      console.error("[classic-illust] BLOCKED non-user trigger", { trigger: (raw as { trigger?: string })?.trigger, source: (raw as { triggerSource?: string })?.triggerSource });
+      return json({ error: "trigger_required", message: "generate-classic-illustrations requires { trigger: 'user' }" }, 403);
+    }
     if (!Array.isArray(raw?.scenes) || raw.scenes.length === 0) {
       return json({ error: "missing_scenes" }, 400);
     }
