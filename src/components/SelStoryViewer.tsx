@@ -649,6 +649,22 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                 {t("sel.illustrations_queue", `${pendingCount} in queue`)}
               </span>
             )}
+            {/*
+              Screen-reader-only live region: announces toast phases and
+              per-batch status changes (queued → generating → ready/failed)
+              for users who can't see the visual toasts or the progress dots.
+              `polite` so it never interrupts in-progress speech.
+            */}
+            <div
+              data-testid="illustration-live-region"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="sr-only"
+            >
+              {liveAnnouncement}
+            </div>
+
           </div>
         );
       })()}
