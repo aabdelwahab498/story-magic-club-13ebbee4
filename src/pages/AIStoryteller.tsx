@@ -932,6 +932,11 @@ const AIStoryteller = () => {
             <span>
               {t("page_ai_storyteller.remaining", "Remaining")}: {sub.remainingStories}/{sub.plan?.monthly_story_limit ?? 0}
             </span>
+            {byok.bypass && creditsExhausted && (
+              <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                🔑 {t("page_ai_storyteller.byok_unlimited", "Unlimited via personal key")}
+              </span>
+            )}
           </div>
           {(sub.tier === "free" || limitReached) && (
             <Link
