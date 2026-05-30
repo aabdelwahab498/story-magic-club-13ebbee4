@@ -14,6 +14,7 @@ import { useActiveChild } from "@/lib/childProfilesApi";
 import { composeSelStory, planSelStory, readComposeErrorDetails, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
+import IllustrateButton from "@/components/IllustrateButton";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import {
