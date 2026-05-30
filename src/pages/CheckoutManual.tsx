@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
   Smartphone,
@@ -39,7 +40,7 @@ interface MethodConfig {
 const buildMethods = (
   s: PaymentSettings,
   isAr: boolean,
-  t: (key: string, fallback?: string) => string,
+  t: TFunction,
 ): MethodConfig[] => [
   {
     id: "instapay",

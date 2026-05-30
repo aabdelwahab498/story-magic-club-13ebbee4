@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Crown, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { fetchMyPaymentRequests } from "@/lib/subscriptionApi";
 
-const statusBadge = (s: string, t: (key: string, fallback?: string) => string) => {
+const statusBadge = (s: string, t: TFunction) => {
   const map: Record<string, { cls: string; label: string }> = {
     pending: { cls: "bg-amber-100 text-amber-800", label: t("page_subscription.pending", "Pending") },
     approved: { cls: "bg-green-100 text-green-800", label: t("page_subscription.approved", "Approved") },

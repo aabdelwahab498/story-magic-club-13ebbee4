@@ -572,6 +572,7 @@ function AddAttachment({
   onAdd: (item: ProductGalleryItem) => void;
   isAr: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-lg border-2 border-dashed p-3">
       <p className="text-sm font-semibold mb-2">
