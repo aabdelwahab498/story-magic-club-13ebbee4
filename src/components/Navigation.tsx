@@ -292,7 +292,7 @@ const Navigation = () => {
                   <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/parent" className="cursor-pointer gap-2">
+                    <Link to="/account/profile" className="cursor-pointer gap-2">
                       <UserIcon className="h-4 w-4" /> {t("nav.profile", "Profile")}
                     </Link>
                   </DropdownMenuItem>
