@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Sparkles, Calendar, Award } from "lucide-react";
 import CountdownTimer from "./CountdownTimer";
-import { getWeeklyDeadline } from "@/lib/mockCompetition";
+import { getWeeklyDeadline } from "@/lib/competitionDates";
 import { useMemo } from "react";
 
 const WeeklyChallenge = () => {

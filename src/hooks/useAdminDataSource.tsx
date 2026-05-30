@@ -14,9 +14,9 @@ const STORAGE_KEY = "starry-tales-admin-data-source";
 
 export const AdminDataSourceProvider = ({ children }: { children: ReactNode }) => {
   const [source, setSourceState] = useState<DataSource>(() => {
-    if (typeof window === "undefined") return "mock";
+    if (typeof window === "undefined") return "real";
     const stored = localStorage.getItem(STORAGE_KEY) as DataSource | null;
-    return stored ?? "mock";
+    return stored ?? "real";
   });
 
   useEffect(() => {
