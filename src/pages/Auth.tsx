@@ -149,13 +149,7 @@ const Auth = () => {
         <p className="text-center text-sm text-muted-foreground mb-4">
           {t("auth.role_hint", "Admins are taken to the dashboard, kids to the magical home page ✨")}
         </p>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="flex items-center gap-2 rounded-2xl border-2 border-kids-softPurple/40 bg-kids-softPurple/20 px-3 py-2">
-            <Shield className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs font-medium">
-              {t("auth.role_admin", "Admin → Dashboard")}
-            </span>
-          </div>
+        <div className="mb-4 flex justify-center">
           <div className="flex items-center gap-2 rounded-2xl border-2 border-kids-softBlue/40 bg-kids-softBlue/20 px-3 py-2">
             <UserIcon className="h-4 w-4 text-kids-blue shrink-0" />
             <span className="text-xs font-medium">
