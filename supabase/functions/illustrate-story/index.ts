@@ -392,24 +392,104 @@ serve(async (req) => {
 
     // Server-side idempotency: collapse duplicate posts with the same key +
     // page set into one underlying job. In-flight calls await the same
-    // Promise; recently-completed calls (within TTL) replay the cached result.
+    // Promise; recently-completed calls replay the cached result from the
+    // durable `illustration_job_cache` row (survives cold starts).
     gcIdempotency();
     const pageSig = body.pages.map((p) => p.index).sort((a, b) => a - b).join(",");
     const cacheKey = body.idempotencyKey
       ? `u:${userId}|s:${body.storyId}|k:${body.idempotencyKey}|p:${pageSig}`
       : null;
-    let payload;
+    const t0 = Date.now();
+
+    // (1) In-memory join: another concurrent invocation on this warm worker
+    // is already running the job → await its Promise.
     if (cacheKey && idempotencyCache.has(cacheKey)) {
-      console.info("[illustrate-story] idempotency hit", { cacheKey });
-      payload = await idempotencyCache.get(cacheKey)!.promise;
-      return json({ ...payload, idempotent: true }, 200, corsHeaders);
+      const cached = await idempotencyCache.get(cacheKey)!.promise;
+      await logLifecycle(admin, {
+        event: "idempotent_join",
+        storyId: body.storyId,
+        userId,
+        idempotencyKey: body.idempotencyKey,
+        latencyMs: Date.now() - t0,
+        source: body.triggerSource ?? null,
+      });
+      return json({ ...cached, idempotent: true, source: "memory" }, 200, corsHeaders);
     }
+
+    // (2) Durable lookup in Postgres — covers cold starts and cross-instance
+    // retries that the in-memory map can't see.
+    if (cacheKey) {
+      const { data: row } = await admin
+        .from("illustration_job_cache")
+        .select("result, expires_at")
+        .eq("cache_key", cacheKey)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (row?.result) {
+        const cached = row.result as CachedResult;
+        await logLifecycle(admin, {
+          event: "idempotent_replay",
+          storyId: body.storyId,
+          userId,
+          idempotencyKey: body.idempotencyKey,
+          latencyMs: Date.now() - t0,
+          source: body.triggerSource ?? null,
+        });
+        return json({ ...cached, idempotent: true, source: "db" }, 200, corsHeaders);
+      }
+    }
+
+    // (3) Fresh job — log queued, run, persist to both tiers.
+    await logLifecycle(admin, {
+      event: "queued",
+      storyId: body.storyId,
+      userId,
+      idempotencyKey: body.idempotencyKey ?? null,
+      source: body.triggerSource ?? null,
+    });
+
     const promise = runGeneration();
     if (cacheKey) {
       idempotencyCache.set(cacheKey, { promise, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
     }
-    payload = await promise;
+    const payload = await promise;
+
+    // Persist successful + failed results so duplicate retries land on the
+    // same outcome instead of re-spending image-gen credits.
+    if (cacheKey) {
+      try {
+        await admin.from("illustration_job_cache").upsert({
+          cache_key: cacheKey,
+          user_id: userId,
+          story_id: body.storyId,
+          idempotency_key: body.idempotencyKey!,
+          page_signature: pageSig,
+          result: payload,
+          expires_at: new Date(Date.now() + IDEMPOTENCY_TTL_MS).toISOString(),
+        }, { onConflict: "cache_key" });
+      } catch (e) {
+        console.error("[illustrate] cache upsert failed", e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Per-page lifecycle events (fire-and-forget — wrapped in Promise.all
+    // so they don't block the response on a slow log write).
+    await Promise.all(payload.illustrations.map((r) =>
+      logLifecycle(admin, {
+        event: r.status === "ready" ? "complete" : "failed",
+        storyId: body.storyId,
+        userId,
+        idempotencyKey: body.idempotencyKey ?? null,
+        pageIndex: r.index,
+        status: r.status,
+        error: r.error ?? null,
+        latencyMs: Date.now() - t0,
+        source: body.triggerSource ?? null,
+      })
+    ));
+
     return json(payload, 200, corsHeaders);
+
 
   } catch (e) {
     console.error("illustrate-story error", e);
