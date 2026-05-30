@@ -5,6 +5,7 @@ import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen,
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
+import { pauseAudio, resumeAudio, logAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
 import { saveAiStory, generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
