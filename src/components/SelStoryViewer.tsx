@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { speakWithBrowser, type BrowserTtsHandle } from "@/lib/browserTts";
+import { pauseAudio, resumeAudio, logAudio } from "@/lib/audioDebug";
 import { handleEdgeError } from "@/lib/edgeErrors";
 import PremiumBadge from "@/components/PremiumBadge";
 
