@@ -68,11 +68,19 @@ serve(async (req) => {
 
     const { data: story, error: sErr } = await supabase
       .from("ai_story_history")
-      .select("id, user_id, title, pages, sel_outcome, language")
+      .select("id, user_id, title, pages, sel_outcome, language, pdf_url")
       .eq("id", storyId)
       .single();
     if (sErr || !story) return json({ error: "story_not_found" }, 404);
     if (story.user_id !== userId) return json({ error: "forbidden" }, 403);
+
+    // REUSE GUARD: if a PDF was already generated for this story and the
+    // caller did not request a forced rebuild, return the existing URL
+    // instead of re-rendering and re-uploading.
+    if (!force && typeof story.pdf_url === "string" && story.pdf_url.length > 0) {
+      return json({ pdfUrl: story.pdf_url, reused: true }, 200);
+    }
+
 
     const { data: ills } = await supabase
       .from("generated_illustrations")
