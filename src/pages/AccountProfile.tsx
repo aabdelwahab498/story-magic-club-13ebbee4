@@ -1,14 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, User as UserIcon, Save } from "lucide-react";
+import { Loader2, User as UserIcon, Save, KeyRound, Eye, EyeOff, Trash2, ShieldCheck, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Seo from "@/components/Seo";
+
+type ProviderId = "openai" | "openrouter";
+
+interface KeyRow {
+  provider: ProviderId;
+  enabled: boolean;
+  key_last4: string | null;
+  last_validated_at: string | null;
+  validation_status: string | null;
+}
+
+const PROVIDERS: { id: ProviderId; label: string; placeholder: string; help: string }[] = [
+  {
+    id: "openai",
+    label: "OpenAI API Key",
+    placeholder: "sk-...",
+    help: "Find your key at platform.openai.com/api-keys.",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter API Key",
+    placeholder: "sk-or-...",
+    help: "Find your key at openrouter.ai/keys.",
+  },
+];
 
 const AccountProfile = () => {
   const { t } = useTranslation();
@@ -17,15 +44,53 @@ const AccountProfile = () => {
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
 
+  // API keys state — note: we NEVER hold the saved key in state, only the
+  // input buffer for the form (which is cleared the moment we hand it off).
+  const [keyRows, setKeyRows] = useState<Record<ProviderId, KeyRow | null>>({
+    openai: null,
+    openrouter: null,
+  });
+  const [inputs, setInputs] = useState<Record<ProviderId, string>>({
+    openai: "",
+    openrouter: "",
+  });
+  const [reveal, setReveal] = useState<Record<ProviderId, boolean>>({
+    openai: false,
+    openrouter: false,
+  });
+  const [pending, setPending] = useState<Record<ProviderId, boolean>>({
+    openai: false,
+    openrouter: false,
+  });
+
+  const loadKeys = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("user_api_keys")
+      .select("provider, enabled, key_last4, last_validated_at, validation_status")
+      .eq("user_id", user.id)
+      .in("provider", ["openai", "openrouter"]);
+    const next: Record<ProviderId, KeyRow | null> = { openai: null, openrouter: null };
+    (data ?? []).forEach((row: any) => {
+      if (row.provider === "openai" || row.provider === "openrouter") {
+        next[row.provider as ProviderId] = row as KeyRow;
+      }
+    });
+    setKeyRows(next);
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data, error }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        loadKeys(),
+      ]);
       if (cancelled) return;
       if (error) toast.error(t("common.error", "Something went wrong"));
       setDisplayName(data?.display_name ?? "");
@@ -34,7 +99,7 @@ const AccountProfile = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, t]);
+  }, [user, t, loadKeys]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,13 +118,78 @@ const AccountProfile = () => {
     toast.success(t("profile.saved", "Profile updated"));
   };
 
+  const handleSaveKey = async (provider: ProviderId) => {
+    const apiKey = inputs[provider].trim();
+    if (apiKey.length < 20) {
+      toast.error("That API key looks too short — double-check and try again.");
+      return;
+    }
+    setPending((p) => ({ ...p, [provider]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-user-api-key", {
+        body: { action: "save", provider, apiKey },
+      });
+      if (error || (data as any)?.error) {
+        const code = (data as any)?.error ?? error?.message;
+        if (code === "tier_required") {
+          toast.error("Personal API keys require the Pro Creator or Elite Publisher plan.");
+        } else if (code === "invalid_api_key") {
+          toast.error("That API key was rejected by the provider.");
+        } else {
+          toast.error("Could not save key. Please try again.");
+        }
+        return;
+      }
+      // Clear the input + reveal flag the instant the request resolves.
+      setInputs((p) => ({ ...p, [provider]: "" }));
+      setReveal((p) => ({ ...p, [provider]: false }));
+      toast.success("Key saved securely and validated.");
+      await loadKeys();
+    } finally {
+      setPending((p) => ({ ...p, [provider]: false }));
+    }
+  };
+
+  const handleDeleteKey = async (provider: ProviderId) => {
+    setPending((p) => ({ ...p, [provider]: true }));
+    try {
+      const { error } = await supabase.functions.invoke("manage-user-api-key", {
+        body: { action: "delete", provider },
+      });
+      if (error) {
+        toast.error("Could not remove key.");
+        return;
+      }
+      toast.success("Key removed.");
+      await loadKeys();
+    } finally {
+      setPending((p) => ({ ...p, [provider]: false }));
+    }
+  };
+
+  const handleToggleKey = async (provider: ProviderId, enabled: boolean) => {
+    setPending((p) => ({ ...p, [provider]: true }));
+    try {
+      const { error } = await supabase.functions.invoke("manage-user-api-key", {
+        body: { action: "toggle", provider, enabled },
+      });
+      if (error) {
+        toast.error("Could not update key.");
+        return;
+      }
+      await loadKeys();
+    } finally {
+      setPending((p) => ({ ...p, [provider]: false }));
+    }
+  };
+
   return (
-    <div className="py-6 max-w-2xl mx-auto px-4">
+    <div className="py-6 max-w-2xl mx-auto px-4 space-y-6">
       <Seo
         title="Profile — NajmaH"
-        description="Manage your display name and how your stories are attributed."
+        description="Manage your display name, API keys, and how your stories are attributed."
       />
-      <header className="mb-6">
+      <header className="mb-2">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground flex items-center gap-2">
           <UserIcon className="h-6 w-6 text-primary" />
           {t("profile.title", "Your Profile")}
@@ -118,6 +248,104 @@ const AccountProfile = () => {
             </div>
           </form>
         )}
+      </Card>
+
+      <Card className="p-5 sm:p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-primary" />
+            API Settings
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1 flex items-start gap-2">
+            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <span>
+              Bring your own API keys (BYOK). Keys are encrypted at rest with AES-GCM and never
+              returned to the browser after saving. Available on{" "}
+              <strong>Pro Creator</strong> and <strong>Elite Publisher</strong> plans.
+            </span>
+          </p>
+        </div>
+
+        {PROVIDERS.map((p) => {
+          const row = keyRows[p.id];
+          const isPending = pending[p.id];
+          return (
+            <div key={p.id} className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="font-semibold">{p.label}</Label>
+                {row?.key_last4 ? (
+                  <Badge variant="secondary" className="gap-1">
+                    <ShieldCheck className="h-3 w-3" />
+                    •••• {row.key_last4}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Not set</Badge>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={reveal[p.id] ? "text" : "password"}
+                    value={inputs[p.id]}
+                    onChange={(e) =>
+                      setInputs((s) => ({ ...s, [p.id]: e.target.value }))
+                    }
+                    placeholder={row ? "Enter a new key to rotate…" : p.placeholder}
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setReveal((s) => ({ ...s, [p.id]: !s[p.id] }))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={reveal[p.id] ? "Hide key" : "Show key"}
+                  >
+                    {reveal[p.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => handleSaveKey(p.id)}
+                  disabled={isPending || inputs[p.id].trim().length < 20}
+                  className="gap-2"
+                >
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">{p.help}</p>
+
+              {row && (
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={row.enabled}
+                      onCheckedChange={(v) => handleToggleKey(p.id, v)}
+                      disabled={isPending}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {row.enabled ? "Active — used in the AI pipeline" : "Disabled"}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteKey(p.id)}
+                    disabled={isPending}
+                    className="text-destructive hover:text-destructive gap-1"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </Card>
     </div>
   );
