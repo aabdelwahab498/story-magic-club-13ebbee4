@@ -540,6 +540,39 @@ export type Database = {
           },
         ]
       }
+      illustration_analytics_audit: {
+        Row: {
+          admin_user_id: string
+          filter_idempotency_key: string | null
+          filter_range: string | null
+          filter_story_id: string | null
+          id: string
+          path: string | null
+          user_agent: string | null
+          viewed_at: string
+        }
+        Insert: {
+          admin_user_id: string
+          filter_idempotency_key?: string | null
+          filter_range?: string | null
+          filter_story_id?: string | null
+          id?: string
+          path?: string | null
+          user_agent?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          admin_user_id?: string
+          filter_idempotency_key?: string | null
+          filter_range?: string | null
+          filter_story_id?: string | null
+          id?: string
+          path?: string | null
+          user_agent?: string | null
+          viewed_at?: string
+        }
+        Relationships: []
+      }
       illustration_job_cache: {
         Row: {
           cache_key: string
