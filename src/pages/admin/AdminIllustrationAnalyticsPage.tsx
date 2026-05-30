@@ -503,6 +503,86 @@ export default function AdminIllustrationAnalyticsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Admin access audit log */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle>
+            {t(
+              "admin_illustration_analytics.audit_title",
+              "Access audit log (admins only)",
+            )}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadAudit}
+            disabled={auditLoading}
+          >
+            {auditLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span className="ml-2">
+              {t("admin_illustration_analytics.refresh", "Refresh")}
+            </span>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">
+            {t(
+              "admin_illustration_analytics.audit_desc",
+              "Every page load and filter change is recorded. Visible only to admins via row-level security.",
+            )}
+          </p>
+          {auditRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("admin_illustration_analytics.audit_empty", "No access events yet.")}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground">
+                    <th className="py-2">When</th>
+                    <th className="py-2 pl-2">Admin</th>
+                    <th className="py-2 pl-2">Range</th>
+                    <th className="py-2 pl-2">Story filter</th>
+                    <th className="py-2 pl-2">Key filter</th>
+                    <th className="py-2 pl-2">User agent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditRows.map((a) => (
+                    <tr key={a.id} className="border-t">
+                      <td className="py-1.5 whitespace-nowrap">
+                        {new Date(a.viewed_at).toLocaleString()}
+                      </td>
+                      <td className="py-1.5 pl-2 font-mono text-xs" title={a.admin_user_id}>
+                        {truncate(a.admin_user_id, 10)}
+                      </td>
+                      <td className="py-1.5 pl-2">{a.filter_range ?? "—"}</td>
+                      <td className="py-1.5 pl-2 font-mono text-xs">
+                        {a.filter_story_id ?? "—"}
+                      </td>
+                      <td className="py-1.5 pl-2 font-mono text-xs">
+                        {a.filter_idempotency_key ?? "—"}
+                      </td>
+                      <td
+                        className="py-1.5 pl-2 text-xs text-muted-foreground max-w-xs truncate"
+                        title={a.user_agent ?? ""}
+                      >
+                        {a.user_agent ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
