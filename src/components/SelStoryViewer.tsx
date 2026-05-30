@@ -86,8 +86,18 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       targetPages.forEach((p) => (n[p.index] = "pending"));
       return n;
     });
+    const startedAt = Date.now();
+    setPageStartedAt((s) => {
+      const n = { ...s };
+      targetPages.forEach((p) => (n[p.index] = startedAt));
+      return n;
+    });
     try {
       console.info("[SelStoryViewer] illustrate requested by user", {
+        storyId: story.story_id,
+        pages: targetPages.map((p) => p.index),
+        startedAt,
+      });
         storyId: story.story_id,
         pages: targetPages.map((p) => p.index),
       });
