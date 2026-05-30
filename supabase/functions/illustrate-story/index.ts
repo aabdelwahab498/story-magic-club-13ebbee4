@@ -384,8 +384,8 @@ serve(async (req) => {
 
 
     const runGeneration = async () => {
-      // Generate all pages in parallel to stay under the 150s edge idle timeout.
-      const tasks = body.pages.map(async (page) => {
+      // Generate ONLY pages that don't already have a ready illustration.
+      const tasks = missingPages.map(async (page) => {
         const palette = colorPaletteFor(page.emotionTag);
         const prompt =
           `${style}, consistent picture-book series, same main child in every image. ` +
@@ -420,12 +420,17 @@ serve(async (req) => {
           return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
         }
       });
-      const settled = await Promise.all(tasks);
+      const generated = await Promise.all(tasks);
+      // Merge reused (ready) pages with freshly generated ones.
+      const reused = Array.from(readyMap.entries()).map(([index, imageUrl]) => ({
+        index, imageUrl, status: "ready" as const,
+      }));
       return {
         storyId: body.storyId,
-        illustrations: settled.sort((a, b) => a.index - b.index),
+        illustrations: [...reused, ...generated].sort((a, b) => a.index - b.index),
       };
     };
+
 
     // Server-side idempotency: collapse duplicate posts with the same key +
     // page set into one underlying job. In-flight calls await the same
