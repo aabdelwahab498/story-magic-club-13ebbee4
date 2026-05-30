@@ -266,7 +266,7 @@ const StoryDetail = () => {
                       storyLang === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {l === "en" ? "English" : "العربية"}
+                    {l === "en" ? "English" : "Arabic"}
                   </button>
                 ))}
               </div>
