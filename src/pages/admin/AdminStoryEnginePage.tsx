@@ -48,7 +48,7 @@ const MODELS = [
 const VISUAL_STYLES = ["Pixar/Ghibli", "Pixar", "Studio Ghibli", "Disney", "Anime", "Watercolor Storybook", "Claymation"];
 
 export default function AdminStoryEnginePage() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,7 +103,7 @@ export default function AdminStoryEnginePage() {
       .eq("id", s.id);
     setSaving(false);
     if (error) toast.error(error.message);
-    else toast.success(isAr ? "تم الحفظ ✨" : "Saved ✨");
+    else toast.success(t("admin_story_engine.saved", "Saved ✨"));
   };
 
   return (
@@ -112,12 +112,10 @@ export default function AdminStoryEnginePage() {
         <Wand2 className="h-7 w-7 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">
-            {isAr ? "محرك توليد القصة السينمائي" : "Cinematic Story Engine"}
+            {t("admin_story_engine.cinematic_story_engine", "Cinematic Story Engine")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isAr
-              ? "تحكّم كامل في الكاتب الذكي: الموديل، الـPrompt، الجودة والحقول السينمائية."
-              : "Full control over the AI writer: model, prompt, quality and cinematic fields."}
+            {t("admin_story_engine.full_control_over_the_ai_writer_model_pr", "Full control over the AI writer: model, prompt, quality and cinematic fields.")}
           </p>
         </div>
       </div>
@@ -125,9 +123,9 @@ export default function AdminStoryEnginePage() {
       {/* Cinematic Fields */}
       <Card>
         <CardHeader>
-          <CardTitle>{isAr ? "الحقول السينمائية لكل صفحة" : "Per-page cinematic fields"}</CardTitle>
+          <CardTitle>{t("admin_story_engine.per_page_cinematic_fields", "Per-page cinematic fields")}</CardTitle>
           <CardDescription>
-            {isAr ? "اختَر اللي تحب الـAI ينتجه مع كل قصة." : "Choose which fields the AI generates for each page."}
+            {t("admin_story_engine.choose_which_fields_the_ai_generates_for", "Choose which fields the AI generates for each page.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -147,11 +145,11 @@ export default function AdminStoryEnginePage() {
       {/* Model + Temperature */}
       <Card>
         <CardHeader>
-          <CardTitle>{isAr ? "الموديل والإبداع" : "Model & creativity"}</CardTitle>
+          <CardTitle>{t("admin_story_engine.model_creativity", "Model & creativity")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>{isAr ? "موديل الذكاء الاصطناعي" : "AI Model"}</Label>
+            <Label>{t("admin_story_engine.ai_model", "AI Model")}</Label>
             <Select value={s.model} onValueChange={(v) => setField("model", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -160,11 +158,11 @@ export default function AdminStoryEnginePage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>{isAr ? "درجة الإبداع" : "Temperature"}: {s.temperature.toFixed(2)}</Label>
+            <Label>{t("admin_story_engine.temperature", "Temperature")}: {s.temperature.toFixed(2)}</Label>
             <Slider min={0} max={1.5} step={0.05} value={[s.temperature]} onValueChange={([v]) => setField("temperature", v)} />
           </div>
           <div className="space-y-2">
-            <Label>{isAr ? "النمط البصري الافتراضي" : "Default visual style"}</Label>
+            <Label>{t("admin_story_engine.default_visual_style", "Default visual style")}</Label>
             <Select value={s.default_visual_style} onValueChange={(v) => setField("default_visual_style", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -178,19 +176,19 @@ export default function AdminStoryEnginePage() {
       {/* Quality */}
       <Card>
         <CardHeader>
-          <CardTitle>{isAr ? "حدود الجودة والأمان" : "Quality & safety limits"}</CardTitle>
+          <CardTitle>{t("admin_story_engine.quality_safety_limits", "Quality & safety limits")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>{isAr ? "حد نجاح الجودة /25" : "Quality pass threshold /25"}: {s.quality_threshold}</Label>
+            <Label>{t("admin_story_engine.quality_pass_threshold_25", "Quality pass threshold /25")}: {s.quality_threshold}</Label>
             <Slider min={10} max={25} step={1} value={[s.quality_threshold]} onValueChange={([v]) => setField("quality_threshold", v)} />
           </div>
           <div className="space-y-2">
-            <Label>{isAr ? "أقصى عدد إعادة توليد" : "Max regenerations"}: {s.max_regenerations}</Label>
+            <Label>{t("admin_story_engine.max_regenerations", "Max regenerations")}: {s.max_regenerations}</Label>
             <Slider min={0} max={5} step={1} value={[s.max_regenerations]} onValueChange={([v]) => setField("max_regenerations", v)} />
           </div>
           <div className="space-y-2">
-            <Label>{isAr ? "الكلمات الممنوعة (مفصولة بفاصلة)" : "Banned words (comma separated)"}</Label>
+            <Label>{t("admin_story_engine.banned_words_comma_separated", "Banned words (comma separated)")}</Label>
             <Input value={bannedText} onChange={(e) => setBannedText(e.target.value)} placeholder="violence, blood, scary" />
           </div>
         </CardContent>
@@ -199,28 +197,28 @@ export default function AdminStoryEnginePage() {
       {/* Prompts */}
       <Card>
         <CardHeader>
-          <CardTitle>{isAr ? "تعديل الـPrompt" : "Prompt overrides"}</CardTitle>
+          <CardTitle>{t("admin_story_engine.prompt_overrides", "Prompt overrides")}</CardTitle>
           <CardDescription>
-            {isAr ? "اتركه فاضي لاستخدام الـPrompt الافتراضي الكامل." : "Leave empty to use the default built-in prompt."}
+            {t("admin_story_engine.leave_empty_to_use_the_default_built_in_", "Leave empty to use the default built-in prompt.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>{isAr ? "System Prompt (يستبدل الافتراضي بالكامل)" : "System Prompt (full override)"}</Label>
+            <Label>{t("admin_story_engine.system_prompt_full_override", "System Prompt (full override)")}</Label>
             <Textarea
               rows={6}
               value={s.system_prompt_override ?? ""}
               onChange={(e) => setField("system_prompt_override", e.target.value)}
-              placeholder={isAr ? "مثال: أنت راوي قصص أطفال خيالي..." : "e.g. You are a magical children's storyteller..."}
+              placeholder={t("admin_story_engine.e_g_you_are_a_magical_children_s_storyte", "e.g. You are a magical children's storyteller...")}
             />
           </div>
           <div className="space-y-2">
-            <Label>{isAr ? "تعليمات إضافية للـUser Prompt" : "Extra User Prompt instructions"}</Label>
+            <Label>{t("admin_story_engine.extra_user_prompt_instructions", "Extra User Prompt instructions")}</Label>
             <Textarea
               rows={4}
               value={s.user_prompt_addendum ?? ""}
               onChange={(e) => setField("user_prompt_addendum", e.target.value)}
-              placeholder={isAr ? "تعليمات إضافية تتضاف على كل قصة" : "Extra instructions appended to every story"}
+              placeholder={t("admin_story_engine.extra_instructions_appended_to_every_sto", "Extra instructions appended to every story")}
             />
           </div>
         </CardContent>
@@ -229,7 +227,7 @@ export default function AdminStoryEnginePage() {
       <div className="sticky bottom-4 flex justify-end">
         <Button onClick={save} disabled={saving} size="lg" className="shadow-lg">
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-          {isAr ? "حفظ الإعدادات" : "Save settings"}
+          {t("admin_story_engine.save_settings", "Save settings")}
         </Button>
       </div>
     </div>

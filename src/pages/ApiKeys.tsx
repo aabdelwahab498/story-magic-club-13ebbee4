@@ -73,7 +73,7 @@ const PROVIDER_INFO: Record<Provider, { name: string; help: { en: string; ar: st
 };
 
 const ApiKeys = () => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -107,7 +107,7 @@ const ApiKeys = () => {
   if (!user) {
     return (
       <div className="py-20 text-center">
-        <p>{isAr ? "سجّل الدخول لإدارة مفاتيح API" : "Sign in to manage your API keys"}</p>
+        <p>{t("page_api_keys.sign_in_to_manage_your_api_keys", "Sign in to manage your API keys")}</p>
       </div>
     );
   }
@@ -126,7 +126,7 @@ const ApiKeys = () => {
 
   const onSave = async () => {
     if (!apiKey.trim()) {
-      toast({ title: isAr ? "أدخل المفتاح" : "Enter the API key", variant: "destructive" });
+      toast({ title: t("page_api_keys.enter_the_api_key", "Enter the API key"), variant: "destructive" });
       return;
     }
     const info = PROVIDER_INFO[provider];
@@ -134,11 +134,11 @@ const ApiKeys = () => {
     if (capText && info.supports.includes("text")) caps.push("text");
     if (capImage && info.supports.includes("image")) caps.push("image");
     if (caps.length === 0) {
-      toast({ title: isAr ? "اختر قدرة واحدة على الأقل" : "Pick at least one capability", variant: "destructive" });
+      toast({ title: t("page_api_keys.pick_at_least_one_capability", "Pick at least one capability"), variant: "destructive" });
       return;
     }
     if (provider === "custom" && !baseUrl.trim()) {
-      toast({ title: isAr ? "أدخل Base URL" : "Base URL is required", variant: "destructive" });
+      toast({ title: t("page_api_keys.base_url_is_required", "Base URL is required"), variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -156,22 +156,22 @@ const ApiKeys = () => {
     setSaving(false);
     if (error) {
       toast({
-        title: isAr ? "خطأ في الحفظ" : "Save failed",
+        title: t("page_api_keys.save_failed", "Save failed"),
         description: error.message,
         variant: "destructive",
       });
       return;
     }
-    toast({ title: isAr ? "تم الحفظ" : "Saved" });
+    toast({ title: t("page_api_keys.saved", "Saved") });
     resetForm();
     qc.invalidateQueries({ queryKey: ["user-api-keys", user.id] });
   };
 
   const onDelete = async (id: string) => {
-    if (!confirm(isAr ? "حذف هذا المفتاح؟" : "Delete this key?")) return;
+    if (!confirm(t("page_api_keys.delete_this_key", "Delete this key?"))) return;
     const { error } = await supabase.from("user_api_keys").delete().eq("id", id);
     if (error) {
-      toast({ title: isAr ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+      toast({ title: t("page_api_keys.error", "Error"), description: error.message, variant: "destructive" });
       return;
     }
     qc.invalidateQueries({ queryKey: ["user-api-keys", user.id] });
@@ -180,7 +180,7 @@ const ApiKeys = () => {
   const onToggle = async (id: string, enabled: boolean) => {
     const { error } = await supabase.from("user_api_keys").update({ enabled }).eq("id", id);
     if (error) {
-      toast({ title: isAr ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+      toast({ title: t("page_api_keys.error", "Error"), description: error.message, variant: "destructive" });
       return;
     }
     qc.invalidateQueries({ queryKey: ["user-api-keys", user.id] });
@@ -193,19 +193,15 @@ const ApiKeys = () => {
       <div className="space-y-2">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Key className="h-6 w-6 text-primary" />
-          {isAr ? "مفاتيح API الخاصة بك" : "Your AI API Keys"}
+          {t("page_api_keys.your_ai_api_keys", "Your AI API Keys")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {isAr
-            ? "أضف مفاتيحك الخاصة من OpenAI / Gemini / OpenRouter لتشتغل عليها كل عمليات توليد القصص والصور و PDF. لو ما أضفتش مفتاح، النظام بيستخدم Lovable AI بشكل تلقائي."
-            : "Add your own keys from OpenAI / Gemini / OpenRouter — story text, illustrations, and PDFs will use them so credits go on your account. Without a key the system falls back to Lovable AI."}
+          {t("page_api_keys.add_your_own_keys_from_openai_gemini_ope", "Add your own keys from OpenAI / Gemini / OpenRouter — story text, illustrations, and PDFs will use them so credits go on your account. Without a key the system falls back to Lovable AI.")}
         </p>
         <div className="text-xs flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <span>
-            {isAr
-              ? "المفتاح يتم تخزينه مشفّر بسياسات RLS — لا يقدر أي شخص آخر يقرأه. خليك متأكد من حدود الاستخدام في حسابك عند المزود."
-              : "Keys are stored under RLS — only you can read them. Make sure you understand the usage limits on your provider account."}
+            {t("page_api_keys.keys_are_stored_under_rls_only_you_can_r", "Keys are stored under RLS — only you can read them. Make sure you understand the usage limits on your provider account.")}
           </span>
         </div>
       </div>
@@ -217,7 +213,7 @@ const ApiKeys = () => {
         )}
         {q.data?.length === 0 && !adding && (
           <Card className="p-6 text-center text-muted-foreground">
-            {isAr ? "لم تضف أي مفتاح بعد" : "No keys added yet"}
+            {t("page_api_keys.no_keys_added_yet", "No keys added yet")}
           </Card>
         )}
         {q.data?.map((k) => (
@@ -228,12 +224,12 @@ const ApiKeys = () => {
                 {k.label && <span className="text-xs text-muted-foreground">({k.label})</span>}
                 {k.capabilities.includes("text") && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> {isAr ? "نصوص" : "Text"}
+                    <Sparkles className="h-3 w-3" /> {t("page_api_keys.text", "Text")}
                   </span>
                 )}
                 {k.capabilities.includes("image") && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 flex items-center gap-1">
-                    <ImageIcon className="h-3 w-3" /> {isAr ? "صور" : "Images"}
+                    <ImageIcon className="h-3 w-3" /> {t("page_api_keys.images", "Images")}
                   </span>
                 )}
               </div>
@@ -264,15 +260,15 @@ const ApiKeys = () => {
       {/* Add form */}
       {!adding ? (
         <Button onClick={() => setAdding(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> {isAr ? "إضافة مفتاح" : "Add key"}
+          <Plus className="h-4 w-4" /> {t("page_api_keys.add_key", "Add key")}
         </Button>
       ) : (
         <Card className="p-5 space-y-4">
-          <h2 className="font-bold">{isAr ? "مفتاح جديد" : "New key"}</h2>
+          <h2 className="font-bold">{t("page_api_keys.new_key", "New key")}</h2>
 
           <div className="grid md:grid-cols-2 gap-3">
             <div>
-              <Label>{isAr ? "المزود" : "Provider"}</Label>
+              <Label>{t("page_api_keys.provider", "Provider")}</Label>
               <Select value={provider} onValueChange={(v) => setProvider(v as Provider)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -284,13 +280,13 @@ const ApiKeys = () => {
               <p className="text-xs text-muted-foreground mt-1">{isAr ? info.help.ar : info.help.en}</p>
             </div>
             <div>
-              <Label>{isAr ? "اسم مميز (اختياري)" : "Label (optional)"}</Label>
+              <Label>{t("page_api_keys.label_optional", "Label (optional)")}</Label>
               <Input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={12} placeholder="personal" />
             </div>
           </div>
 
           <div>
-            <Label>{isAr ? "المفتاح" : "API Key"}</Label>
+            <Label>{t("page_api_keys.api_key", "API Key")}</Label>
             <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." autoComplete="off" />
           </div>
 
@@ -304,13 +300,13 @@ const ApiKeys = () => {
           <div className="grid md:grid-cols-2 gap-3">
             {info.supports.includes("text") && (
               <div>
-                <Label>{isAr ? "موديل النصوص" : "Text model"}</Label>
+                <Label>{t("page_api_keys.text_model", "Text model")}</Label>
                 <Input value={textModel} onChange={(e) => setTextModel(e.target.value)} placeholder={info.defaults.text ?? ""} />
               </div>
             )}
             {info.supports.includes("image") && (
               <div>
-                <Label>{isAr ? "موديل الصور" : "Image model"}</Label>
+                <Label>{t("page_api_keys.image_model", "Image model")}</Label>
                 <Input value={imageModel} onChange={(e) => setImageModel(e.target.value)} placeholder={info.defaults.image ?? ""} />
               </div>
             )}
@@ -320,13 +316,13 @@ const ApiKeys = () => {
             {info.supports.includes("text") && (
               <label className="flex items-center gap-2 text-sm">
                 <Switch checked={capText} onCheckedChange={setCapText} />
-                <Sparkles className="h-4 w-4" /> {isAr ? "استخدم في توليد النصوص" : "Use for text generation"}
+                <Sparkles className="h-4 w-4" /> {t("page_api_keys.use_for_text_generation", "Use for text generation")}
               </label>
             )}
             {info.supports.includes("image") && (
               <label className="flex items-center gap-2 text-sm">
                 <Switch checked={capImage} onCheckedChange={setCapImage} />
-                <ImageIcon className="h-4 w-4" /> {isAr ? "استخدم في توليد الصور" : "Use for image generation"}
+                <ImageIcon className="h-4 w-4" /> {t("page_api_keys.use_for_image_generation", "Use for image generation")}
               </label>
             )}
           </div>
@@ -334,9 +330,9 @@ const ApiKeys = () => {
           <div className="flex gap-2">
             <Button onClick={onSave} disabled={saving} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isAr ? "حفظ" : "Save"}
+              {t("page_api_keys.save", "Save")}
             </Button>
-            <Button variant="ghost" onClick={resetForm}>{isAr ? "إلغاء" : "Cancel"}</Button>
+            <Button variant="ghost" onClick={resetForm}>{t("page_api_keys.cancel", "Cancel")}</Button>
           </div>
         </Card>
       )}

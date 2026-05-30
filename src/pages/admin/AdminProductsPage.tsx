@@ -154,17 +154,15 @@ export default function AdminProductsPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold">
-            {isAr ? "المنتجات" : "Products"}
+            {t("admin_products.products", "Products")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isAr
-              ? "إدارة منتجات المتجر، الأسعار، والملحقات."
-              : "Manage store products, pricing, and attachments."}
+            {t("admin_products.manage_store_products_pricing_and_attach", "Manage store products, pricing, and attachments.")}
           </p>
         </div>
         <Button onClick={() => setEditing(emptyProduct())} className="gap-2 rounded-full">
           <Plus className="h-4 w-4" />
-          {isAr ? "منتج جديد" : "New Product"}
+          {t("admin_products.new_product", "New Product")}
         </Button>
       </div>
 
@@ -176,7 +174,7 @@ export default function AdminProductsPage() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={isAr ? "بحث بالاسم أو SKU…" : "Search by name or SKU…"}
+                placeholder={t("admin_products.search_by_name_or_sku", "Search by name or SKU…")}
                 className="ps-9"
               />
             </div>
@@ -185,9 +183,9 @@ export default function AdminProductsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{isAr ? "كل المنتجات" : "All"}</SelectItem>
-                <SelectItem value="active">{isAr ? "نشط" : "Active"}</SelectItem>
-                <SelectItem value="inactive">{isAr ? "غير نشط" : "Inactive"}</SelectItem>
+                <SelectItem value="all">{t("admin_products.all", "All")}</SelectItem>
+                <SelectItem value="active">{t("admin_products.active", "Active")}</SelectItem>
+                <SelectItem value="inactive">{t("admin_products.inactive", "Inactive")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -198,20 +196,20 @@ export default function AdminProductsPage() {
             </div>
           ) : filtered.length === 0 ? (
             <p className="text-center text-muted-foreground py-12">
-              {isAr ? "لا توجد منتجات." : "No products."}
+              {t("admin_products.no_products", "No products.")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">{isAr ? "صورة" : "Image"}</TableHead>
-                    <TableHead>{isAr ? "الاسم" : "Name"}</TableHead>
-                    <TableHead>{isAr ? "الفئة" : "Category"}</TableHead>
-                    <TableHead>{isAr ? "السعر (ج.م/$/€)" : "Price (EGP/USD/EUR)"}</TableHead>
-                    <TableHead>{isAr ? "ملفات" : "Files"}</TableHead>
-                    <TableHead>{isAr ? "الحالة" : "Status"}</TableHead>
-                    <TableHead className="text-end">{isAr ? "إجراءات" : "Actions"}</TableHead>
+                    <TableHead className="w-16">{t("admin_products.image", "Image")}</TableHead>
+                    <TableHead>{t("admin_products.name", "Name")}</TableHead>
+                    <TableHead>{t("admin_products.category", "Category")}</TableHead>
+                    <TableHead>{t("admin_products.price_egp_usd_eur", "Price (EGP/USD/EUR)")}</TableHead>
+                    <TableHead>{t("admin_products.files", "Files")}</TableHead>
+                    <TableHead>{t("admin_products.status", "Status")}</TableHead>
+                    <TableHead className="text-end">{t("admin_products.actions", "Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -244,11 +242,11 @@ export default function AdminProductsPage() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <Badge variant={p.active ? "default" : "secondary"} className="w-fit">
-                            {p.active ? (isAr ? "نشط" : "Active") : (isAr ? "غير نشط" : "Inactive")}
+                            {p.active ? (t("admin_products.active", "Active")) : (t("admin_products.inactive", "Inactive"))}
                           </Badge>
                           {p.featured && (
                             <Badge className="w-fit bg-amber-500 text-white">
-                              <Star className="h-3 w-3 me-1" /> {isAr ? "مميز" : "Featured"}
+                              <Star className="h-3 w-3 me-1" /> {t("admin_products.featured", "Featured")}
                             </Badge>
                           )}
                         </div>
@@ -289,18 +287,18 @@ export default function AdminProductsPage() {
       <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{isAr ? "حذف المنتج" : "Delete product"}</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin_products.delete_product", "Delete product")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {isAr ? "لا يمكن التراجع عن هذا الإجراء." : "This action cannot be undone."}
+              {t("admin_products.this_action_cannot_be_undone", "This action cannot be undone.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogCancel>{t("admin_products.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingId && deleteMutation.mutate(deletingId)}
               className="bg-destructive text-destructive-foreground"
             >
-              {isAr ? "حذف" : "Delete"}
+              {t("admin_products.delete", "Delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -318,7 +316,7 @@ interface EditProps {
 }
 
 function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const [draft, setDraft] = useState<ProductRecord>(product);
   const isNew = product.id.startsWith("new-");
@@ -351,19 +349,19 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
         <DialogHeader>
           <DialogTitle>
             {isNew
-              ? isAr ? "منتج جديد" : "New Product"
-              : isAr ? "تعديل المنتج" : "Edit Product"}
+              ? t("admin_products.new_product", "New Product")
+              : t("admin_products.edit_product", "Edit Product")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
           <MultilingualField
-            label={isAr ? "الاسم" : "Name"}
+            label={t("admin_products.name", "Name")}
             value={draft.name}
             onChange={(v) => update("name", v)}
           />
           <MultilingualField
-            label={isAr ? "الوصف" : "Description"}
+            label={t("admin_products.description", "Description")}
             value={draft.description}
             onChange={(v) => update("description", v)}
             multiline
@@ -371,7 +369,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
           />
 
           <FileUploadField
-            label={isAr ? "الصورة الرئيسية" : "Main image"}
+            label={t("admin_products.main_image", "Main image")}
             value={draft.image}
             onChange={(v) => update("image", v)}
             uploader={uploadProductImage}
@@ -418,7 +416,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
               />
             </div>
             <div>
-              <Label>{isAr ? "الفئة" : "Category"}</Label>
+              <Label>{t("admin_products.category", "Category")}</Label>
               <Select
                 value={draft.category ?? ""}
                 onValueChange={(v) => update("category", v)}
@@ -434,7 +432,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
               </Select>
             </div>
             <div>
-              <Label>{isAr ? "الفئة العمرية" : "Age range"}</Label>
+              <Label>{t("admin_products.age_range", "Age range")}</Label>
               <Select
                 value={draft.age_range ?? "none"}
                 onValueChange={(v) => update("age_range", v === "none" ? null : v)}
@@ -444,7 +442,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">—</SelectItem>
-                  <SelectItem value="adults">{isAr ? "بالغين" : "Adults"}</SelectItem>
+                  <SelectItem value="adults">{t("admin_products.adults", "Adults")}</SelectItem>
                   {AGE_RANGES.map((a) => (
                     <SelectItem key={a} value={a}>{a}</SelectItem>
                   ))}
@@ -455,7 +453,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <Label>{isAr ? "المخزون" : "Stock"}</Label>
+              <Label>{t("admin_products.stock", "Stock")}</Label>
               <Input
                 type="number"
                 value={draft.stock ?? 0}
@@ -467,14 +465,14 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
                 checked={draft.active}
                 onCheckedChange={(v) => update("active", v)}
               />
-              <Label>{isAr ? "نشط" : "Active"}</Label>
+              <Label>{t("admin_products.active", "Active")}</Label>
             </div>
             <div className="flex items-center gap-2 sm:pt-6">
               <Switch
                 checked={draft.featured}
                 onCheckedChange={(v) => update("featured", v)}
               />
-              <Label>{isAr ? "مميز" : "Featured"}</Label>
+              <Label>{t("admin_products.featured", "Featured")}</Label>
             </div>
           </div>
 
@@ -482,7 +480,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold">
-                {isAr ? "الملحقات (PDF / صور / روابط)" : "Attachments (PDF / images / links)"}
+                {t("admin_products.attachments_pdf_images_links", "Attachments (PDF / images / links)")}
               </h3>
               <Badge variant="secondary">{draft.gallery.length}</Badge>
             </div>
@@ -555,11 +553,11 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={saving}>
-            {isAr ? "إلغاء" : "Cancel"}
+            {t("admin_products.cancel", "Cancel")}
           </Button>
           <Button onClick={() => onSave(draft)} disabled={saving} className="gap-2">
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isAr ? "حفظ" : "Save"}
+            {t("admin_products.save", "Save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -577,10 +575,10 @@ function AddAttachment({
   return (
     <div className="rounded-lg border-2 border-dashed p-3">
       <p className="text-sm font-semibold mb-2">
-        {isAr ? "إضافة ملحق جديد" : "Add new attachment"}
+        {t("admin_products.add_new_attachment", "Add new attachment")}
       </p>
       <FileUploadField
-        label={isAr ? "ارفع ملف PDF أو صورة" : "Upload PDF or image"}
+        label={t("admin_products.upload_pdf_or_image", "Upload PDF or image")}
         value={null}
         onChange={(url) => {
           if (!url) return;
@@ -594,7 +592,7 @@ function AddAttachment({
         }}
         uploader={uploadProductAttachment}
         accept=".pdf,image/*"
-        uploadLabel={isAr ? "رفع ملف" : "Upload file"}
+        uploadLabel={t("admin_products.upload_file", "Upload file")}
       />
     </div>
   );

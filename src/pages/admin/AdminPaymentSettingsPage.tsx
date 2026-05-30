@@ -13,7 +13,7 @@ import {
 const CURRENCIES: PayCurrency[] = ["EGP", "USD"];
 
 const AdminPaymentSettingsPage = () => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const q = useQuery({ queryKey: ["payment-settings"], queryFn: fetchPaymentSettings });
   const [s, setS] = useState<PaymentSettings | null>(null);
@@ -34,7 +34,7 @@ const AdminPaymentSettingsPage = () => {
     setSaving(true);
     try {
       await updatePaymentSettings(s);
-      toast({ title: isAr ? "تم الحفظ" : "Saved" });
+      toast({ title: t("admin_payment_settings.saved", "Saved") });
     } catch (e) {
       toast({
         title: "Error",
@@ -76,7 +76,7 @@ const AdminPaymentSettingsPage = () => {
                 : "border-muted text-muted-foreground hover:border-primary/40"
             }`}
           >
-            {c === "EGP" ? (isAr ? "ج.م" : "EGP") : "USD"}
+            {c === "EGP" ? (t("admin_payment_settings.egp", "EGP")) : "USD"}
           </button>
         );
       })}
@@ -110,7 +110,7 @@ const AdminPaymentSettingsPage = () => {
         </div>
         <label className="inline-flex items-center gap-2 cursor-pointer">
           <span className="text-xs font-bold text-muted-foreground">
-            {enabled ? (isAr ? "مُفعّل" : "Enabled") : (isAr ? "مُعطّل" : "Disabled")}
+            {enabled ? (t("admin_payment_settings.enabled", "Enabled")) : (t("admin_payment_settings.disabled", "Disabled"))}
           </span>
           <input
             type="checkbox"
@@ -131,25 +131,23 @@ const AdminPaymentSettingsPage = () => {
     <div className="max-w-3xl space-y-5">
       <header>
         <h1 className="text-2xl font-extrabold">
-          {isAr ? "وسائل الدفع اليدوية" : "Manual Payment Methods"}
+          {t("admin_payment_settings.manual_payment_methods", "Manual Payment Methods")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {isAr
-            ? "فعّل الطرق التي تريد إتاحتها للعملاء وحدّد العملات المقبولة لكل طريقة. يجب رفع إثبات الدفع من العميل."
-            : "Enable the methods you want to offer and choose the accepted currencies for each. Customers must upload proof of payment."}
+          {t("admin_payment_settings.enable_the_methods_you_want_to_offer_and", "Enable the methods you want to offer and choose the accepted currencies for each. Customers must upload proof of payment.")}
         </p>
       </header>
 
       {/* InstaPay */}
       <MethodCard
         icon={Smartphone}
-        title={isAr ? "انستا باي (InstaPay)" : "InstaPay"}
+        title={t("admin_payment_settings.instapay", "InstaPay")}
         enabled={s.instapay_enabled}
         onToggle={(v) => setS({ ...s, instapay_enabled: v })}
       >
         <label className="block">
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "حساب الاستلام" : "InstaPay handle"}
+            {t("admin_payment_settings.instapay_handle", "InstaPay handle")}
           </span>
           <input
             value={s.instapay_handle ?? ""}
@@ -160,7 +158,7 @@ const AdminPaymentSettingsPage = () => {
         </label>
         <div>
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "العملات المقبولة" : "Accepted currencies"}
+            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
           </span>
           <CurrencyChips keyName="instapay_currencies" values={s.instapay_currencies} />
         </div>
@@ -169,13 +167,13 @@ const AdminPaymentSettingsPage = () => {
       {/* Vodafone Cash */}
       <MethodCard
         icon={Wallet}
-        title={isAr ? "فودافون كاش" : "Vodafone Cash"}
+        title={t("admin_payment_settings.vodafone_cash", "Vodafone Cash")}
         enabled={s.vodafone_enabled}
         onToggle={(v) => setS({ ...s, vodafone_enabled: v })}
       >
         <label className="block">
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "رقم فودافون كاش" : "Vodafone Cash number"}
+            {t("admin_payment_settings.vodafone_cash_number", "Vodafone Cash number")}
           </span>
           <input
             value={s.vodafone_number ?? ""}
@@ -186,7 +184,7 @@ const AdminPaymentSettingsPage = () => {
         </label>
         <div>
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "العملات المقبولة" : "Accepted currencies"}
+            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
           </span>
           <CurrencyChips keyName="vodafone_currencies" values={s.vodafone_currencies} />
         </div>
@@ -201,7 +199,7 @@ const AdminPaymentSettingsPage = () => {
       >
         <label className="block">
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "البريد الإلكتروني لحساب Payoneer" : "Payoneer email"}
+            {t("admin_payment_settings.payoneer_email", "Payoneer email")}
           </span>
           <input
             type="email"
@@ -213,7 +211,7 @@ const AdminPaymentSettingsPage = () => {
         </label>
         <div>
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "العملات المقبولة" : "Accepted currencies"}
+            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
           </span>
           <CurrencyChips keyName="payoneer_currencies" values={s.payoneer_currencies} />
         </div>
@@ -222,23 +220,23 @@ const AdminPaymentSettingsPage = () => {
       {/* Bank Transfer */}
       <MethodCard
         icon={Building2}
-        title={isAr ? "تحويل بنكي" : "Bank transfer"}
+        title={t("admin_payment_settings.bank_transfer", "Bank transfer")}
         enabled={s.bank_enabled}
         onToggle={(v) => setS({ ...s, bank_enabled: v })}
       >
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-xs font-bold mb-1 block">{isAr ? "اسم البنك" : "Bank name"}</span>
+            <span className="text-xs font-bold mb-1 block">{t("admin_payment_settings.bank_name", "Bank name")}</span>
             <input
               value={s.bank_name ?? ""}
               onChange={(e) => setS({ ...s, bank_name: e.target.value })}
               className={inputCls}
-              placeholder={isAr ? "مثال: CIB" : "e.g. CIB"}
+              placeholder={t("admin_payment_settings.e_g_cib", "e.g. CIB")}
             />
           </label>
           <label className="block">
             <span className="text-xs font-bold mb-1 block">
-              {isAr ? "اسم صاحب الحساب" : "Account holder name"}
+              {t("admin_payment_settings.account_holder_name", "Account holder name")}
             </span>
             <input
               value={s.bank_account_name ?? ""}
@@ -248,7 +246,7 @@ const AdminPaymentSettingsPage = () => {
           </label>
           <label className="block">
             <span className="text-xs font-bold mb-1 block">
-              {isAr ? "رقم الحساب" : "Account number"}
+              {t("admin_payment_settings.account_number", "Account number")}
             </span>
             <input
               value={s.bank_account_number ?? ""}
@@ -276,7 +274,7 @@ const AdminPaymentSettingsPage = () => {
         </div>
         <div>
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "العملات المقبولة" : "Accepted currencies"}
+            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
           </span>
           <CurrencyChips keyName="bank_currencies" values={s.bank_currencies} />
         </div>
@@ -285,23 +283,23 @@ const AdminPaymentSettingsPage = () => {
       {/* Instructions */}
       <div className="bg-white dark:bg-card rounded-2xl p-5 border-2 border-muted space-y-3">
         <h3 className="font-extrabold">
-          {isAr ? "تعليمات تظهر للعميل" : "Instructions shown to customers"}
+          {t("admin_payment_settings.instructions_shown_to_customers", "Instructions shown to customers")}
         </h3>
         <label className="block">
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "تعليمات (عربي)" : "Instructions (AR)"}
+            {t("admin_payment_settings.instructions_ar", "Instructions (AR)")}
           </span>
           <textarea
             value={s.instructions_ar ?? ""}
             onChange={(e) => setS({ ...s, instructions_ar: e.target.value })}
             rows={3}
             className={inputCls}
-            placeholder={isAr ? "بعد التحويل، ارفع صورة إثبات الدفع..." : ""}
+            placeholder={t("admin_payment_settings.x", "")}
           />
         </label>
         <label className="block">
           <span className="text-xs font-bold mb-1 block">
-            {isAr ? "تعليمات (إنجليزي)" : "Instructions (EN)"}
+            {t("admin_payment_settings.instructions_en", "Instructions (EN)")}
           </span>
           <textarea
             value={s.instructions_en ?? ""}
@@ -320,7 +318,7 @@ const AdminPaymentSettingsPage = () => {
           className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-extrabold inline-flex items-center gap-2 disabled:opacity-50 shadow-pop hover-pop"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {isAr ? "حفظ التغييرات" : "Save changes"}
+          {t("admin_payment_settings.save_changes", "Save changes")}
         </button>
       </div>
     </div>

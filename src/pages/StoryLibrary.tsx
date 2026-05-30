@@ -277,9 +277,7 @@ const StoryLibrary = () => {
           value={ideaPrompt}
           onChange={(e) => setIdeaPrompt(e.target.value)}
           rows={3}
-          placeholder={isAr
-            ? "مثلاً: قصة عن طفلة خايفة تنام في الضلمة وتلاقي صديق نجمة..."
-            : "e.g. A story about a brave little fox who learns to share..."}
+          placeholder={t("page_story_library.e_g_a_story_about_a_brave_little_fox_who", "e.g. A story about a brave little fox who learns to share...")}
           className="w-full rounded-xl border-2 border-primary/30 bg-background/80 backdrop-blur p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
         />
 

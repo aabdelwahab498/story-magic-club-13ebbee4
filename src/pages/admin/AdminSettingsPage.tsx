@@ -140,12 +140,10 @@ export default function AdminSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FlaskConical className="h-5 w-5 text-primary" />
-              {i18n.language?.startsWith("ar") ? "مزايا التجربة (للأدمن فقط)" : "Trial features (admin only)"}
+              {t("admin_settings.trial_features_admin_only", "Trial features (admin only)")}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              {i18n.language?.startsWith("ar")
-                ? "تحكّم في المزايا المدفوعة المتاحة لك أثناء التجربة بدون التأثير على المستخدمين."
-                : "Toggle paid features for your own admin testing without affecting users."}
+              {t("admin_settings.toggle_paid_features_for_your_own_admin_", "Toggle paid features for your own admin testing without affecting users.")}
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
