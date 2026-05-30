@@ -149,7 +149,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         characterVisualHash: story.character_visual_hash,
         characterProfile: (story.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? null,
         idempotencyKey,
-      } as Parameters<typeof illustrateSelStory>[0], { trigger: "user", source: "SelStoryViewer.runIllustrate" });
+      }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
 
       const map = new Map(res.illustrations.map((i) => [i.index, i]));
       setPages((prev) => prev.map((p) => {
