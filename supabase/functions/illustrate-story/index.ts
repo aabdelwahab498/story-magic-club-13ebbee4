@@ -342,13 +342,50 @@ serve(async (req) => {
 
     const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
 
+    // ----------------------------------------------------------------
+    // REUSE GUARD: before spending image-gen credits, check whether the
+    // requested pages already have a `ready` illustration persisted for
+    // this story+user. If every requested page is already ready, short
+    // circuit and return cached URLs. If only some are ready, restrict
+    // the generation set to the missing pages and merge results.
+    // ----------------------------------------------------------------
+    const requestedIndices = body.pages.map((p) => p.index);
+    const { data: existingRows } = await supabase
+      .from("generated_illustrations")
+      .select("page_index,image_url,status")
+      .eq("story_id", body.storyId)
+      .eq("user_id", userId)
+      .in("page_index", requestedIndices);
+    const readyMap = new Map<number, string>();
+    for (const r of existingRows ?? []) {
+      if (r.status === "ready" && typeof r.image_url === "string" && r.image_url) {
+        readyMap.set(r.page_index as number, r.image_url as string);
+      }
+    }
+    const missingPages = body.pages.filter((p) => !readyMap.has(p.index));
+    if (missingPages.length === 0) {
+      const reused = body.pages
+        .map((p) => ({ index: p.index, imageUrl: readyMap.get(p.index)!, status: "ready" as const }))
+        .sort((a, b) => a.index - b.index);
+      await logLifecycle(admin, {
+        event: "idempotent_replay",
+        storyId: body.storyId,
+        userId,
+        idempotencyKey: body.idempotencyKey ?? null,
+        source: body.triggerSource ?? null,
+        error: "reused_existing_illustrations",
+      });
+      return json({ storyId: body.storyId, illustrations: reused, reused: true, source: "db_reuse" }, 200, corsHeaders);
+    }
+
     // Load user-supplied image API keys (used first so credits go on their account)
     const userCtx = await loadUserAIContext(userId);
     const userImageKeys = userCtx.imageKeys;
 
+
     const runGeneration = async () => {
-      // Generate all pages in parallel to stay under the 150s edge idle timeout.
-      const tasks = body.pages.map(async (page) => {
+      // Generate ONLY pages that don't already have a ready illustration.
+      const tasks = missingPages.map(async (page) => {
         const palette = colorPaletteFor(page.emotionTag);
         const prompt =
           `${style}, consistent picture-book series, same main child in every image. ` +
@@ -383,12 +420,17 @@ serve(async (req) => {
           return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
         }
       });
-      const settled = await Promise.all(tasks);
+      const generated = await Promise.all(tasks);
+      // Merge reused (ready) pages with freshly generated ones.
+      const reused = Array.from(readyMap.entries()).map(([index, imageUrl]) => ({
+        index, imageUrl, status: "ready" as const,
+      }));
       return {
         storyId: body.storyId,
-        illustrations: settled.sort((a, b) => a.index - b.index),
+        illustrations: [...reused, ...generated].sort((a, b) => a.index - b.index),
       };
     };
+
 
     // Server-side idempotency: collapse duplicate posts with the same key +
     // page set into one underlying job. In-flight calls await the same

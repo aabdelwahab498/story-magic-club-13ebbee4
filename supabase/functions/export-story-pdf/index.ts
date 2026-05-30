@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
-interface ReqBody { storyId: string }
+interface ReqBody { storyId: string; force?: boolean }
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -22,7 +22,9 @@ serve(async (req) => {
   try {
     const raw = (await req.json().catch(() => ({}))) as Partial<ReqBody>;
     const storyId = typeof raw.storyId === "string" ? raw.storyId.slice(0, 64) : "";
+    const force = raw.force === true;
     if (!storyId) return json({ error: "missing_storyId" }, 400);
+
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
@@ -66,11 +68,19 @@ serve(async (req) => {
 
     const { data: story, error: sErr } = await supabase
       .from("ai_story_history")
-      .select("id, user_id, title, pages, sel_outcome, language")
+      .select("id, user_id, title, pages, sel_outcome, language, pdf_url")
       .eq("id", storyId)
       .single();
     if (sErr || !story) return json({ error: "story_not_found" }, 404);
     if (story.user_id !== userId) return json({ error: "forbidden" }, 403);
+
+    // REUSE GUARD: if a PDF was already generated for this story and the
+    // caller did not request a forced rebuild, return the existing URL
+    // instead of re-rendering and re-uploading.
+    if (!force && typeof story.pdf_url === "string" && story.pdf_url.length > 0) {
+      return json({ pdfUrl: story.pdf_url, reused: true }, 200);
+    }
+
 
     const { data: ills } = await supabase
       .from("generated_illustrations")
