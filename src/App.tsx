@@ -109,6 +109,7 @@ const App = () => (
                       <Route path="account/subscription" element={<AccountSubscription />} />
                       <Route path="my-stories" element={<MyAiStories />} />
                       <Route path="account/api-keys" element={<ApiKeys />} />
+                      <Route path="account/profile" element={<AccountProfile />} />
                     </Route>
                     <Route element={<ProtectedRoute requireAdmin />}>
                       <Route path="admin" element={<Admin />} />
