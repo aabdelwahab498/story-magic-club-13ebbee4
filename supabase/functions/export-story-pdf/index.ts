@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
-interface ReqBody { storyId: string }
+interface ReqBody { storyId: string; force?: boolean }
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
