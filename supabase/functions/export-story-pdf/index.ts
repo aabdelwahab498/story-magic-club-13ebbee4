@@ -22,7 +22,9 @@ serve(async (req) => {
   try {
     const raw = (await req.json().catch(() => ({}))) as Partial<ReqBody>;
     const storyId = typeof raw.storyId === "string" ? raw.storyId.slice(0, 64) : "";
+    const force = raw.force === true;
     if (!storyId) return json({ error: "missing_storyId" }, 400);
+
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
