@@ -674,6 +674,12 @@ const AIStoryteller = () => {
       // Capture current position BEFORE pausing so we can resume exactly here.
       if (hdAudioRef.current) {
         hdAudioPositionRef.current = hdAudioRef.current.currentTime;
+        console.debug(
+          "[Narrator][HD] PAUSE @",
+          hdAudioPositionRef.current.toFixed(3),
+          "s / duration",
+          hdAudioRef.current.duration,
+        );
         hdAudioRef.current.pause();
       }
       browserTtsRef.current?.pause();
@@ -682,16 +688,27 @@ const AIStoryteller = () => {
     }
     if (narrationState === "paused") {
       if (hdAudioRef.current) {
+        const before = hdAudioRef.current.currentTime;
         // Restore position in case the browser reset it (some engines reset
         // currentTime when src is a data: URL and the buffer was evicted).
         try {
           if (hdAudioPositionRef.current > 0) {
             hdAudioRef.current.currentTime = hdAudioPositionRef.current;
           }
-        } catch {
-          /* setting currentTime can throw if media isn't ready — ignore */
+        } catch (err) {
+          console.debug("[Narrator][HD] currentTime restore failed", err);
         }
-        hdAudioRef.current.play().catch(() => {});
+        console.debug(
+          "[Narrator][HD] RESUME — saved",
+          hdAudioPositionRef.current.toFixed(3),
+          "before",
+          before.toFixed(3),
+          "after",
+          hdAudioRef.current.currentTime.toFixed(3),
+        );
+        hdAudioRef.current
+          .play()
+          .catch((err) => console.debug("[Narrator][HD] play() rejected", err));
       }
       browserTtsRef.current?.resume();
       setNarrationState("playing");
