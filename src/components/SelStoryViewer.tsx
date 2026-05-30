@@ -375,7 +375,36 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         </button>
       </div>
 
+      {/* Illustration readiness summary — surfaces Function B state to the user. */}
+      {(() => {
+        const ready = pages.filter((p) => !!p.imageUrl).length;
+        const total = pages.length;
+        const allReady = ready === total && total > 0;
+        return (
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs">
+            <ImageIcon className="h-3.5 w-3.5 text-foreground/60 dark:text-white/60" />
+            <span
+              className={`px-2 py-0.5 rounded-full font-semibold ${
+                allReady
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : ready > 0
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  : "bg-foreground/10 text-foreground/70 dark:text-white/70"
+              }`}
+              aria-live="polite"
+            >
+              {illustrating
+                ? t("sel.illustrations_pending", `Generating illustrations… ${ready}/${total}`)
+                : allReady
+                ? t("sel.illustrations_ready", `All illustrations ready (${total}/${total})`)
+                : t("sel.illustrations_status", `Illustrations: ${ready}/${total} ready`)}
+            </span>
+          </div>
+        );
+      })()}
+
       <div className="mt-6 flex flex-wrap justify-center gap-3">
+
         {/* AUDIO — Premium tier only */}
         {canAudio ? (
           <>
