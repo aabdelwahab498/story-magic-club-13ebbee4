@@ -17,10 +17,92 @@ export type PaidFeature = "illustrations" | "pdf" | "audio";
 
 export interface QuotaResult {
   allowed: boolean;
-  reason?: "no_user" | "no_plan" | "limit_reached" | "feature_not_in_plan";
+  reason?:
+    | "no_user"
+    | "no_plan"
+    | "limit_reached"
+    | "feature_not_in_plan"
+    | "daily_limit_reached"
+    | "monthly_limit_reached";
   used?: number;
   limit?: number;
+  daily_used?: number;
+  daily_limit?: number;
+  monthly_used?: number;
+  monthly_limit?: number;
   tier?: string;
+}
+
+/**
+ * Fair-use story quota (text + audio). Uses public.check_story_quota RPC.
+ * Replaces the legacy credit-based check. Never consumes credits.
+ */
+export async function enforceStoryFairUse(userId: string): Promise<QuotaResult> {
+  if (!userId) return { allowed: false, reason: "no_user" };
+  const { data, error } = await admin().rpc("check_story_quota", { _user_id: userId });
+  if (error || !data) {
+    console.error("check_story_quota error", error);
+    return { allowed: true }; // fail-open: never block legitimate users on infra error
+  }
+  const r = data as Record<string, unknown>;
+  return {
+    allowed: r.allowed === true,
+    reason: (r.reason as QuotaResult["reason"]) ?? undefined,
+    tier: r.tier as string | undefined,
+    daily_used: r.daily_used as number | undefined,
+    daily_limit: r.daily_limit as number | undefined,
+    monthly_used: r.monthly_used as number | undefined,
+    monthly_limit: r.monthly_limit as number | undefined,
+  };
+}
+
+/** Consume illustration credits atomically. Returns success + remaining balance. */
+export async function consumeIllustrationCredits(
+  userId: string,
+  amount: number,
+): Promise<{ success: boolean; balance: number; reason?: string }> {
+  const { data, error } = await admin().rpc("consume_illustration_credits", {
+    _user_id: userId,
+    _amount: amount,
+  });
+  if (error) {
+    console.error("consume_illustration_credits error", error);
+    return { success: false, balance: 0, reason: "rpc_error" };
+  }
+  const r = (data ?? {}) as Record<string, unknown>;
+  return {
+    success: r.success === true,
+    balance: (r.balance as number) ?? 0,
+    reason: r.reason as string | undefined,
+  };
+}
+
+/** Refund credits (call when generation fails after debit). */
+export async function refundIllustrationCredits(userId: string, amount: number): Promise<void> {
+  await admin().rpc("refund_illustration_credits", { _user_id: userId, _amount: amount });
+}
+
+/** True if the user is on a tier that allows BYOK + has a valid image key. */
+export async function hasValidImageByok(userId: string): Promise<boolean> {
+  const sb = admin();
+  const { data: sub } = await sb
+    .from("user_subscriptions")
+    .select("plan_tier")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const tier = sub?.plan_tier as string | undefined;
+  if (tier !== "pro_creator" && tier !== "elite_publisher") return false;
+  const { data: keys } = await sb
+    .from("user_api_keys")
+    .select("provider, enabled, validation_status, capabilities")
+    .eq("user_id", userId)
+    .eq("enabled", true);
+  return (keys ?? []).some((k: { validation_status: string | null; capabilities: string[] | null }) =>
+    k.validation_status === "valid" && (k.capabilities ?? []).includes("image"),
+  );
 }
 
 /** True if the user has the requested paid feature on an active subscription. */
