@@ -1,72 +1,83 @@
+# خطة دمج Paddle يدوي مع NajmaH
 
-# NajmaH Business Model Refactor
+بما أن Lovable لا يدعم Paddle التلقائي لهذا النوع من المشاريع، سنستخدم **حساب Paddle الخاص بك** (Billing API v2 + Paddle.js للـ Checkout).
 
-Large change touching DB, edge functions, and UI. I'll deliver in 4 sequenced parts.
+---
 
-## Part 1 — Database schema
+## ما تحتاج تجهيزه أنت في Paddle Dashboard
 
-New migrations:
+1. **حساب Paddle Billing** (Sandbox أولاً للاختبار، ثم Live).
+2. **API Key** من: Developer Tools → Authentication.
+3. **Client-side Token** من: Developer Tools → Authentication (للـ Paddle.js).
+4. **Webhook Secret** من: Developer Tools → Notifications → أضف endpoint.
+5. **المنتجات والأسعار** (سأرشدك لإنشائها أو تستخدم API):
+   - Starter — $4.99/شهر
+   - Pro Creator — $14.99/شهر
+   - Elite Publisher — $39.99/شهر
+   - (Free يبقى بدون Paddle)
+6. **الدومين المعتمد** للـ checkout: ستضيف دومين المعاينة + دومين الإنتاج في: Checkout → Website Approval.
 
-1. **`app_settings` table** (singleton row) with `allow_free_registrations BOOLEAN DEFAULT true` + RLS: anyone reads, admins update.
-2. **`waitlist` table**: `email`, `name`, `created_at`. Public insert, admin read.
-3. **`ai_story_history`**: add `visibility TEXT DEFAULT 'private' CHECK IN ('public','private')`. Backfill existing.
-4. **`illustration_credits` table**: `user_id`, `balance INT`, `monthly_allocation INT`, `last_reset_at`, `lifetime_only BOOLEAN`. One row per user, seeded on signup via trigger.
-5. **`subscription_plans`**: add `illustration_credits INT`, `credits_reset_monthly BOOLEAN`, `daily_story_limit INT`, `monthly_story_limit_v2 INT`. Seed values:
-   - free: 20 credits lifetime, 3/day, 30/month
-   - parent ($9): 80 credits monthly, 7/day, 210/month
-   - pro_creator ($19): same as parent + BYOK
-   - elite_publisher ($39): higher + BYOK
-6. **RPC functions**:
-   - `check_story_quota(user_id)` returns `{allowed, daily_used, daily_limit, monthly_used, monthly_limit}`
-   - `consume_illustration_credits(user_id, amount)` returns `{success, balance}`
-   - `reset_monthly_credits()` cron-callable
-   - `register_allowed()` returns boolean
+---
 
-## Part 2 — Edge function changes
+## ما سأنفذه أنا
 
-- **`generate-story`, `compose-story`, `trial-story`, `narrate-*`**: Remove all `ai_credits_exhausted` / `consumeCredits` paths. Replace `enforceMonthlyStoryQuota` with new `enforceStoryFairUse` (daily + monthly counts from `ai_story_history`).
-- **`illustrate-story`, `generate-classic-illustrations`**: 
-  - Hard-cap pages to 8.
-  - Call `consume_illustration_credits(uid, 10)` before generation.
-  - If returns 0 and tier ∈ {pro_creator, elite_publisher} with valid BYOK → use user key.
-  - Else return 402 `illustration_credits_exhausted`.
-- **New `signup` guard**: in `Auth.tsx` signup flow, call `register_allowed()` RPC first; block free-tier signup if false.
-- **New `join-waitlist` edge function** (public insert).
+### 1. الأسرار (Secrets)
+سأطلب منك إضافة:
+- `PADDLE_API_KEY` (سري — للسيرفر)
+- `PADDLE_WEBHOOK_SECRET` (سري — للتحقق من التواقيع)
+- `PADDLE_ENVIRONMENT` (`sandbox` أو `production`)
+- `PADDLE_CLIENT_TOKEN` (يُكشف للفرونت — سأخزنه في `app_settings` بدلاً من secret)
 
-## Part 3 — Frontend
+### 2. تعديلات قاعدة البيانات (migration)
+- جدول `subscription_plans`: إضافة عمود `paddle_price_id TEXT` لربط كل خطة بسعر Paddle.
+- جدول جديد `subscriptions`:
+  ```
+  user_id, paddle_subscription_id, paddle_customer_id,
+  tier, status (active/past_due/canceled/paused),
+  current_period_start, current_period_end,
+  cancel_at_period_end, created_at, updated_at
+  ```
+  مع RLS: المستخدم يقرأ اشتراكه فقط، الأدمن يقرأ الكل، الكتابة من السيرفر فقط (service role).
+- جدول `paddle_webhook_events` لتسجيل الأحداث ومنع التكرار (idempotency على `event_id`).
 
-- **Admin Settings page**: add "Allow Free Registrations" toggle wired to `app_settings`.
-- **Auth page**: pre-check `register_allowed`; on block show `<RegistrationClosedModal>` with "Join Waitlist" + "View Premium Plans" actions.
-- **New `WaitlistDialog.tsx`**: email + name form.
-- **AIStoryteller**:
-  - Hide visibility toggle for free users; force `visibility: 'public'`.
-  - Default story pages to 8 (was 15).
-  - Before Illustrate click → show `<IllustrateConfirmDialog>` ("10 credits, 8 pages"). Button disabled while in-flight (already partially done via `IllustrateButton`).
-  - Replace `ai_credits_exhausted` UI handler with `illustration_credits_exhausted`; CTAs: Upgrade, BYOK (if eligible tier), Cancel.
-- **CreditCounter**: change semantics — show illustration credits balance (not story count). Format: `X/20 illustration credits` (free) or `X/80 monthly` (parent).
-- **MyAiStories / StoryLibrary**: show community badge on public stories.
+### 3. Edge Functions
+- **`paddle-create-checkout`**: تتلقى `tier` → ترجع `transaction_id` أو ترسل المستخدم لـ Paddle.js مع `priceId` و `customerEmail`. تتحقق من JWT.
+- **`paddle-webhook`**: تستقبل أحداث Paddle، تتحقق من توقيع HMAC، تعالج:
+  - `subscription.created` / `subscription.activated` → تفعيل الـ tier للمستخدم
+  - `subscription.updated` → تحديث الحالة
+  - `subscription.canceled` / `subscription.past_due` → تخفيض للـ Free
+  - `transaction.completed` → سجل الدفعة
+- **`paddle-portal`**: ترجع رابط Customer Portal لإدارة الاشتراك/إلغاءه.
 
-## Part 4 — Community Library
+### 4. الفرونت
+- تحميل `Paddle.js` ديناميكياً في `Pricing.tsx`.
+- زر **Subscribe** لكل خطة → يفتح Paddle Overlay Checkout مع `customer.email` من الجلسة.
+- بعد نجاح الـ Checkout: toast + redirect لصفحة شكر.
+- زر **Manage Subscription** في `AccountProfile` يفتح Customer Portal.
+- إخفاء/حذف نظام الدفع اليدوي (InstaPay/Vodafone/إثبات الدفع) من الـ UI.
+- إزالة تبديل عملة EGP — العرض بالدولار فقط.
 
-Existing `stories` table is admin-curated. We'll surface free-tier `ai_story_history` rows with `visibility='public'` via a new `community_stories` view + page route `/community` listing them. (Lightweight — no new moderation flow; relies on existing safety_passed.)
+### 5. ربط مع Quota
+- `_shared/quota.ts` يقرأ `subscriptions.status = 'active'` لتحديد الـ tier الفعلي بدل الاعتماد على نظام يدوي.
 
-## Out of scope / preserved
+---
 
-- Payment gateways untouched.
-- Existing BYOK encryption + RLS preserved.
-- `manage-user-api-key` unchanged.
+## ما يبقى يدوي عليك بعد التنفيذ
 
-## Order of execution
+1. إنشاء المنتجات والأسعار في Paddle (يمكنني توليد script يستخدم Paddle API لإنشائها تلقائياً بعد إعطائي مفتاح Sandbox).
+2. إضافة الـ Webhook URL (سأعطيك الرابط بعد نشر الـ Edge Function).
+3. اعتماد الدومينات في Paddle Checkout settings.
+4. الانتقال من Sandbox → Production بعد الاختبار.
 
-1. Migrations (Part 1) — single migration file, awaiting approval.
-2. Edge functions (Part 2).
-3. Frontend wiring (Part 3 + 4).
-4. Smoke test: register-disabled flow, free story → public, illustrate → confirm → credit deduct, BYOK fallback at 0 credits.
+---
 
-## Risks / notes
+## ترتيب التنفيذ المقترح
 
-- Existing users with `monthly_story_limit` on old plans: kept for backwards compat; new logic reads new column with fallback.
-- "Parent Tier $9" — current schema has `pro_creator` ($19) and `elite_publisher` ($39); I'll add/rename a `parent` tier. Confirm if "parent" should replace an existing tier or be new.
-- Free-tier 20 lifetime credits = users who already illustrated lose remaining quota; we'll seed `balance = 20` for all existing free users (no clawback).
+1. أنشئ حساب Paddle Sandbox الآن.
+2. أعطني إشارة، فأضيف الـ secrets (سيظهر لك form آمن).
+3. أنفذ migration + Edge Functions + Frontend.
+4. أعطيك Webhook URL لتضعه في Paddle.
+5. سكربت ينشئ الأسعار الأربعة في حسابك تلقائياً.
+6. اختبار end-to-end بطلب وهمي.
 
-Ready to proceed on approval. If "parent" tier mapping is wrong, tell me which existing tier maps to $9 and I'll adjust before migration.
+هل أبدأ بإضافة الـ Secrets الآن؟
