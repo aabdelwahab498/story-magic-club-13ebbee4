@@ -118,28 +118,17 @@ export default function AdminPlansPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">{t("admin_plans.price_egp", "Price (EGP)")}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={plan.price_egp}
-                  onChange={(e) => patch(plan.id, { price_egp: Number(e.target.value) })}
-                  disabled={plan.tier === "free"}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">{t("admin_plans.price_usd", "Price (USD)")}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={plan.price_usd}
-                  onChange={(e) => patch(plan.id, { price_usd: Number(e.target.value) })}
-                  disabled={plan.tier === "free"}
-                />
-              </div>
+            <div>
+              <Label className="text-xs">{t("admin_plans.price_usd", "Price (USD)")}</Label>
+              <Input
+                type="number"
+                min={0}
+                value={plan.price_usd}
+                onChange={(e) => patch(plan.id, { price_usd: Number(e.target.value) })}
+                disabled={plan.tier === "free"}
+              />
             </div>
+
 
             <div>
               <Label className="text-xs">
