@@ -68,6 +68,7 @@ export type Database = {
           updated_at: string
           user_id: string
           video_embed_url: string | null
+          visibility: string
         }
         Insert: {
           age_band?: string | null
@@ -92,6 +93,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           video_embed_url?: string | null
+          visibility?: string
         }
         Update: {
           age_band?: string | null
@@ -116,6 +118,28 @@ export type Database = {
           updated_at?: string
           user_id?: string
           video_embed_url?: string | null
+          visibility?: string
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          allow_free_registrations: boolean
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allow_free_registrations?: boolean
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allow_free_registrations?: boolean
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -570,6 +594,36 @@ export type Database = {
           path?: string | null
           user_agent?: string | null
           viewed_at?: string
+        }
+        Relationships: []
+      }
+      illustration_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          last_reset_at: string | null
+          lifetime_only: boolean
+          monthly_allocation: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          last_reset_at?: string | null
+          lifetime_only?: boolean
+          monthly_allocation?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          last_reset_at?: string | null
+          lifetime_only?: boolean
+          monthly_allocation?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1254,12 +1308,16 @@ export type Database = {
         Row: {
           active: boolean
           allow_audio: boolean
+          allow_byok: boolean
           allow_illustrations: boolean
           allow_pdf: boolean
           created_at: string
+          credits_reset_monthly: boolean
+          daily_story_limit: number
           description: Json
           features: Json
           id: string
+          illustration_credits: number
           monthly_story_limit: number
           name: Json
           price_egp: number
@@ -1271,12 +1329,16 @@ export type Database = {
         Insert: {
           active?: boolean
           allow_audio?: boolean
+          allow_byok?: boolean
           allow_illustrations?: boolean
           allow_pdf?: boolean
           created_at?: string
+          credits_reset_monthly?: boolean
+          daily_story_limit?: number
           description?: Json
           features?: Json
           id?: string
+          illustration_credits?: number
           monthly_story_limit?: number
           name?: Json
           price_egp?: number
@@ -1288,12 +1350,16 @@ export type Database = {
         Update: {
           active?: boolean
           allow_audio?: boolean
+          allow_byok?: boolean
           allow_illustrations?: boolean
           allow_pdf?: boolean
           created_at?: string
+          credits_reset_monthly?: boolean
+          daily_story_limit?: number
           description?: Json
           features?: Json
           id?: string
+          illustration_credits?: number
           monthly_story_limit?: number
           name?: Json
           price_egp?: number
@@ -1595,6 +1661,33 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          notified: boolean
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name?: string | null
+          notified?: boolean
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          notified?: boolean
+          source?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       site_stats: {
@@ -1611,8 +1704,13 @@ export type Database = {
         Args: { _months?: number; _request_id: string }
         Returns: string
       }
+      check_story_quota: { Args: { _user_id: string }; Returns: Json }
       cleanup_rate_limit_data: { Args: never; Returns: undefined }
       cleanup_upload_pipeline: { Args: never; Returns: undefined }
+      consume_illustration_credits: {
+        Args: { _amount: number; _user_id: string }
+        Returns: Json
+      }
       expire_due_subscriptions: { Args: never; Returns: number }
       has_paid_feature: {
         Args: { _feature: string; _user_id: string }
@@ -1625,10 +1723,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      refund_illustration_credits: {
+        Args: { _amount: number; _user_id: string }
+        Returns: undefined
+      }
+      registration_allowed: { Args: never; Returns: boolean }
       reject_manual_payment: {
         Args: { _reason?: string; _request_id: string }
         Returns: undefined
       }
+      reset_monthly_illustration_credits: { Args: never; Returns: number }
       user_daily_upload_bytes: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
