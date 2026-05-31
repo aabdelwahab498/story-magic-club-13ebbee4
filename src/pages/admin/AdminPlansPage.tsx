@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power } from "lucide-react";
+import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { fetchAllPlans, updatePlan, type SubscriptionPlan } from "@/lib/subscriptionApi";
+import { supabase } from "@/integrations/supabase/client";
 
 const tierColor: Record<string, string> = {
   free: "from-slate-400 to-slate-500",
