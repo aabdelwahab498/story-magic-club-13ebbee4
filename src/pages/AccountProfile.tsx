@@ -251,6 +251,8 @@ const AccountProfile = () => {
         )}
       </Card>
 
+      <PaddleSubscriptionCard />
+
       <Card className="p-5 sm:p-6 space-y-5">
         <div>
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
