@@ -325,27 +325,38 @@ serve(async (req) => {
       if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
     }
 
-    // Server-side subscription gate (cannot be bypassed from client UI)
+    // Server-side credit gate. Admins bypass entirely.
+    // Other users: try to debit 10 illustration credits. If insufficient,
+    // pro_creator/elite_publisher with valid image-capable BYOK key may
+    // continue using their own provider; everyone else is blocked.
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const { data: paidAllowed, error: gateErr } = await admin.rpc("has_paid_feature", {
-      _user_id: userId,
-      _feature: "illustrations",
-    });
-    const { data: isAdmin, error: roleErr } = await admin.rpc("has_role", {
+    const { data: isAdmin } = await admin.rpc("has_role", {
       _user_id: userId,
       _role: "admin",
     });
-    if (gateErr) {
-      console.error("[illustrate] gate check failed", gateErr);
-      return json({ error: "subscription_check_failed" }, 500, corsHeaders);
-    }
-    if (roleErr) console.error("[illustrate] admin gate check failed", roleErr);
-    const allowed = !!paidAllowed || !!isAdmin;
-    if (!allowed) {
-      return json({ error: "subscription_required", feature: "illustrations", blocked: true }, 200, corsHeaders);
+
+    let creditsCharged = false;
+    let usingByok = false;
+    if (!isAdmin) {
+      const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+      if (debit.success) {
+        creditsCharged = true;
+      } else {
+        const byokOk = await hasValidImageByok(userId);
+        if (!byokOk) {
+          return json({
+            error: "illustration_credits_exhausted",
+            reason: "insufficient_credits",
+            balance: debit.balance,
+            cost: ILLUSTRATION_CREDIT_COST,
+            message: "You don't have enough illustration credits. Upgrade your plan or add a personal image API key.",
+          }, 402, corsHeaders);
+        }
+        usingByok = true;
+      }
     }
 
     const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
