@@ -286,9 +286,13 @@ serve(async (req) => {
       return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
     }
     if (!body?.storyId || typeof body.storyId !== "string" || body.storyId.length > 64
-        || !Array.isArray(body?.pages) || body.pages.length === 0 || body.pages.length > 20
+        || !Array.isArray(body?.pages) || body.pages.length === 0
         || !body?.characterVisualHash || typeof body.characterVisualHash !== "string") {
       return json({ error: "missing_or_invalid_fields" }, 400, corsHeaders);
+    }
+    // Hard cap: max 8 illustrated pages per story (business model rule).
+    if (body.pages.length > MAX_ILLUSTRATION_PAGES) {
+      body.pages = body.pages.slice(0, MAX_ILLUSTRATION_PAGES);
     }
     const style = (typeof body.style === "string" ? body.style.slice(0, 200) : "") || "soft watercolor children's book illustration";
 
