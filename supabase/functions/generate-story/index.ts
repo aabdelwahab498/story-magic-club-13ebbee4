@@ -211,9 +211,9 @@ Write the story now in ${langName}, fully respecting both the theme direction an
     let resp: Response | null = null;
     let lastStatus = 500;
     let lastTxt = "";
-    let attemptedModels = 0;
+    let usedProvider: "openrouter" | "lovable" | null = null;
+    let usedModel = "";
     for (const model of FREE_MODELS) {
-      attemptedModels++;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 30_000);
       let r: Response;
@@ -239,15 +239,65 @@ Write the story now in ${langName}, fully respecting both the theme direction an
         clearTimeout(timer);
         lastStatus = 504;
         lastTxt = (err as Error).message || "timeout";
-        console.error(`AI gateway ${model} -> aborted: ${lastTxt}`);
+        console.error(`[generate-story] openrouter ${model} -> aborted: ${lastTxt}`);
         continue;
       }
       clearTimeout(timer);
-      if (r.ok) { resp = r; break; }
+      if (r.ok) { resp = r; usedProvider = "openrouter"; usedModel = model; break; }
       lastStatus = r.status;
       lastTxt = await r.text().catch(() => "");
-      console.error(`AI gateway ${model} -> ${r.status}: ${lastTxt.slice(0, 200)}`);
-      if (![429, 404, 500, 502, 503, 504].includes(r.status)) break;
+      console.error(`[generate-story] openrouter ${model} -> ${r.status}: ${lastTxt.slice(0, 200)}`);
+      // 402 from OpenRouter means provider out of credits -> try next model briefly, then fall to Lovable
+      if (![429, 402, 404, 500, 502, 503, 504].includes(r.status)) break;
+    }
+
+    // Fallback: Lovable AI Gateway (LOVABLE_API_KEY is auto-provisioned)
+    if (!resp) {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (LOVABLE_API_KEY) {
+        const LOVABLE_MODELS = [
+          "google/gemini-3-flash-preview",
+          "google/gemini-2.5-flash",
+          "google/gemini-2.5-flash-lite",
+        ];
+        for (const model of LOVABLE_MODELS) {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 30_000);
+          let r: Response;
+          try {
+            r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              signal: ctrl.signal,
+              headers: {
+                "Lovable-API-Key": LOVABLE_API_KEY,
+                "Content-Type": "application/json",
+                "X-Lovable-AIG-SDK": "edge-function",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: userPrompt },
+                ],
+              }),
+            });
+          } catch (err) {
+            clearTimeout(timer);
+            lastStatus = 504;
+            lastTxt = (err as Error).message || "timeout";
+            console.error(`[generate-story] lovable ${model} -> aborted: ${lastTxt}`);
+            continue;
+          }
+          clearTimeout(timer);
+          if (r.ok) { resp = r; usedProvider = "lovable"; usedModel = model; break; }
+          lastStatus = r.status;
+          lastTxt = await r.text().catch(() => "");
+          console.error(`[generate-story] lovable ${model} -> ${r.status}: ${lastTxt.slice(0, 200)}`);
+          if (![429, 402, 404, 500, 502, 503, 504].includes(r.status)) break;
+        }
+      } else {
+        console.warn("[generate-story] LOVABLE_API_KEY not set — fallback unavailable");
+      }
     }
 
     if (!resp) {
@@ -257,14 +307,22 @@ Write the story now in ${langName}, fully respecting both the theme direction an
         });
       }
       if (lastStatus === 402) {
-        return new Response(JSON.stringify({ error: "payment_required" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error: "ai_credits_exhausted",
+            reason: "ai_provider_quota",
+            message: "The AI provider account is out of credits. Please contact support or try the free Listen feature.",
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
       return new Response(JSON.stringify({ error: "ai_error", detail: lastTxt.slice(0, 200) }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.info(`[generate-story] succeeded via ${usedProvider}/${usedModel}`);
+
 
     const data = await resp.json();
     const story = data.choices?.[0]?.message?.content || "";
