@@ -338,35 +338,13 @@ serve(async (req) => {
       _role: "admin",
     });
 
-    let creditsCharged = false;
-    let usingByok = false;
-    if (!isAdmin) {
-      const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
-      if (debit.success) {
-        creditsCharged = true;
-      } else {
-        const byokOk = await hasValidImageByok(userId);
-        if (!byokOk) {
-          return json({
-            error: "illustration_credits_exhausted",
-            reason: "insufficient_credits",
-            balance: debit.balance,
-            cost: ILLUSTRATION_CREDIT_COST,
-            message: "You don't have enough illustration credits. Upgrade your plan or add a personal image API key.",
-          }, 402, corsHeaders);
-        }
-        usingByok = true;
-      }
-    }
-
     const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
 
     // ----------------------------------------------------------------
-    // REUSE GUARD: before spending image-gen credits, check whether the
-    // requested pages already have a `ready` illustration persisted for
-    // this story+user. If every requested page is already ready, short
-    // circuit and return cached URLs. If only some are ready, restrict
-    // the generation set to the missing pages and merge results.
+    // REUSE GUARD: before spending credits, check whether the requested
+    // pages already have a `ready` illustration persisted. If every
+    // requested page is already ready, short-circuit (no credit charge).
+    // If only some are ready, restrict generation to the missing pages.
     // ----------------------------------------------------------------
     const requestedIndices = body.pages.map((p) => p.index);
     const { data: existingRows } = await supabase
@@ -397,9 +375,35 @@ serve(async (req) => {
       return json({ storyId: body.storyId, illustrations: reused, reused: true, source: "db_reuse" }, 200, corsHeaders);
     }
 
+    // Credit gate (only fires when there's actual work to do).
+    // Admins bypass. Other users: debit 10 credits; if insufficient,
+    // pro_creator/elite_publisher with a valid image-capable BYOK key may
+    // continue using their own provider; everyone else is blocked.
+    let creditsCharged = false;
+    let usingByok = false;
+    if (!isAdmin) {
+      const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+      if (debit.success) {
+        creditsCharged = true;
+      } else {
+        const byokOk = await hasValidImageByok(userId);
+        if (!byokOk) {
+          return json({
+            error: "illustration_credits_exhausted",
+            reason: "insufficient_credits",
+            balance: debit.balance,
+            cost: ILLUSTRATION_CREDIT_COST,
+            message: "You don't have enough illustration credits. Upgrade your plan or add a personal image API key.",
+          }, 402, corsHeaders);
+        }
+        usingByok = true;
+      }
+    }
+
     // Load user-supplied image API keys (used first so credits go on their account)
     const userCtx = await loadUserAIContext(userId);
     const userImageKeys = userCtx.imageKeys;
+    void usingByok;
 
 
     const runGeneration = async () => {
