@@ -90,14 +90,20 @@ export default function AdminPlansPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <header>
-        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-          <Crown className="h-6 w-6 text-primary" />
-          {t("admin_plans.subscription_plans", "Subscription Plans")}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t("admin_plans.control_pricing_monthly_story_limits_and", "Control pricing, monthly story limits, and paid features (illustrations, PDF, audio).")}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <Crown className="h-6 w-6 text-primary" />
+            {t("admin_plans.subscription_plans", "Subscription Plans")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("admin_plans.control_pricing_monthly_story_limits_and", "Control pricing, monthly story limits, and paid features (illustrations, PDF, audio).")}
+          </p>
+        </div>
+        <Button onClick={seedPaddle} disabled={seeding} variant="outline" className="gap-2">
+          {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+          Sync Paddle products
+        </Button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
