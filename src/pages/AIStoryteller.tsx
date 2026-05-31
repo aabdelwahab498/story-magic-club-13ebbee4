@@ -1111,7 +1111,7 @@ const AIStoryteller = () => {
           <div className="text-center space-y-3">
             <label className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-foreground dark:text-white bg-white/60 dark:bg-black/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-foreground/10 dark:border-white/20">
               <input type="checkbox" checked={selMode} onChange={(e) => setSelMode(e.target.checked)} />
-              🌙 SEL Story Mode (Piaget · Bowlby · Bibliotherapy · /25 quality)
+              🌙 SEL Story Mode (Piaget · Bowlby · Bibliotherapy)
             </label>
             <div>
             <button
