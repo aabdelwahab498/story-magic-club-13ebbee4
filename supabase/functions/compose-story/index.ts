@@ -102,8 +102,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: userId, _role: "admin" });
-    // Rate limits and monthly quotas disabled per product decision.
-    void isAdmin; void identifier;
+    // Fair-use story limits (daily + monthly) — admins bypass
+    if (!isAdmin) {
+      const fair = await enforceStoryFairUse(userId);
+      if (!fair.allowed) return quotaResponse(fair, corsHeaders);
+    }
+    void identifier;
 
     // Lovable AI moderation on user-supplied free text
     const toModerate = [childName, theme, customPrompt, ...emotionalFocus].filter(Boolean).join("\n");
