@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power } from "lucide-react";
+import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { fetchAllPlans, updatePlan, type SubscriptionPlan } from "@/lib/subscriptionApi";
+import { supabase } from "@/integrations/supabase/client";
 
 const tierColor: Record<string, string> = {
   free: "from-slate-400 to-slate-500",
@@ -21,6 +22,22 @@ export default function AdminPlansPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+
+  const seedPaddle = async () => {
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("paddle-seed-products", { method: "POST" });
+      if (error) throw error;
+      toast.success("Paddle products synced");
+      console.log("paddle-seed-products result", data);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Sync failed");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -73,14 +90,20 @@ export default function AdminPlansPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <header>
-        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-          <Crown className="h-6 w-6 text-primary" />
-          {t("admin_plans.subscription_plans", "Subscription Plans")}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t("admin_plans.control_pricing_monthly_story_limits_and", "Control pricing, monthly story limits, and paid features (illustrations, PDF, audio).")}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <Crown className="h-6 w-6 text-primary" />
+            {t("admin_plans.subscription_plans", "Subscription Plans")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("admin_plans.control_pricing_monthly_story_limits_and", "Control pricing, monthly story limits, and paid features (illustrations, PDF, audio).")}
+          </p>
+        </div>
+        <Button onClick={seedPaddle} disabled={seeding} variant="outline" className="gap-2">
+          {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+          Sync Paddle products
+        </Button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

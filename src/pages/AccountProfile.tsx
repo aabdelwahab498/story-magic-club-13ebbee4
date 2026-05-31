@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Seo from "@/components/Seo";
+import PaddleSubscriptionCard from "@/components/PaddleSubscriptionCard";
 
 type ProviderId = "openai" | "openrouter";
 
@@ -249,6 +250,8 @@ const AccountProfile = () => {
           </form>
         )}
       </Card>
+
+      <PaddleSubscriptionCard />
 
       <Card className="p-5 sm:p-6 space-y-5">
         <div>

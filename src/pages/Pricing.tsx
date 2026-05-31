@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Loader2, Crown, Sparkles, Star } from "lucide-react";
+import { Check, Loader2, Crown, Sparkles, Star, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchPlans, type PlanTier, type Currency } from "@/lib/subscriptionApi";
+import { fetchPlans, type PlanTier } from "@/lib/subscriptionApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useState } from "react";
+import { usePaddle } from "@/hooks/usePaddle";
+import { toast } from "sonner";
 
 const Pricing = () => {
   const { t, i18n } = useTranslation();
@@ -14,17 +15,40 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { tier: currentTier } = useSubscription();
-  const [currency, setCurrency] = useState<Currency>(isAr ? "EGP" : "USD");
+  const { config: paddleConfig, ready: paddleReady, error: paddleError, openCheckout } = usePaddle();
 
   const q = useQuery({ queryKey: ["plans"], queryFn: fetchPlans });
+
+  const priceIdFor = (tier: string): string | null => {
+    const p = paddleConfig?.plans.find((x) => x.tier === tier);
+    return p?.paddle_price_id ?? null;
+  };
 
   const subscribe = (tier: PlanTier) => {
     if (tier === "free") return;
     if (!user) {
-      navigate(`/auth?redirect=/checkout/manual?plan=${tier}&currency=${currency}`);
+      navigate(`/auth?redirect=/pricing`);
       return;
     }
-    navigate(`/checkout/manual?plan=${tier}&currency=${currency}`);
+
+    const priceId = priceIdFor(tier);
+    if (!priceId) {
+      toast.error(
+        t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."),
+      );
+      return;
+    }
+    if (!paddleReady) {
+      toast.error(
+        t("page_pricing.checkout_not_ready", "Payments are still loading. Please try again in a moment."),
+      );
+      return;
+    }
+    try {
+      openCheckout({ priceId, email: user.email ?? undefined, userId: user.id, tier });
+    } catch (e: any) {
+      toast.error(e?.message ?? "checkout_failed");
+    }
   };
 
   return (
@@ -37,26 +61,23 @@ const Pricing = () => {
           {t("page_pricing.simple_fair_pricing", "Simple, fair pricing")}
         </h1>
         <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-          {t("page_pricing.pay_in_egp_or_usd_instapay_or_vodafone_c", "Pay in EGP or USD — InstaPay or Vodafone Cash — with manual proof.")}
+          {t(
+            "page_pricing.pay_in_usd_via_paddle",
+            "Pay securely in USD via Paddle. Cancel anytime.",
+          )}
         </p>
-
-        <div className="inline-flex items-center bg-white/90 dark:bg-card/80 rounded-full p-1 mt-5 border-2 border-white/60 shadow-soft">
-          {(["EGP", "USD"] as Currency[]).map((c) => (
-            <button
-              key={c}
-              onClick={() => setCurrency(c)}
-              className={cn(
-                "px-5 py-2 rounded-full text-sm font-bold transition-all",
-                currency === c
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "text-foreground hover:bg-accent/40",
-              )}
-            >
-              {c === "EGP" ? "🇪🇬 EGP" : "🌍 USD"}
-            </button>
-          ))}
-        </div>
       </header>
+
+      {paddleError && (
+        <div className="max-w-xl mx-auto mb-6 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            {paddleError === "paddle_not_configured"
+              ? t("page_pricing.payments_setup_in_progress", "Payments are being set up. Please check back soon.")
+              : t("page_pricing.checkout_unavailable", "Checkout is temporarily unavailable.")}
+          </div>
+        </div>
+      )}
 
       {q.isLoading && (
         <div className="text-center py-10">
@@ -69,8 +90,8 @@ const Pricing = () => {
           const isCurrent = currentTier === plan.tier;
           const isPremium = plan.tier === "premium";
           const isFree = plan.tier === "free";
-          const price = currency === "EGP" ? plan.price_egp : plan.price_usd;
-          const symbol = currency === "EGP" ? "ج.م" : "$";
+          const price = plan.price_usd;
+          const hasPriceId = Boolean(priceIdFor(plan.tier));
 
           return (
             <article
@@ -103,10 +124,11 @@ const Pricing = () => {
                 {plan.description[isAr ? "ar" : "en"]}
               </p>
               <div className="flex items-baseline gap-1 mb-4">
-                {currency === "USD" && <span className="text-2xl font-bold text-primary">{symbol}</span>}
+                <span className="text-2xl font-bold text-primary">$</span>
                 <span className="text-5xl font-extrabold text-primary">{price}</span>
-                {currency === "EGP" && <span className="text-lg font-bold">{symbol}</span>}
-                <span className="text-muted-foreground text-sm ms-1">/ {t("page_pricing.mo", "mo")}</span>
+                <span className="text-muted-foreground text-sm ms-1">
+                  / {t("page_pricing.mo", "mo")}
+                </span>
               </div>
 
               <ul className="space-y-2 mb-5">
@@ -130,7 +152,8 @@ const Pricing = () => {
 
               <button
                 onClick={() => subscribe(plan.tier)}
-                disabled={isCurrent || isFree}
+                disabled={isCurrent || isFree || (!isFree && !hasPriceId)}
+                title={!isFree && !hasPriceId ? "Not configured yet" : undefined}
                 className={cn(
                   "w-full px-4 py-3 rounded-full font-bold hover-pop shadow-soft disabled:opacity-60 disabled:cursor-not-allowed",
                   isPremium
@@ -142,6 +165,8 @@ const Pricing = () => {
                   ? t("page_pricing.current_plan", "Current plan")
                   : isFree
                   ? t("page_pricing.start_free", "Start free")
+                  : !hasPriceId
+                  ? t("page_pricing.coming_soon", "Coming soon")
                   : t("page_pricing.subscribe", "Subscribe")}
               </button>
             </article>
@@ -150,7 +175,10 @@ const Pricing = () => {
       </div>
 
       <p className="text-center text-xs text-muted-foreground max-w-xl mx-auto mt-8">
-        {t("page_pricing.after_transferring_upload_your_proof_you", "After transferring, upload your proof — your subscription is activated within 24 hours.")}
+        {t(
+          "page_pricing.paddle_footer",
+          "Payments are processed securely by Paddle. Cancel or manage your subscription anytime from your account.",
+        )}
       </p>
     </div>
   );
