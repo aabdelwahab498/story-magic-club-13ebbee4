@@ -190,15 +190,26 @@ export async function enforceMonthlyStoryQuota(userId: string): Promise<QuotaRes
 
 /** Build a 402/403 Response when a quota check fails. */
 export function quotaResponse(result: QuotaResult, corsHeaders: Record<string, string>): Response {
-  const status = result.reason === "limit_reached" ? 402
-    : result.reason === "feature_not_in_plan" ? 402
-    : 403;
+  const isLimit =
+    result.reason === "limit_reached" ||
+    result.reason === "daily_limit_reached" ||
+    result.reason === "monthly_limit_reached" ||
+    result.reason === "feature_not_in_plan";
+  const status = isLimit ? 402 : 403;
+  const errorCode =
+    result.reason === "daily_limit_reached" ? "daily_limit_reached"
+    : result.reason === "monthly_limit_reached" ? "monthly_limit_reached"
+    : "quota_exceeded";
   return new Response(
     JSON.stringify({
-      error: "quota_exceeded",
+      error: errorCode,
       reason: result.reason,
       used: result.used,
       limit: result.limit,
+      daily_used: result.daily_used,
+      daily_limit: result.daily_limit,
+      monthly_used: result.monthly_used,
+      monthly_limit: result.monthly_limit,
       tier: result.tier,
     }),
     { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
