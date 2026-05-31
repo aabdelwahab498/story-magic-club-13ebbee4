@@ -1097,7 +1097,7 @@ const AIStoryteller = () => {
                 {t("ai.custom_elements")}:
               </h4>
               <p className="text-xs mb-2 text-foreground/70 dark:text-white/70">
-                {t("page_ai_storyteller.add_any_prompt_or_idea_you_want_the_stor", "Add any prompt or idea you want the story to focus on — it will automatically follow the course criteria (SPEC, 4-act, Piaget, Bowlby, Bibliotherapy, /25 rubric).")}
+                {t("page_ai_storyteller.add_any_prompt_or_idea_you_want_the_stor", "Add any prompt or idea you want the story to focus on — it will automatically follow the course criteria (SPEC, 4-act, Piaget, Bowlby, Bibliotherapy).")}
               </p>
               <textarea
                 value={customPrompt}
