@@ -869,6 +869,87 @@ export type Database = {
           },
         ]
       }
+      paddle_subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          paddle_customer_id: string | null
+          paddle_price_id: string | null
+          paddle_subscription_id: string
+          raw: Json
+          status: string
+          tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          paddle_customer_id?: string | null
+          paddle_price_id?: string | null
+          paddle_subscription_id: string
+          raw?: Json
+          status?: string
+          tier: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          paddle_customer_id?: string | null
+          paddle_price_id?: string | null
+          paddle_subscription_id?: string
+          raw?: Json
+          status?: string
+          tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      paddle_webhook_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+        }
+        Relationships: []
+      }
       payment_settings: {
         Row: {
           bank_account_name: string | null
@@ -1320,6 +1401,8 @@ export type Database = {
           illustration_credits: number
           monthly_story_limit: number
           name: Json
+          paddle_price_id: string | null
+          paddle_product_id: string | null
           price_egp: number
           price_usd: number
           sort_order: number
@@ -1341,6 +1424,8 @@ export type Database = {
           illustration_credits?: number
           monthly_story_limit?: number
           name?: Json
+          paddle_price_id?: string | null
+          paddle_product_id?: string | null
           price_egp?: number
           price_usd?: number
           sort_order?: number
@@ -1362,6 +1447,8 @@ export type Database = {
           illustration_credits?: number
           monthly_story_limit?: number
           name?: Json
+          paddle_price_id?: string | null
+          paddle_product_id?: string | null
           price_egp?: number
           price_usd?: number
           sort_order?: number
@@ -1712,6 +1799,7 @@ export type Database = {
         Returns: Json
       }
       expire_due_subscriptions: { Args: never; Returns: number }
+      get_active_paddle_tier: { Args: { _user_id: string }; Returns: string }
       has_paid_feature: {
         Args: { _feature: string; _user_id: string }
         Returns: boolean
