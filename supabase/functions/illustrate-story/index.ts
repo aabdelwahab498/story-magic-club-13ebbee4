@@ -519,6 +519,22 @@ serve(async (req) => {
     }
     const payload = await promise;
 
+    // Refund credits if every new page failed (user got nothing for their credits).
+    if (creditsCharged) {
+      const generatedPages = payload.illustrations.filter((r) =>
+        missingPages.some((m) => m.index === r.index)
+      );
+      const allFailed = generatedPages.length > 0 && generatedPages.every((r) => r.status !== "ready");
+      if (allFailed) {
+        try {
+          await refundIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+          console.info("[illustrate] credits refunded after total failure", { userId, storyId: body.storyId });
+        } catch (e) {
+          console.error("[illustrate] refund failed", e instanceof Error ? e.message : e);
+        }
+      }
+    }
+
     // Persist successful + failed results so duplicate retries land on the
     // same outcome instead of re-spending image-gen credits.
     if (cacheKey) {
