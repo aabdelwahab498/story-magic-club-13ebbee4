@@ -1233,6 +1233,15 @@ const AIStoryteller = () => {
                       <Crown className="h-3.5 w-3.5" />
                       {t("page_ai_storyteller.upgrade_plan", "Upgrade plan")}
                     </Link>
+                    {(errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota") && (
+                      <Link
+                        to="/account/api-keys"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500 text-white text-xs font-bold hover:bg-violet-600 transition"
+                      >
+                        <Crown className="h-3.5 w-3.5" />
+                        {t("page_ai_storyteller.use_your_own_key", "Use your own API key")}
+                      </Link>
+                    )}
                     {story && (
                       <button
                         onClick={handlePlayPause}
