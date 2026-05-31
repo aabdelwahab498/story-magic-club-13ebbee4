@@ -22,6 +22,22 @@ export default function AdminPlansPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+
+  const seedPaddle = async () => {
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("paddle-seed-products", { method: "POST" });
+      if (error) throw error;
+      toast.success("Paddle products synced");
+      console.log("paddle-seed-products result", data);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Sync failed");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const load = async () => {
     try {
