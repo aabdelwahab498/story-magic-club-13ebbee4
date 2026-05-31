@@ -17,7 +17,7 @@ import { judgeQuality, type QualityReport } from "../_shared/sel/quality.ts";
 import { characterVisualHash } from "../_shared/sel/visual.ts";
 import { AIGatewayError } from "../_shared/sel/gateway.ts";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { enforceMonthlyStoryQuota, quotaResponse } from "../_shared/quota.ts";
+import { enforceStoryFairUse, quotaResponse } from "../_shared/quota.ts";
 import { moderateText, moderationRejectedResponse, ModerationGatewayError } from "../_shared/moderation.ts";
 import { withUserAI } from "../_shared/userKeys.ts";
 
