@@ -1,0 +1,1 @@
+UPDATE public.subscription_plans SET monthly_story_limit = 1, price_egp = 0 WHERE tier = 'free';
