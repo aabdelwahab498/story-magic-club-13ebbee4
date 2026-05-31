@@ -1,325 +1,218 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, Save, Smartphone, Wallet, Globe, Building2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, CheckCircle2, AlertCircle, ExternalLink, CreditCard, RefreshCw, Crown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import {
-  fetchPaymentSettings,
-  updatePaymentSettings,
-  type PaymentSettings,
-  type PayCurrency,
-} from "@/lib/subscriptionApi";
 
-const CURRENCIES: PayCurrency[] = ["EGP", "USD"];
+type PaddleConfig = {
+  clientToken: string;
+  environment: "sandbox" | "production";
+  configured: boolean;
+  plans: Array<{
+    tier: string;
+    paddle_price_id: string | null;
+    paddle_product_id: string | null;
+    price_usd: number;
+    name: Record<string, string>;
+  }>;
+};
 
 const AdminPaymentSettingsPage = () => {
-  const { t, i18n } = useTranslation();
-  const isAr = i18n.language?.startsWith("ar");
-  const q = useQuery({ queryKey: ["payment-settings"], queryFn: fetchPaymentSettings });
-  const [s, setS] = useState<PaymentSettings | null>(null);
-  const [saving, setSaving] = useState(false);
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(true);
+  const [config, setConfig] = useState<PaddleConfig | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<PaddleConfig>("paddle-config", {
+        method: "GET",
+      });
+      if (error) throw error;
+      setConfig(data ?? null);
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: e instanceof Error ? e.message : "Failed to load Paddle config",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (q.data) setS(q.data);
-  }, [q.data]);
+    load();
+  }, []);
 
-  if (q.isLoading || !s)
+  const syncProducts = async () => {
+    setSyncing(true);
+    try {
+      const { error } = await supabase.functions.invoke("paddle-seed-products", { method: "POST" });
+      if (error) throw error;
+      toast({ title: t("admin_payment_settings.synced", "Synced with Paddle") });
+      await load();
+    } catch (e) {
+      toast({
+        title: "Sync failed",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="py-12 flex justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
+  }
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      await updatePaymentSettings(s);
-      toast({ title: t("admin_payment_settings.saved", "Saved") });
-    } catch (e) {
-      toast({
-        title: "Error",
-        description: e instanceof Error ? e.message : "",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleCurrency = (
-    key: "instapay_currencies" | "vodafone_currencies" | "payoneer_currencies" | "bank_currencies",
-    c: PayCurrency,
-  ) => {
-    const list = s[key] ?? [];
-    const next = list.includes(c) ? list.filter((x) => x !== c) : [...list, c];
-    setS({ ...s, [key]: next });
-  };
-
-  const CurrencyChips = ({
-    keyName,
-    values,
-  }: {
-    keyName: "instapay_currencies" | "vodafone_currencies" | "payoneer_currencies" | "bank_currencies";
-    values: PayCurrency[];
-  }) => (
-    <div className="flex gap-2">
-      {CURRENCIES.map((c) => {
-        const active = values.includes(c);
-        return (
-          <button
-            key={c}
-            type="button"
-            onClick={() => toggleCurrency(keyName, c)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition ${
-              active
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-muted text-muted-foreground hover:border-primary/40"
-            }`}
-          >
-            {c === "EGP" ? (t("admin_payment_settings.egp", "EGP")) : "USD"}
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  const MethodCard = ({
-    icon: Icon,
-    title,
-    enabled,
-    onToggle,
-    children,
-  }: {
-    icon: typeof Smartphone;
-    title: string;
-    enabled: boolean;
-    onToggle: (v: boolean) => void;
-    children: React.ReactNode;
-  }) => (
-    <div
-      className={`rounded-2xl p-5 border-2 transition ${
-        enabled ? "border-primary/40 bg-white dark:bg-card" : "border-muted bg-muted/20"
-      }`}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Icon className="h-4.5 w-4.5 text-primary" />
-          </div>
-          <h3 className="font-extrabold">{title}</h3>
-        </div>
-        <label className="inline-flex items-center gap-2 cursor-pointer">
-          <span className="text-xs font-bold text-muted-foreground">
-            {enabled ? (t("admin_payment_settings.enabled", "Enabled")) : (t("admin_payment_settings.disabled", "Disabled"))}
-          </span>
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => onToggle(e.target.checked)}
-            className="h-5 w-9 appearance-none bg-muted rounded-full relative cursor-pointer transition checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:start-0.5 before:h-4 before:w-4 before:bg-white before:rounded-full before:transition checked:before:translate-x-4 rtl:checked:before:-translate-x-4"
-          />
-        </label>
-      </div>
-      {enabled && <div className="space-y-3">{children}</div>}
-    </div>
-  );
-
-  const inputCls =
-    "w-full p-2.5 rounded-lg border-2 border-muted bg-background focus:border-primary outline-none";
+  const configured = !!config?.configured;
+  const linkedPlans = (config?.plans ?? []).filter((p) => p.paddle_price_id).length;
+  const totalPlans = config?.plans?.length ?? 0;
 
   return (
     <div className="max-w-3xl space-y-5">
       <header>
-        <h1 className="text-2xl font-extrabold">
-          {t("admin_payment_settings.manual_payment_methods", "Manual Payment Methods")}
+        <h1 className="text-2xl font-extrabold flex items-center gap-2">
+          <CreditCard className="h-6 w-6 text-primary" />
+          {t("admin_payment_settings.title_paddle", "Payments — Paddle")}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {t("admin_payment_settings.enable_the_methods_you_want_to_offer_and", "Enable the methods you want to offer and choose the accepted currencies for each. Customers must upload proof of payment.")}
+        <p className="text-sm text-muted-foreground mt-1">
+          {t(
+            "admin_payment_settings.subtitle_paddle",
+            "All paid subscriptions are processed by Paddle in USD. Parents check out securely from the pricing page.",
+          )}
         </p>
       </header>
 
-      {/* InstaPay */}
-      <MethodCard
-        icon={Smartphone}
-        title={t("admin_payment_settings.instapay", "InstaPay")}
-        enabled={s.instapay_enabled}
-        onToggle={(v) => setS({ ...s, instapay_enabled: v })}
+      {/* Status */}
+      <div
+        className={`rounded-2xl p-5 border-2 ${
+          configured
+            ? "border-emerald-300/60 bg-emerald-50/60 dark:bg-emerald-950/20"
+            : "border-amber-300/60 bg-amber-50/60 dark:bg-amber-950/20"
+        }`}
       >
-        <label className="block">
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.instapay_handle", "InstaPay handle")}
-          </span>
-          <input
-            value={s.instapay_handle ?? ""}
-            onChange={(e) => setS({ ...s, instapay_handle: e.target.value })}
-            className={inputCls}
-            placeholder="name@instapay"
-          />
-        </label>
-        <div>
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
-          </span>
-          <CurrencyChips keyName="instapay_currencies" values={s.instapay_currencies} />
+        <div className="flex items-start gap-3">
+          {configured ? (
+            <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+          ) : (
+            <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400 mt-0.5" />
+          )}
+          <div className="flex-1">
+            <h3 className="font-extrabold">
+              {configured
+                ? t("admin_payment_settings.paddle_connected", "Paddle is connected")
+                : t("admin_payment_settings.paddle_not_configured", "Paddle is not configured")}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {configured
+                ? t(
+                    "admin_payment_settings.paddle_env_info",
+                    "Environment: {{env}}. Webhooks and checkout are live.",
+                    { env: config?.environment ?? "sandbox" },
+                  )
+                : t(
+                    "admin_payment_settings.paddle_missing_keys",
+                    "Add PADDLE_API_KEY, PADDLE_CLIENT_TOKEN, PADDLE_ENVIRONMENT and PADDLE_WEBHOOK_SECRET in backend secrets.",
+                  )}
+            </p>
+          </div>
         </div>
-      </MethodCard>
-
-      {/* Vodafone Cash */}
-      <MethodCard
-        icon={Wallet}
-        title={t("admin_payment_settings.vodafone_cash", "Vodafone Cash")}
-        enabled={s.vodafone_enabled}
-        onToggle={(v) => setS({ ...s, vodafone_enabled: v })}
-      >
-        <label className="block">
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.vodafone_cash_number", "Vodafone Cash number")}
-          </span>
-          <input
-            value={s.vodafone_number ?? ""}
-            onChange={(e) => setS({ ...s, vodafone_number: e.target.value })}
-            className={inputCls}
-            placeholder="010xxxxxxxx"
-          />
-        </label>
-        <div>
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
-          </span>
-          <CurrencyChips keyName="vodafone_currencies" values={s.vodafone_currencies} />
-        </div>
-      </MethodCard>
-
-      {/* Payoneer */}
-      <MethodCard
-        icon={Globe}
-        title="Payoneer"
-        enabled={s.payoneer_enabled}
-        onToggle={(v) => setS({ ...s, payoneer_enabled: v })}
-      >
-        <label className="block">
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.payoneer_email", "Payoneer email")}
-          </span>
-          <input
-            type="email"
-            value={s.payoneer_email ?? ""}
-            onChange={(e) => setS({ ...s, payoneer_email: e.target.value })}
-            className={inputCls}
-            placeholder="payments@example.com"
-          />
-        </label>
-        <div>
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
-          </span>
-          <CurrencyChips keyName="payoneer_currencies" values={s.payoneer_currencies} />
-        </div>
-      </MethodCard>
-
-      {/* Bank Transfer */}
-      <MethodCard
-        icon={Building2}
-        title={t("admin_payment_settings.bank_transfer", "Bank transfer")}
-        enabled={s.bank_enabled}
-        onToggle={(v) => setS({ ...s, bank_enabled: v })}
-      >
-        <div className="grid sm:grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-xs font-bold mb-1 block">{t("admin_payment_settings.bank_name", "Bank name")}</span>
-            <input
-              value={s.bank_name ?? ""}
-              onChange={(e) => setS({ ...s, bank_name: e.target.value })}
-              className={inputCls}
-              placeholder={t("admin_payment_settings.e_g_cib", "e.g. CIB")}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-bold mb-1 block">
-              {t("admin_payment_settings.account_holder_name", "Account holder name")}
-            </span>
-            <input
-              value={s.bank_account_name ?? ""}
-              onChange={(e) => setS({ ...s, bank_account_name: e.target.value })}
-              className={inputCls}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-bold mb-1 block">
-              {t("admin_payment_settings.account_number", "Account number")}
-            </span>
-            <input
-              value={s.bank_account_number ?? ""}
-              onChange={(e) => setS({ ...s, bank_account_number: e.target.value })}
-              className={inputCls}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-bold mb-1 block">IBAN</span>
-            <input
-              value={s.bank_iban ?? ""}
-              onChange={(e) => setS({ ...s, bank_iban: e.target.value })}
-              className={inputCls}
-              placeholder="EG.."
-            />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="text-xs font-bold mb-1 block">SWIFT / BIC</span>
-            <input
-              value={s.bank_swift ?? ""}
-              onChange={(e) => setS({ ...s, bank_swift: e.target.value })}
-              className={inputCls}
-            />
-          </label>
-        </div>
-        <div>
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.accepted_currencies", "Accepted currencies")}
-          </span>
-          <CurrencyChips keyName="bank_currencies" values={s.bank_currencies} />
-        </div>
-      </MethodCard>
-
-      {/* Instructions */}
-      <div className="bg-white dark:bg-card rounded-2xl p-5 border-2 border-muted space-y-3">
-        <h3 className="font-extrabold">
-          {t("admin_payment_settings.instructions_shown_to_customers", "Instructions shown to customers")}
-        </h3>
-        <label className="block">
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.instructions_ar", "Instructions (AR)")}
-          </span>
-          <textarea
-            value={s.instructions_ar ?? ""}
-            onChange={(e) => setS({ ...s, instructions_ar: e.target.value })}
-            rows={3}
-            className={inputCls}
-            placeholder={t("admin_payment_settings.x", "")}
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs font-bold mb-1 block">
-            {t("admin_payment_settings.instructions_en", "Instructions (EN)")}
-          </span>
-          <textarea
-            value={s.instructions_en ?? ""}
-            onChange={(e) => setS({ ...s, instructions_en: e.target.value })}
-            rows={3}
-            className={inputCls}
-            placeholder="After transfer, upload payment proof..."
-          />
-        </label>
       </div>
 
-      <div className="sticky bottom-4 flex justify-end">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-extrabold inline-flex items-center gap-2 disabled:opacity-50 shadow-pop hover-pop"
+      {/* Plan link status */}
+      <div className="rounded-2xl p-5 border-2 border-muted bg-white dark:bg-card space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-extrabold flex items-center gap-2">
+              <Crown className="h-4 w-4 text-primary" />
+              {t("admin_payment_settings.plan_sync", "Plan ↔ Paddle sync")}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t(
+                "admin_payment_settings.plan_sync_desc",
+                "{{linked}} of {{total}} plans linked to a Paddle price.",
+                { linked: linkedPlans, total: totalPlans },
+              )}
+            </p>
+          </div>
+          <button
+            onClick={syncProducts}
+            disabled={syncing || !configured}
+            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {t("admin_payment_settings.sync_paddle", "Sync products")}
+          </button>
+        </div>
+
+        {totalPlans > 0 && (
+          <div className="space-y-2">
+            {config!.plans.map((p) => (
+              <div
+                key={p.tier}
+                className="flex items-center justify-between rounded-lg border border-muted p-3 text-sm"
+              >
+                <div>
+                  <div className="font-bold">{p.name?.en ?? p.tier}</div>
+                  <div className="text-xs text-muted-foreground">
+                    ${p.price_usd} USD · {p.tier}
+                  </div>
+                </div>
+                <div className="text-xs">
+                  {p.paddle_price_id ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Linked
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold">
+                      <AlertCircle className="h-3.5 w-3.5" /> Not linked
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Link
+          to="/admin/dashboard/plans"
+          className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {t("admin_payment_settings.save_changes", "Save changes")}
-        </button>
+          {t("admin_payment_settings.manage_plans", "Manage subscription plans")}
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+
+      {/* Help */}
+      <div className="rounded-2xl p-5 border-2 border-muted bg-muted/20 space-y-2 text-sm">
+        <h3 className="font-extrabold">
+          {t("admin_payment_settings.setup_checklist", "Setup checklist")}
+        </h3>
+        <ol className="list-decimal ms-5 space-y-1 text-muted-foreground">
+          <li>{t("admin_payment_settings.step_secrets", "Add Paddle secrets in backend settings.")}</li>
+          <li>
+            {t(
+              "admin_payment_settings.step_webhook",
+              "In Paddle dashboard, set webhook URL to the paddle-webhook function and copy the signing secret.",
+            )}
+          </li>
+          <li>
+            {t(
+              "admin_payment_settings.step_domain",
+              "Add your site domain to Paddle approved domains for checkout.",
+            )}
+          </li>
+          <li>{t("admin_payment_settings.step_sync", "Click Sync products to create/link prices.")}</li>
+        </ol>
       </div>
     </div>
   );
