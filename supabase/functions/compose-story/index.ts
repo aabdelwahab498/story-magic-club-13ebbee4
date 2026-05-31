@@ -17,7 +17,7 @@ import { judgeQuality, type QualityReport } from "../_shared/sel/quality.ts";
 import { characterVisualHash } from "../_shared/sel/visual.ts";
 import { AIGatewayError } from "../_shared/sel/gateway.ts";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { enforceMonthlyStoryQuota, quotaResponse } from "../_shared/quota.ts";
+import { enforceStoryFairUse, quotaResponse } from "../_shared/quota.ts";
 import { moderateText, moderationRejectedResponse, ModerationGatewayError } from "../_shared/moderation.ts";
 import { withUserAI } from "../_shared/userKeys.ts";
 
@@ -102,8 +102,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: userId, _role: "admin" });
-    // Rate limits and monthly quotas disabled per product decision.
-    void isAdmin; void identifier;
+    // Fair-use story limits (daily + monthly) — admins bypass
+    if (!isAdmin) {
+      const fair = await enforceStoryFairUse(userId);
+      if (!fair.allowed) return quotaResponse(fair, corsHeaders);
+    }
+    void identifier;
 
     // Lovable AI moderation on user-supplied free text
     const toModerate = [childName, theme, customPrompt, ...emotionalFocus].filter(Boolean).join("\n");
@@ -301,14 +305,14 @@ serve(async (req) => {
       errLog("AI gateway failure", { status: e.status, msg });
       if (e.status === 429) return json({ error: "rate_limited", requestId, detail: msg }, 429, corsHeaders);
       if (e.status === 402) {
-        // OpenRouter / provider quota exhausted — distinct from app monthly quota
+        // Provider-side capacity exhausted — surface as upstream issue.
         return json({
-          error: "ai_credits_exhausted",
-          reason: "ai_provider_quota",
-          message: "The AI provider account is out of credits. Please contact support or try the free Listen feature.",
+          error: "ai_provider_unavailable",
+          reason: "upstream_capacity",
+          message: "The AI provider is temporarily unavailable. Please try again shortly.",
           requestId,
           detail: msg,
-        }, 402, corsHeaders);
+        }, 503, corsHeaders);
       }
       if (e.status === 502) return json({ error: "ai_invalid_json", requestId, detail: msg }, 502, corsHeaders);
       return json({ error: "ai_gateway_failed", requestId, status: e.status, detail: msg }, 502, corsHeaders);

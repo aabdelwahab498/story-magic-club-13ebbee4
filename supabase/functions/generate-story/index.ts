@@ -3,7 +3,7 @@ import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { checkRateLimits, identifierFromRequest, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { enforceMonthlyStoryQuota, quotaResponse, userIdFromRequest } from "../_shared/quota.ts";
+import { enforceStoryFairUse, quotaResponse, userIdFromRequest } from "../_shared/quota.ts";
 import { moderateText, moderationRejectedResponse, ModerationGatewayError } from "../_shared/moderation.ts";
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -142,7 +142,7 @@ serve(async (req) => {
       { windowSec: 86400, max: 50 },
     ]);
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
-    const quota = await enforceMonthlyStoryQuota(userId);
+    const quota = await enforceStoryFairUse(userId);
     if (!quota.allowed) return quotaResponse(quota, corsHeaders);
 
     // Lovable AI moderation on user-supplied free-text fields
@@ -307,13 +307,14 @@ Write the story now in ${langName}, fully respecting both the theme direction an
         });
       }
       if (lastStatus === 402) {
+        // Provider out of credits — not a user-facing credit error. Surface as upstream issue.
         return new Response(
           JSON.stringify({
-            error: "ai_credits_exhausted",
-            reason: "ai_provider_quota",
-            message: "The AI provider account is out of credits. Please contact support or try the free Listen feature.",
+            error: "ai_provider_unavailable",
+            reason: "upstream_capacity",
+            message: "The AI provider is temporarily unavailable. Please try again shortly.",
           }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
       return new Response(JSON.stringify({ error: "ai_error", detail: lastTxt.slice(0, 200) }), {

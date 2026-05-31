@@ -1,94 +1,72 @@
 
-# ما ينقص لتسليم "Starry Tales / NajmaH" للعميل
+# NajmaH Business Model Refactor
 
-تحديث لخطة التسليم بناءً على آخر حالة للمشروع. ما تم إنجازه مؤخراً مُستثنى (Trigger الـ profiles، `update-streak` edge function، `expire-subscriptions`، الصفحات القانونية، عداد الرصيد، BYOK، حدّ الاشتراك، Audit Logs، Illustration reuse، PDF reuse).
+Large change touching DB, edge functions, and UI. I'll deliver in 4 sequenced parts.
 
----
+## Part 1 — Database schema
 
-## 🔴 P0 — حواجز تسليم فعلية
+New migrations:
 
-### 1) اعتماد المدفوعات اليدوية (Approve Manual Payment)
-- **الوضع:** جدول `manual_payment_requests` موجود، لا يوجد UI ولا edge function `approve-payment`.
-- **الأثر:** الأدمن يضطر لكتابة SQL يدوي لتفعيل أي اشتراك مدفوع → غير قابل للتسليم.
-- **المطلوب:** زر "اعتماد/رفض" في `AdminPaymentsPage` + edge function تنشئ صف في `user_subscriptions` وتُحدّث الحالة، مع إشعار للعميل.
+1. **`app_settings` table** (singleton row) with `allow_free_registrations BOOLEAN DEFAULT true` + RLS: anyone reads, admins update.
+2. **`waitlist` table**: `email`, `name`, `created_at`. Public insert, admin read.
+3. **`ai_story_history`**: add `visibility TEXT DEFAULT 'private' CHECK IN ('public','private')`. Backfill existing.
+4. **`illustration_credits` table**: `user_id`, `balance INT`, `monthly_allocation INT`, `last_reset_at`, `lifetime_only BOOLEAN`. One row per user, seeded on signup via trigger.
+5. **`subscription_plans`**: add `illustration_credits INT`, `credits_reset_monthly BOOLEAN`, `daily_story_limit INT`, `monthly_story_limit_v2 INT`. Seed values:
+   - free: 20 credits lifetime, 3/day, 30/month
+   - parent ($9): 80 credits monthly, 7/day, 210/month
+   - pro_creator ($19): same as parent + BYOK
+   - elite_publisher ($39): higher + BYOK
+6. **RPC functions**:
+   - `check_story_quota(user_id)` returns `{allowed, daily_used, daily_limit, monthly_used, monthly_limit}`
+   - `consume_illustration_credits(user_id, amount)` returns `{success, balance}`
+   - `reset_monthly_credits()` cron-callable
+   - `register_allowed()` returns boolean
 
-### 2) إعدادات الـ Auth في Cloud (Redirect URLs + Site URL)
-- **الوضع:** الكود يستخدم `emailRedirectTo`، لكن دومين الإنتاج لم يُضَف في Cloud → روابط التحقق ستُكسر بعد النشر.
-- **المطلوب:** تثبيت Site URL + Redirect allow-list للدومين النهائي قبل التسليم (خطوة يدوية في Cloud → Users → URL Configuration).
+## Part 2 — Edge function changes
 
-### 3) اختبار E2E كامل للـ Free Trial والاشتراكات
-- التحقق من: fingerprint → 3 صفحات بصور → تسجيل خروج → منع تكرار التجربة → ترقية → bypass عبر BYOK.
-- بدون هذا الاختبار لا يمكن ضمان أن أهم funnel للعميل يعمل.
+- **`generate-story`, `compose-story`, `trial-story`, `narrate-*`**: Remove all `ai_credits_exhausted` / `consumeCredits` paths. Replace `enforceMonthlyStoryQuota` with new `enforceStoryFairUse` (daily + monthly counts from `ai_story_history`).
+- **`illustrate-story`, `generate-classic-illustrations`**: 
+  - Hard-cap pages to 8.
+  - Call `consume_illustration_credits(uid, 10)` before generation.
+  - If returns 0 and tier ∈ {pro_creator, elite_publisher} with valid BYOK → use user key.
+  - Else return 402 `illustration_credits_exhausted`.
+- **New `signup` guard**: in `Auth.tsx` signup flow, call `register_allowed()` RPC first; block free-tier signup if false.
+- **New `join-waitlist` edge function** (public insert).
 
-### 4) إزالة Mock Data من صفحات الإنتاج
-- `mockBlog.ts`, `mockCompetition.ts`, `mockStore.ts`, `adminMockData.ts` لا تزال مستخدمة في:
-  - `HomeCompetitionHighlight`, `WeeklyChallenge`, `AdminVideosPage`, `AdminStoriesPage`, `AdminDashboardOverview`, `AdminLanguagesPage`.
-- **المطلوب:** التبديل لقراءة فعلية من DB أو إخفاء الأقسام التي لا توجد لها بيانات.
+## Part 3 — Frontend
 
----
+- **Admin Settings page**: add "Allow Free Registrations" toggle wired to `app_settings`.
+- **Auth page**: pre-check `register_allowed`; on block show `<RegistrationClosedModal>` with "Join Waitlist" + "View Premium Plans" actions.
+- **New `WaitlistDialog.tsx`**: email + name form.
+- **AIStoryteller**:
+  - Hide visibility toggle for free users; force `visibility: 'public'`.
+  - Default story pages to 8 (was 15).
+  - Before Illustrate click → show `<IllustrateConfirmDialog>` ("10 credits, 8 pages"). Button disabled while in-flight (already partially done via `IllustrateButton`).
+  - Replace `ai_credits_exhausted` UI handler with `illustration_credits_exhausted`; CTAs: Upgrade, BYOK (if eligible tier), Cancel.
+- **CreditCounter**: change semantics — show illustration credits balance (not story count). Format: `X/20 illustration credits` (free) or `X/80 monthly` (parent).
+- **MyAiStories / StoryLibrary**: show community badge on public stories.
 
-## 🟠 P1 — وظائف مُعلَن عنها لكن غير مكتملة
+## Part 4 — Community Library
 
-### 5) Worker فحص الملفات (`scan-file`)
-- جدول `file_scan_jobs` يستقبل jobs من `upload-finalize` بدون processor فعلي.
-- **الأثر:** صور مسابقات الرسم تُقبل بلا فحص ClamAV → مخاطرة قانونية في منتج موجّه للأطفال.
-- **المطلوب:** edge function تستهلك الـ jobs (cron كل دقيقة) + تحديث `status` على الملف.
+Existing `stories` table is admin-curated. We'll surface free-tier `ai_story_history` rows with `visibility='public'` via a new `community_stories` view + page route `/community` listing them. (Lightweight — no new moderation flow; relies on existing safety_passed.)
 
-### 6) تفعيل Bedtime Mode تلقائياً
-- جدول `bedtime_schedules` و `useBedtimeAutoTheme` موجودان لكن لا يوجد UI لإدارة الجدول داخل `ParentDashboard`.
-- **المطلوب:** فورم إنشاء/تعديل/حذف جدول لكل طفل + التحقق من تطبيقه فعلياً على الواجهة.
+## Out of scope / preserved
 
-### 7) إشعارات بريدية أساسية (Lovable Emails)
-- لا توجد قوالب: ترحيب بعد التسجيل، تأكيد دفع، اقتراب انتهاء اشتراك.
-- يتطلب أولاً إعداد Email Domain، ثم scaffold للقوالب.
+- Payment gateways untouched.
+- Existing BYOK encryption + RLS preserved.
+- `manage-user-api-key` unchanged.
 
-### 8) تنظيف Edge Functions غير المستخدمة
-- `get-file-url` (إن وُجدت) ومراجعة أي function يتيمة لتقليل سطح الهجوم.
+## Order of execution
 
-### 9) مراجعة RLS + Security Scan شامل
-- تشغيل Security Scan قبل التسليم وإغلاق أي High/Critical.
-- التركيز على جداول الأطفال (`profiles`, `child_profiles`, `generated_illustrations`, `audit_logs`).
+1. Migrations (Part 1) — single migration file, awaiting approval.
+2. Edge functions (Part 2).
+3. Frontend wiring (Part 3 + 4).
+4. Smoke test: register-disabled flow, free story → public, illustrate → confirm → credit deduct, BYOK fallback at 0 credits.
 
----
+## Risks / notes
 
-## 🟡 P2 — تحسينات جودة موصى بها قبل التسليم
+- Existing users with `monthly_story_limit` on old plans: kept for backwards compat; new logic reads new column with fallback.
+- "Parent Tier $9" — current schema has `pro_creator` ($19) and `elite_publisher` ($39); I'll add/rename a `parent` tier. Confirm if "parent" should replace an existing tier or be new.
+- Free-tier 20 lifetime credits = users who already illustrated lose remaining quota; we'll seed `balance = 20` for all existing free users (no clawback).
 
-### 10) SEO Production-ready
-- meta tags لكل صفحة، تحديث `sitemap.xml`، JSON-LD للقصص، canonical للروابط.
-
-### 11) صفحة AdminPaymentSettings والربط مع Stripe/Paddle (لو مطلوب)
-- حالياً يدوي بالكامل. لو العميل يريد دفع آلي، يلزم تفعيل بوابة دفع + webhook.
-
-### 12) i18n cleanup
-- التأكد من عدم تسرّب نصوص hardcoded بعد آخر إعادة هيكلة، خاصة في صفحات الأدمن.
-
-### 13) Performance pass
-- Lighthouse على Home/Stories/AI Storyteller، صور WebP، lazy-load كل ما يمكن.
-
----
-
-## 🟢 P3 — اختياري للإصدار الأول
-
-- TTS مجاني بديل ElevenLabs.
-- `generate-story-video` (الحقول موجودة بدون generator).
-- جدولة `cleanup_*` (rate_limit، upload_pipeline قديم).
-- لوحة Analytics للأهل (تقدم الطفل أسبوعياً).
-
----
-
-## يحتاج قرار العميل (خارج الكود)
-
-- **الدومين النهائي** لإكمال إعداد Site URL + Email DNS.
-- **اختيار بوابة الدفع** (يدوي فقط / Stripe / Paddle).
-- **هوية بريدية** (شعار + لون + نبرة) للقوالب.
-
----
-
-## أسأل قبل تنفيذ الخطة
-
-اختر نطاق التسليم وأرجع لك بخطة تنفيذ مفصّلة:
-
-- **(أ) الحد الأدنى:** P0 فقط (1–4) — جاهز للإطلاق خلال 2–3 أيام.
-- **(ب) احترافي:** P0 + P1 (1–9) — منتج كامل وآمن.
-- **(ج) كامل:** P0 + P1 + P2 (1–13) — جاهز للنمو والتسويق.
-- **(د) مخصّص:** اذكر أرقام البنود التي تريدها.
+Ready to proceed on approval. If "parent" tier mapping is wrong, tell me which existing tier maps to $9 and I'll adjust before migration.

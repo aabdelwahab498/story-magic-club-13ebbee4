@@ -9,6 +9,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 import { loadUserAIContext, type UserImageKey } from "../_shared/userKeys.ts";
+import { consumeIllustrationCredits, refundIllustrationCredits, hasValidImageByok } from "../_shared/quota.ts";
+
+const MAX_ILLUSTRATION_PAGES = 8;
+const ILLUSTRATION_CREDIT_COST = 10;
 
 import { colorPaletteFor } from "../_shared/sel/visual.ts";
 
@@ -282,9 +286,13 @@ serve(async (req) => {
       return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
     }
     if (!body?.storyId || typeof body.storyId !== "string" || body.storyId.length > 64
-        || !Array.isArray(body?.pages) || body.pages.length === 0 || body.pages.length > 20
+        || !Array.isArray(body?.pages) || body.pages.length === 0
         || !body?.characterVisualHash || typeof body.characterVisualHash !== "string") {
       return json({ error: "missing_or_invalid_fields" }, 400, corsHeaders);
+    }
+    // Hard cap: max 8 illustrated pages per story (business model rule).
+    if (body.pages.length > MAX_ILLUSTRATION_PAGES) {
+      body.pages = body.pages.slice(0, MAX_ILLUSTRATION_PAGES);
     }
     const style = (typeof body.style === "string" ? body.style.slice(0, 200) : "") || "soft watercolor children's book illustration";
 
@@ -317,37 +325,26 @@ serve(async (req) => {
       if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
     }
 
-    // Server-side subscription gate (cannot be bypassed from client UI)
+    // Server-side credit gate. Admins bypass entirely.
+    // Other users: try to debit 10 illustration credits. If insufficient,
+    // pro_creator/elite_publisher with valid image-capable BYOK key may
+    // continue using their own provider; everyone else is blocked.
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const { data: paidAllowed, error: gateErr } = await admin.rpc("has_paid_feature", {
-      _user_id: userId,
-      _feature: "illustrations",
-    });
-    const { data: isAdmin, error: roleErr } = await admin.rpc("has_role", {
+    const { data: isAdmin } = await admin.rpc("has_role", {
       _user_id: userId,
       _role: "admin",
     });
-    if (gateErr) {
-      console.error("[illustrate] gate check failed", gateErr);
-      return json({ error: "subscription_check_failed" }, 500, corsHeaders);
-    }
-    if (roleErr) console.error("[illustrate] admin gate check failed", roleErr);
-    const allowed = !!paidAllowed || !!isAdmin;
-    if (!allowed) {
-      return json({ error: "subscription_required", feature: "illustrations", blocked: true }, 200, corsHeaders);
-    }
 
     const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
 
     // ----------------------------------------------------------------
-    // REUSE GUARD: before spending image-gen credits, check whether the
-    // requested pages already have a `ready` illustration persisted for
-    // this story+user. If every requested page is already ready, short
-    // circuit and return cached URLs. If only some are ready, restrict
-    // the generation set to the missing pages and merge results.
+    // REUSE GUARD: before spending credits, check whether the requested
+    // pages already have a `ready` illustration persisted. If every
+    // requested page is already ready, short-circuit (no credit charge).
+    // If only some are ready, restrict generation to the missing pages.
     // ----------------------------------------------------------------
     const requestedIndices = body.pages.map((p) => p.index);
     const { data: existingRows } = await supabase
@@ -378,9 +375,35 @@ serve(async (req) => {
       return json({ storyId: body.storyId, illustrations: reused, reused: true, source: "db_reuse" }, 200, corsHeaders);
     }
 
+    // Credit gate (only fires when there's actual work to do).
+    // Admins bypass. Other users: debit 10 credits; if insufficient,
+    // pro_creator/elite_publisher with a valid image-capable BYOK key may
+    // continue using their own provider; everyone else is blocked.
+    let creditsCharged = false;
+    let usingByok = false;
+    if (!isAdmin) {
+      const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+      if (debit.success) {
+        creditsCharged = true;
+      } else {
+        const byokOk = await hasValidImageByok(userId);
+        if (!byokOk) {
+          return json({
+            error: "illustration_credits_exhausted",
+            reason: "insufficient_credits",
+            balance: debit.balance,
+            cost: ILLUSTRATION_CREDIT_COST,
+            message: "You don't have enough illustration credits. Upgrade your plan or add a personal image API key.",
+          }, 402, corsHeaders);
+        }
+        usingByok = true;
+      }
+    }
+
     // Load user-supplied image API keys (used first so credits go on their account)
     const userCtx = await loadUserAIContext(userId);
     const userImageKeys = userCtx.imageKeys;
+    void usingByok;
 
 
     const runGeneration = async () => {
@@ -495,6 +518,22 @@ serve(async (req) => {
       idempotencyCache.set(cacheKey, { promise, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
     }
     const payload = await promise;
+
+    // Refund credits if every new page failed (user got nothing for their credits).
+    if (creditsCharged) {
+      const generatedPages = payload.illustrations.filter((r) =>
+        missingPages.some((m) => m.index === r.index)
+      );
+      const allFailed = generatedPages.length > 0 && generatedPages.every((r) => r.status !== "ready");
+      if (allFailed) {
+        try {
+          await refundIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+          console.info("[illustrate] credits refunded after total failure", { userId, storyId: body.storyId });
+        } catch (e) {
+          console.error("[illustrate] refund failed", e instanceof Error ? e.message : e);
+        }
+      }
+    }
 
     // Persist successful + failed results so duplicate retries land on the
     // same outcome instead of re-spending image-gen credits.

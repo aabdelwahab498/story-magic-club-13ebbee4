@@ -85,22 +85,41 @@ serve(async (req) => {
     const { data: userData } = await sb.auth.getUser();
     const userId = userData?.user?.id ?? null;
 
+    // Credits: authenticated users consume 10 illustration credits per
+    // story (regardless of scene count, capped at 8). Guests get cover only.
     let canFullSet = false;
+    let creditsCharged = false;
     if (userId) {
+      const { consumeIllustrationCredits, hasValidImageByok } = await import("../_shared/quota.ts");
       const admin = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
-      const { data: paidAllowed } = await admin.rpc("has_paid_feature", {
-        _user_id: userId,
-        _feature: "illustrations",
-      });
       const { data: isAdmin } = await admin.rpc("has_role", {
         _user_id: userId,
         _role: "admin",
       });
-      canFullSet = !!paidAllowed || !!isAdmin;
+      if (isAdmin) {
+        canFullSet = true;
+      } else {
+        const debit = await consumeIllustrationCredits(userId, 10);
+        if (debit.success) {
+          canFullSet = true;
+          creditsCharged = true;
+        } else if (await hasValidImageByok(userId)) {
+          canFullSet = true;
+        } else {
+          return json({
+            error: "illustration_credits_exhausted",
+            reason: "insufficient_credits",
+            balance: debit.balance,
+            cost: 10,
+            message: "Not enough illustration credits.",
+          }, 402);
+        }
+      }
     }
+    void creditsCharged;
 
     const style = body.style ?? "soft watercolor children's book illustration, gentle pastel palette, warm lighting";
     const characterDesc = body.character
@@ -109,8 +128,8 @@ serve(async (req) => {
     const themeDesc = body.theme ? `Theme: ${body.theme}.` : "";
     const ageDesc = body.ageId ? `For ages ${body.ageId}.` : "";
 
-    // Free tier: cover only. Paid: cover + up to 5 additional scenes.
-    const targetCount = canFullSet ? Math.min(body.scenes.length, 6) : 1;
+    // Free guest gets cover only; paid users get up to 8 scenes.
+    const targetCount = canFullSet ? Math.min(body.scenes.length, 8) : 1;
     const targets = body.scenes.slice(0, targetCount);
 
     const results: { index: number; imageUrl: string | null; status: string }[] = [];
