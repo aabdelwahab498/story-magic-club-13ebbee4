@@ -301,14 +301,14 @@ serve(async (req) => {
       errLog("AI gateway failure", { status: e.status, msg });
       if (e.status === 429) return json({ error: "rate_limited", requestId, detail: msg }, 429, corsHeaders);
       if (e.status === 402) {
-        // OpenRouter / provider quota exhausted — distinct from app monthly quota
+        // Provider-side capacity exhausted — surface as upstream issue.
         return json({
-          error: "ai_credits_exhausted",
-          reason: "ai_provider_quota",
-          message: "The AI provider account is out of credits. Please contact support or try the free Listen feature.",
+          error: "ai_provider_unavailable",
+          reason: "upstream_capacity",
+          message: "The AI provider is temporarily unavailable. Please try again shortly.",
           requestId,
           detail: msg,
-        }, 402, corsHeaders);
+        }, 503, corsHeaders);
       }
       if (e.status === 502) return json({ error: "ai_invalid_json", requestId, detail: msg }, 502, corsHeaders);
       return json({ error: "ai_gateway_failed", requestId, status: e.status, detail: msg }, 502, corsHeaders);
