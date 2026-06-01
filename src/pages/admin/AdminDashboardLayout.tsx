@@ -19,6 +19,7 @@ import {
   Crown,
   Bot,
   Activity,
+  Volume2,
 } from "lucide-react";
 import {
   Sidebar,
