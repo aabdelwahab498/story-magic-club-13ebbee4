@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useMyAiStories } from "@/lib/aiStoryApi";
+import { useMyAiStoriesPage, type AiStoryRow } from "@/lib/aiStoryApi";
 import Seo from "@/components/Seo";
 import PaddleSubscriptionCard from "@/components/PaddleSubscriptionCard";
 
