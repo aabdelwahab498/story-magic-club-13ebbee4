@@ -128,7 +128,8 @@ const Store = () => {
           return (
             <article
               key={p.id}
-              className="group flex flex-col bg-white/95 dark:bg-card/90 rounded-3xl overflow-hidden shadow-soft border-2 border-white/60 hover:shadow-glow transition-all duration-300 hover-pop"
+              id={p.sku ? `product-${p.sku}` : undefined}
+              className="group flex flex-col bg-white/95 dark:bg-card/90 rounded-3xl overflow-hidden shadow-soft border-2 border-white/60 hover:shadow-glow transition-all duration-300 hover-pop scroll-mt-28"
             >
               <div className="relative aspect-square overflow-hidden bg-muted">
                 <img
