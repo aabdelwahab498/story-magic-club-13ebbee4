@@ -809,8 +809,12 @@ export type Database = {
       }
       orders: {
         Row: {
+          admin_note: string | null
           created_at: string
           currency: string
+          fulfilled_at: string | null
+          fulfilled_by: string | null
+          fulfillment_status: string
           id: string
           notes: string | null
           paddle_checkout_id: string | null
@@ -829,8 +833,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_note?: string | null
           created_at?: string
           currency?: string
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          fulfillment_status?: string
           id?: string
           notes?: string | null
           paddle_checkout_id?: string | null
@@ -849,8 +857,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_note?: string | null
           created_at?: string
           currency?: string
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          fulfillment_status?: string
           id?: string
           notes?: string | null
           paddle_checkout_id?: string | null
