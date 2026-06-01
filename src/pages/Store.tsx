@@ -256,6 +256,20 @@ const Store = () => {
 
         return (
           <div className="max-w-6xl mx-auto mb-10 space-y-12">
+            {focusedSku && (
+              <div className="flex items-center justify-center gap-3 -mt-2">
+                <span className="text-sm text-muted-foreground">
+                  {t("store.showing_one", { defaultValue: "Showing the selected item only" })}
+                </span>
+                <button
+                  onClick={clearFocus}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-sm font-semibold hover-pop shadow-soft"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  {t("store.show_all", { defaultValue: "Show all products" })}
+                </button>
+              </div>
+            )}
             {stories.length > 0 && (
               <section>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-5 text-center">
