@@ -157,6 +157,7 @@ async function handle(req: Request): Promise<Response> {
   let theme = "";
   let age = NaN;
   let language = "ar";
+  let customPrompt = "";
   let effectiveFingerprint = `req:${requestId}`;
 
   try {
@@ -164,6 +165,7 @@ async function handle(req: Request): Promise<Response> {
     childName = str(raw.childName, 60);
     theme = str(raw.theme, 80);
     age = Number(raw.age);
+    customPrompt = str(raw.customPrompt, 8000); // ~1000 words
     const fingerprint = str(raw.fingerprint, 128);
     language = (str(raw.language, 5).toLowerCase() || "ar");
 
