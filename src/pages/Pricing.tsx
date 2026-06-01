@@ -41,11 +41,70 @@ const Pricing = () => {
   const [showPaddleError, setShowPaddleError] = useState(false);
 
 
+  const settingsQ = useQuery({ queryKey: ["payment-settings"], queryFn: fetchPaymentSettings });
+  const [confirmTier, setConfirmTier] = useState<PlanTier | null>(null);
+  const [chosenMethod, setChosenMethod] = useState<SelectableMethod | null>(null);
 
   const priceIdFor = (tier: string): string | null => {
     const p = paddleConfig?.plans.find((x) => x.tier === tier);
     return p?.paddle_price_id ?? null;
   };
+
+  const confirmPlan = useMemo(
+    () => q.data?.find((p) => p.tier === confirmTier) ?? null,
+    [q.data, confirmTier],
+  );
+
+  // Build available methods for the dialog based on payment_settings
+  const availableMethods = useMemo(() => {
+    const s = settingsQ.data;
+    const list: { id: SelectableMethod; label: string; sub: string; icon: typeof CreditCard; price: number; currency: string }[] = [];
+    if (!confirmPlan) return list;
+    if (priceIdFor(confirmPlan.tier)) {
+      list.push({
+        id: "paddle",
+        label: isAr ? "بطاقة بنكية (USD) عبر Paddle" : "Credit card (USD) via Paddle",
+        sub: isAr ? "تفعيل فوري بعد الدفع" : "Instant activation after payment",
+        icon: CreditCard,
+        price: confirmPlan.price_usd,
+        currency: "USD",
+      });
+    }
+    if (s) {
+      const local: { id: PaymentMethod; label: string; icon: typeof CreditCard; enabled: boolean; currencies: PayCurrency[] }[] = [
+        { id: "instapay", label: "InstaPay", icon: Smartphone, enabled: s.instapay_enabled && !!s.instapay_handle, currencies: s.instapay_currencies as PayCurrency[] },
+        { id: "vodafone_cash", label: isAr ? "فودافون كاش" : "Vodafone Cash", icon: Wallet, enabled: s.vodafone_enabled && !!s.vodafone_number, currencies: s.vodafone_currencies as PayCurrency[] },
+        { id: "payoneer", label: "Payoneer", icon: Globe, enabled: s.payoneer_enabled && !!s.payoneer_email, currencies: s.payoneer_currencies as PayCurrency[] },
+        { id: "bank_transfer", label: isAr ? "تحويل بنكي" : "Bank Transfer", icon: Building2, enabled: s.bank_enabled && !!(s.bank_account_number || s.bank_iban), currencies: s.bank_currencies as PayCurrency[] },
+      ];
+      for (const m of local) {
+        if (!m.enabled) continue;
+        const cur = (m.currencies?.[0] ?? "EGP") as string;
+        const price = cur === "USD" ? confirmPlan.price_usd : confirmPlan.price_egp;
+        list.push({
+          id: m.id,
+          label: m.label,
+          sub: isAr ? "يتم التفعيل بعد المراجعة" : "Activated after review",
+          icon: m.icon,
+          price,
+          currency: cur,
+        });
+      }
+    }
+    return list;
+  }, [settingsQ.data, confirmPlan, paddleConfig, isAr]);
+
+  const openConfirm = (tier: PlanTier) => {
+    if (tier === "free") return;
+    if (!user) {
+      const params = searchParams.toString();
+      navigate(`/auth?redirect=${encodeURIComponent("/pricing" + (params ? `?${params}` : ""))}`);
+      return;
+    }
+    setConfirmTier(tier);
+    setChosenMethod(null);
+  };
+
 
   const subscribe = (tier: PlanTier) => {
     if (tier === "free") return;
