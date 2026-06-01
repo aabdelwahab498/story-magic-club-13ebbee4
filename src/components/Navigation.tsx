@@ -46,6 +46,7 @@ import StreakBadge from "./StreakBadge";
 import CreditCounter from "./CreditCounter";
 import SocialMediaIcons from "./SocialMediaIcons";
 import ChildPicker from "./ChildPicker";
+import InstallPwaButton from "./InstallPwaButton";
 
 type NavItem = { to: string; labelKey: string; icon: typeof Home };
 
@@ -259,6 +260,7 @@ const Navigation = () => {
             <ChildPicker />
             <CreditCounter />
             <StreakBadge />
+            <InstallPwaButton variant="compact" className="hidden md:inline-flex" />
             <ThemeToggle />
             <LanguageSwitcher />
             {user && isStaff && (

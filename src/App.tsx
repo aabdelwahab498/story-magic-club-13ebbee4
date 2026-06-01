@@ -61,6 +61,7 @@ const MyAiStoryDetail = lazy(() => import("./pages/MyAiStoryDetail"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
+const Install = lazy(() => import("./pages/Install"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -107,6 +108,7 @@ const App = () => (
                     <Route path="pricing" element={<Pricing />} />
                     <Route path="family" element={<Family />} />
                     <Route path="about" element={<About />} />
+                    <Route path="install" element={<Install />} />
                     <Route path="privacy" element={<Privacy />} />
                     <Route path="terms" element={<Terms />} />
                     <Route element={<ProtectedRoute />}>
