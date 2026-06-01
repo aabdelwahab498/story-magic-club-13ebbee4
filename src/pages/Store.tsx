@@ -31,6 +31,30 @@ const Store = () => {
 
   const cartCount = cartItems.reduce((s, it) => s + it.quantity, 0);
 
+  // Track URL hash so we can filter to a single product when linked from About
+  const [focusedSku, setFocusedSku] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const h = window.location.hash?.replace("#product-", "");
+    return h || null;
+  });
+
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash?.replace("#product-", "");
+      setFocusedSku(h || null);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const clearFocus = () => {
+    setFocusedSku(null);
+    if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   // Scroll to product when hash is present (e.g. /store#product-course-part-1)
   useEffect(() => {
     if (!products?.length) return;
