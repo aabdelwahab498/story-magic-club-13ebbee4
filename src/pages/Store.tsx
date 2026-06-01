@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown } from "lucide-react";
+import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown, X } from "lucide-react";
 import { useProducts } from "@/lib/contentApi";
 import { getLocalized } from "@/lib/multilingual";
 import PaymentModal from "@/components/payment/PaymentModal";
