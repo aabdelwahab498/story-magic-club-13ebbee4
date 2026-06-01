@@ -8,6 +8,7 @@ import type { PaymentItem } from "@/components/payment/PaymentSummary";
 import CartDrawer from "@/components/cart/CartDrawer";
 import { useAuth } from "@/hooks/useAuth";
 import { useAddToCart, useCart } from "@/lib/cartApi";
+import { usePaddle } from "@/hooks/usePaddle";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
