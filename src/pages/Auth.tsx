@@ -25,7 +25,15 @@ const Auth = () => {
   const [showOwnerField, setShowOwnerField] = useState(false);
   const [masterKey, setMasterKey] = useState("");
 
-  const from = (location.state as { from?: string } | null)?.from;
+  const stateFrom = (location.state as { from?: string } | null)?.from;
+  const queryRedirect = new URLSearchParams(location.search).get("redirect");
+  const from = stateFrom || queryRedirect || undefined;
+  const resolveDest = (goStaff: boolean) =>
+    from && !from.startsWith("/admin")
+      ? from
+      : goStaff
+      ? "/admin/dashboard"
+      : "/";
 
   useEffect(() => {
     if (authLoading || !session?.user?.id) return;
@@ -39,11 +47,11 @@ const Auth = () => {
       const goStaff = (roles ?? []).some(
         (r) => r.role === "admin" || r.role === "editor"
       );
-      navigate(
-        goStaff ? "/admin/dashboard" : from && !from.startsWith("/admin") ? from : "/",
-        { replace: true }
-      );
+      navigate(resolveDest(goStaff), { replace: true });
     })();
+    return () => {
+      cancelled = true;
+    };
     return () => {
       cancelled = true;
     };
@@ -100,10 +108,7 @@ const Auth = () => {
         : t("auth.welcome_named", "Welcome back, {{name}}! ✨", { name: friendlyName }),
       { duration: 4000 }
     );
-    navigate(
-      goStaff ? "/admin/dashboard" : from && !from.startsWith("/admin") ? from : "/",
-      { replace: true }
-    );
+    navigate(resolveDest(goStaff), { replace: true });
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
