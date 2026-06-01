@@ -43,11 +43,18 @@ const Pricing = () => {
       return;
     }
 
-
     const priceId = priceIdFor(tier);
     if (!priceId) {
       toast.error(
         t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."),
+      );
+      return;
+    }
+    if (paddleError) {
+      toast.error(
+        isAr
+          ? "تعذّر تشغيل نظام الدفع. اضغط إعادة المحاولة."
+          : "Payments could not start. Please retry.",
       );
       return;
     }
@@ -58,9 +65,17 @@ const Pricing = () => {
       return;
     }
     try {
+      setOpeningTier(tier);
       openCheckout({ priceId, email: user.email ?? undefined, userId: user.id, tier });
+      // Safety: clear the spinner shortly after — Paddle takes over the screen.
+      setTimeout(() => setOpeningTier(null), 4000);
     } catch (e: any) {
-      toast.error(e?.message ?? "checkout_failed");
+      setOpeningTier(null);
+      toast.error(
+        isAr
+          ? `تعذّر فتح نافذة الدفع: ${e?.message ?? "خطأ غير معروف"}`
+          : `Could not open checkout: ${e?.message ?? "unknown error"}`,
+      );
     }
   };
 
@@ -74,15 +89,73 @@ const Pricing = () => {
       subscribe(target);
       return;
     }
+    if (paddleError) return; // wait until user retries
     if (!paddleReady || !paddleConfig) return;
     autoTriggered.current = true;
     subscribe(target);
-    // Clean param so refresh doesn't re-open the modal.
     const next = new URLSearchParams(searchParams);
     next.delete("subscribe");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paddleReady, paddleConfig, user]);
+  }, [paddleReady, paddleConfig, paddleError, user]);
+
+  // Handle return from Paddle. Webhook unlocks features asynchronously,
+  // so we poll the subscription until tier flips off "free".
+  useEffect(() => {
+    if (successHandled.current) return;
+    const paddleResult = searchParams.get("paddle");
+    if (!paddleResult) return;
+    successHandled.current = true;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("paddle");
+    setSearchParams(next, { replace: true });
+
+    if (paddleResult === "cancelled" || paddleResult === "canceled") {
+      toast.warning(
+        isAr ? "تم إلغاء الدفع. يمكنك المحاولة مرة أخرى." : "Payment cancelled. You can try again.",
+      );
+      return;
+    }
+    if (paddleResult !== "success") return;
+
+    toast.success(
+      isAr
+        ? "تم استلام الدفع! جارٍ تفعيل ميزات حسابك..."
+        : "Payment received! Activating your features...",
+    );
+    setPollingSuccess(true);
+    let attempts = 0;
+    const maxAttempts = 12;
+    const tick = async () => {
+      attempts += 1;
+      await queryClient.invalidateQueries({ queryKey: ["active-sub"] });
+      await queryClient.invalidateQueries({ queryKey: ["subscription-plans"] });
+      const fresh = queryClient.getQueryData<any>(["active-sub", user?.id]);
+      const tier = fresh?.plan_tier;
+      if (tier && tier !== "free") {
+        setPollingSuccess(false);
+        toast.success(
+          isAr ? "تم تفعيل ميزات الصور والصوت ✨" : "Images & audio features unlocked ✨",
+        );
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        setPollingSuccess(false);
+        toast.info(
+          isAr
+            ? "الدفع قيد المعالجة. الميزات هتتفعّل خلال دقيقة."
+            : "Payment is being processed. Features will unlock within a minute.",
+        );
+        return;
+      }
+      setTimeout(tick, 2000);
+    };
+    tick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+
 
 
   return (
