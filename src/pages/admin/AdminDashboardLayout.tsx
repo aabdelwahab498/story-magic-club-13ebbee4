@@ -52,6 +52,7 @@ const navItems = [
   { titleKey: "admin_dashboard.nav.products", url: "/admin/dashboard/products", icon: ShoppingBag, gradient: "from-amber-400 to-orange-500", labelFallback: "Products" },
   { titleKey: "admin_dashboard.nav.orders", url: "/admin/dashboard/orders", icon: Package, gradient: "from-rose-500 to-orange-500", labelFallback: "Orders" },
   { titleKey: "admin_dashboard.nav.payments", url: "/admin/dashboard/payments", icon: CreditCard, gradient: "from-emerald-500 to-teal-500", labelFallback: "Payments" },
+  { titleKey: "admin_dashboard.nav.subscriptions", url: "/admin/dashboard/subscriptions", icon: Activity, gradient: "from-teal-500 to-cyan-500", labelFallback: "Subscriptions Status" },
   { titleKey: "admin_dashboard.nav.webhook_logs", url: "/admin/dashboard/webhook-logs", icon: Webhook, gradient: "from-indigo-500 to-violet-500", labelFallback: "Webhook Logs" },
   { titleKey: "admin_dashboard.nav.payment_settings", url: "/admin/dashboard/payment-settings", icon: Wallet, gradient: "from-amber-500 to-orange-500", labelFallback: "Payment Settings" },
   { titleKey: "admin_dashboard.nav.plans", url: "/admin/dashboard/plans", icon: Crown, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Subscription Plans" },
