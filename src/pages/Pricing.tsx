@@ -27,6 +27,7 @@ const Pricing = () => {
   const successHandled = useRef(false);
   const [openingTier, setOpeningTier] = useState<PlanTier | null>(null);
   const [pollingSuccess, setPollingSuccess] = useState(false);
+  const [showPaddleError, setShowPaddleError] = useState(false);
 
 
 
@@ -51,10 +52,11 @@ const Pricing = () => {
       return;
     }
     if (paddleError) {
+      setShowPaddleError(true);
       toast.error(
         isAr
-          ? "تعذّر تشغيل نظام الدفع. اضغط إعادة المحاولة."
-          : "Payments could not start. Please retry.",
+          ? "تعذّر تشغيل الدفع بالبطاقة. جرّب وسيلة محلية أو أعد المحاولة."
+          : "Card payments could not start. Try a local method or retry.",
       );
       return;
     }
@@ -86,25 +88,18 @@ const Pricing = () => {
     }
   };
 
-  // Auto-open Paddle checkout when arriving with ?subscribe=<tier> (e.g. from trial upsell).
+  // NOTE: We intentionally do NOT auto-open Paddle when arriving with ?subscribe=<tier>.
+  // The customer should pick their payment method (card via Paddle, or local methods)
+  // themselves from the plan card. We just clean the param so it doesn't linger.
   useEffect(() => {
     if (autoTriggered.current) return;
-    const target = searchParams.get("subscribe") as PlanTier | null;
-    if (!target || target === "free") return;
-    if (!user) {
-      autoTriggered.current = true;
-      subscribe(target);
-      return;
-    }
-    if (paddleError) return; // wait until user retries
-    if (!paddleReady || !paddleConfig) return;
+    if (!searchParams.get("subscribe")) return;
     autoTriggered.current = true;
-    subscribe(target);
     const next = new URLSearchParams(searchParams);
     next.delete("subscribe");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paddleReady, paddleConfig, paddleError, user]);
+  }, []);
 
   // Handle return from Paddle. Webhook unlocks features asynchronously,
   // so we poll the subscription until tier flips off "free".
@@ -182,7 +177,7 @@ const Pricing = () => {
         </p>
       </header>
 
-      {paddleError && (
+      {paddleError && showPaddleError && (
         <div className="max-w-xl mx-auto mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="flex-1">
