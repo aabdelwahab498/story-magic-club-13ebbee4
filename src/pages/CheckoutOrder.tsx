@@ -87,9 +87,17 @@ const CheckoutOrder = () => {
   const total = rows.reduce((s, r) => s + r.subtotal, 0);
 
   const paymentOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = [
-      { value: "cash_on_delivery", label: t("checkout.cod", { defaultValue: "Cash on Delivery" }) },
-    ];
+    const opts: { value: string; label: string }[] = [];
+    if (allPaddleReady) {
+      opts.push({
+        value: "paddle_card",
+        label: t("checkout.paddle_card", { defaultValue: "Credit / Debit Card (Paddle)" }),
+      });
+    }
+    opts.push({
+      value: "cash_on_delivery",
+      label: t("checkout.cod", { defaultValue: "Cash on Delivery" }),
+    });
     if (settings?.instapay_enabled && settings.instapay_handle)
       opts.push({ value: "instapay", label: "InstaPay" });
     if (settings?.vodafone_enabled && settings.vodafone_number)
@@ -99,7 +107,7 @@ const CheckoutOrder = () => {
     if (settings?.bank_enabled && settings.bank_account_number)
       opts.push({ value: "bank_transfer", label: t("checkout.bank", { defaultValue: "Bank Transfer" }) });
     return opts;
-  }, [settings, t]);
+  }, [settings, t, allPaddleReady]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +116,40 @@ const CheckoutOrder = () => {
       toast.error(t("cart.empty", { defaultValue: "Your cart is empty" }));
       return;
     }
+
+    // Paddle one-time card checkout for digital cart
+    if (paymentMethod === "paddle_card") {
+      if (!paddleReady) {
+        toast.error(
+          t("page_pricing.checkout_not_ready", "Payments are still loading. Please try again in a moment."),
+        );
+        return;
+      }
+      const paddleItems = rows
+        .map((r) => ({
+          priceId: r.product?.paddle_price_id ?? "",
+          quantity: r.quantity,
+        }))
+        .filter((p) => Boolean(p.priceId));
+      if (paddleItems.length === 0) {
+        toast.error(
+          t("checkout.paddle_not_configured", { defaultValue: "Card checkout not configured for these items." }),
+        );
+        return;
+      }
+      try {
+        openStoreCheckout({
+          items: paddleItems,
+          email: user.email ?? undefined,
+          userId: user.id,
+          successPath: "/account/subscription?paddle=success",
+        });
+      } catch (err: any) {
+        toast.error(err?.message ?? "checkout_failed");
+      }
+      return;
+    }
+
     setSubmitting(true);
     try {
       const id = await createOrder({
