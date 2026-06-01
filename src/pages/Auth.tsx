@@ -108,10 +108,7 @@ const Auth = () => {
         : t("auth.welcome_named", "Welcome back, {{name}}! ✨", { name: friendlyName }),
       { duration: 4000 }
     );
-    navigate(
-      goStaff ? "/admin/dashboard" : from && !from.startsWith("/admin") ? from : "/",
-      { replace: true }
-    );
+    navigate(resolveDest(goStaff), { replace: true });
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
