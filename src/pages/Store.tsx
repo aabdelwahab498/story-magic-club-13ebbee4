@@ -299,8 +299,14 @@ const Store = () => {
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-5 text-center">
                   📚 {t("store.section_stories", { defaultValue: "Stories" })}
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-                  {stories.map(renderCard)}
+                <div
+                  className={
+                    focusedSku && stories.length === 1
+                      ? "max-w-3xl mx-auto"
+                      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6"
+                  }
+                >
+                  {stories.map((p) => renderCard(p, !!focusedSku && stories.length === 1))}
                 </div>
               </section>
             )}
@@ -309,8 +315,14 @@ const Store = () => {
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-5 text-center">
                   🎓 {t("store.section_courses", { defaultValue: "Courses" })}
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-                  {courses.map(renderCard)}
+                <div
+                  className={
+                    focusedSku && courses.length === 1
+                      ? "max-w-3xl mx-auto"
+                      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6"
+                  }
+                >
+                  {courses.map((p) => renderCard(p, !!focusedSku && courses.length === 1))}
                 </div>
               </section>
             )}
