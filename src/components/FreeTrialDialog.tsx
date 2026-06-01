@@ -77,6 +77,7 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
         age,
         theme: theme.trim(),
         language: i18n.language?.slice(0, 2) || "en",
+        customPrompt: customPrompt.trim() || undefined,
       });
       clearInterval(cycle);
       setResult(data);
