@@ -87,6 +87,7 @@ const emptyPost = (): BlogPostRecord => ({
   views: 0,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
+  submission_status: "approved",
 });
 
 export default function AdminBlogPage() {
