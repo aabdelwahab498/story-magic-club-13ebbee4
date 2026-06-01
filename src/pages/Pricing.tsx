@@ -304,7 +304,7 @@ const Pricing = () => {
           const isPremium = plan.tier === "premium";
           const isFree = plan.tier === "free";
           const price = plan.price_usd;
-          const hasPriceId = Boolean(priceIdFor(plan.tier));
+          
 
           return (
             <article
