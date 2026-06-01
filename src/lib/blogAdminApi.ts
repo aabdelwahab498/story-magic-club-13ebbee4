@@ -110,6 +110,98 @@ export async function deleteBlogPost(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// --- Author submissions ---
+export interface SubmitBlogPostInput {
+  slug: string;
+  category_id?: string | null;
+  title: Multilingual;
+  excerpt: Multilingual;
+  content: Multilingual;
+  cover_image?: string | null;
+  author_name?: string | null;
+  reading_minutes?: number | null;
+  tags?: string[];
+}
+
+export async function submitBlogPost(
+  input: SubmitBlogPostInput
+): Promise<BlogPostRecord> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+  const payload = {
+    slug: input.slug,
+    category_id: input.category_id ?? null,
+    title: input.title,
+    excerpt: input.excerpt,
+    content: input.content,
+    cover_image: input.cover_image ?? null,
+    author_name: input.author_name ?? null,
+    reading_minutes: input.reading_minutes ?? 3,
+    tags: input.tags ?? [],
+    published: false,
+    submission_status: "pending",
+    created_by: user.id,
+  } as any;
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return normalizePost(data);
+}
+
+export async function fetchMyBlogSubmissions(): Promise<BlogPostRecord[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select("*")
+    .eq("created_by", user.id)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(normalizePost);
+}
+
+export async function approveBlogPost(id: string): Promise<BlogPostRecord> {
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .update({
+      submission_status: "approved",
+      published: true,
+      published_at: new Date().toISOString(),
+      reviewed_at: new Date().toISOString(),
+    } as any)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return normalizePost(data);
+}
+
+export async function rejectBlogPost(
+  id: string,
+  note?: string
+): Promise<BlogPostRecord> {
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .update({
+      submission_status: "rejected",
+      published: false,
+      review_note: note ?? null,
+      reviewed_at: new Date().toISOString(),
+    } as any)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return normalizePost(data);
+}
+
 export async function uploadBlogCover(file: File): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
   const fileName = `blog-cover-${Date.now()}-${Math.random()
