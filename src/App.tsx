@@ -113,6 +113,7 @@ const App = () => (
                       <Route path="checkout/order" element={<CheckoutOrder />} />
                       <Route path="account/subscription" element={<AccountSubscription />} />
                       <Route path="my-stories" element={<MyAiStories />} />
+                      <Route path="my-stories/:id" element={<MyAiStoryDetail />} />
                       <Route path="account/api-keys" element={<ApiKeys />} />
                       <Route path="account/profile" element={<AccountProfile />} />
                     </Route>
