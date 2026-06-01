@@ -1,15 +1,16 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { Check, Loader2, Crown, Sparkles, Star, AlertCircle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2, Crown, Sparkles, Star, AlertCircle, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchPlans, type PlanTier } from "@/lib/subscriptionApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaddle } from "@/hooks/usePaddle";
 import { toast } from "sonner";
+
 
 const Pricing = () => {
   const { t, i18n } = useTranslation();
