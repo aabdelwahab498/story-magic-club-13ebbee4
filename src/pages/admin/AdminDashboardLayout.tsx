@@ -14,6 +14,7 @@ import {
   CreditCard,
   Wallet,
   ShoppingBag,
+  Package,
   Crown,
   Bot,
   Activity,
