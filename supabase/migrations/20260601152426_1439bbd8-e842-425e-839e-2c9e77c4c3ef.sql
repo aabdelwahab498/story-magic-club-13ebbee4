@@ -1,0 +1,1 @@
+UPDATE public.subscription_plans SET paddle_product_id = 'pro_01kt1wj6trvbb6c3szapejw66m', paddle_price_id = 'pri_01kt1wj70bhhrbc2c2dr2p6712', updated_at = now() WHERE tier = 'parent';
