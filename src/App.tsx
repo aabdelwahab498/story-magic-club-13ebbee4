@@ -43,6 +43,7 @@ const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage"));
 const AdminPaymentSettingsPage = lazy(() => import("./pages/admin/AdminPaymentSettingsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
+const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
 const AdminStoryEnginePage = lazy(() => import("./pages/admin/AdminStoryEnginePage"));
 const AdminAiModelsPage = lazy(() => import("./pages/admin/AdminAiModelsPage"));
 const AdminIllustrationAnalyticsPage = lazy(() => import("./pages/admin/AdminIllustrationAnalyticsPage"));
