@@ -97,7 +97,7 @@ export default function AdminBlogPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft" | "pending" | "rejected">("all");
   const [editing, setEditing] = useState<BlogPostRecord | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -128,10 +128,40 @@ export default function AdminBlogPage() {
       const slug = (p.slug ?? "").toLowerCase();
       if (search && !title.includes(search.toLowerCase()) && !slug.includes(search.toLowerCase())) return false;
       if (statusFilter === "published" && !p.published) return false;
-      if (statusFilter === "draft" && p.published) return false;
+      if (statusFilter === "draft" && (p.published || p.submission_status === "pending")) return false;
+      if (statusFilter === "pending" && p.submission_status !== "pending") return false;
+      if (statusFilter === "rejected" && p.submission_status !== "rejected") return false;
       return true;
     });
   }, [posts, search, statusFilter, i18n.language]);
+
+  const pendingCount = useMemo(
+    () => posts.filter((p) => p.submission_status === "pending").length,
+    [posts]
+  );
+
+  const handleApprove = async (id: string) => {
+    try {
+      const saved = await approveBlogPost(id);
+      setPosts((prev) => prev.map((p) => (p.id === id ? saved : p)));
+      toast.success(t("admin_blog.approved", "Approved and published"));
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message ?? t("admin_blog.action_failed", "Action failed"));
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    const note = window.prompt(t("admin_blog.reject_reason", "Reason (optional):")) ?? "";
+    try {
+      const saved = await rejectBlogPost(id, note);
+      setPosts((prev) => prev.map((p) => (p.id === id ? saved : p)));
+      toast.success(t("admin_blog.rejected", "Rejected"));
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message ?? t("admin_blog.action_failed", "Action failed"));
+    }
+  };
 
   const handleSave = async () => {
     if (!editing) return;
