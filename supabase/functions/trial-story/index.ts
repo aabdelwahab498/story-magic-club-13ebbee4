@@ -224,6 +224,7 @@ async function handle(req: Request): Promise<Response> {
     blueprint = await planStory({
       childName, age, ageBand, theme,
       emotionalFocus: [], language,
+      customPrompt: customPrompt || undefined,
     });
     log("plan_ok", { title: blueprint.title });
   } catch (planErr) {
