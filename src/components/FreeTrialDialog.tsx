@@ -30,6 +30,7 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
   const [childName, setChildName] = useState("");
   const [age, setAge] = useState<number>(5);
   const [theme, setTheme] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
   const [loadingStep, setLoadingStep] = useState(0);
   const [result, setResult] = useState<TrialStoryResponse | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
