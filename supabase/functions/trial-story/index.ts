@@ -95,9 +95,9 @@ async function handle(req: Request): Promise<Response> {
   const fail = (msg: string, extra: Record<string, unknown> = {}) =>
     console.error(`[trial-story][${requestId}] ${msg}`, { ms: Date.now() - t0, ...extra });
 
-  // Body guard
+  // Body guard — allow up to ~1000-word custom prompt
   const cl = Number(req.headers.get("content-length") || "0");
-  if (cl > 8_192) {
+  if (cl > 16_384) {
     return json({ error: "payload_too_large", message: "Request too large." }, 413, corsHeaders);
   }
 
