@@ -27,10 +27,36 @@ const Store = () => {
   const [payOpen, setPayOpen] = useState(false);
   const [payItem, setPayItem] = useState<PaymentItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const { ready: paddleReady, openStoreCheckout } = usePaddle();
 
   const cartCount = cartItems.reduce((s, it) => s + it.quantity, 0);
 
-  const handleBuy = (productTitle: string, priceUsd: number) => {
+  const handleBuy = (
+    productTitle: string,
+    priceUsd: number,
+    paddlePriceId: string | null | undefined,
+  ) => {
+    if (!user) {
+      toast.info(t("cart.signin_required", { defaultValue: "Sign in to continue" }));
+      navigate("/auth?redirect=/store");
+      return;
+    }
+    // Prefer Paddle one-time checkout when configured.
+    if (paddlePriceId && paddleReady) {
+      try {
+        openStoreCheckout({
+          items: [{ priceId: paddlePriceId, quantity: 1 }],
+          email: user.email ?? undefined,
+          userId: user.id,
+          successPath: "/store?paddle=success",
+        });
+        return;
+      } catch (e: any) {
+        toast.error(e?.message ?? "checkout_failed");
+        return;
+      }
+    }
+    // Fallback to manual payment modal
     setPayItem({
       name: productTitle,
       price: priceUsd,
