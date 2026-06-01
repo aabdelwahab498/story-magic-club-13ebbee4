@@ -208,7 +208,8 @@ Deno.serve(async (req) => {
                 product_id: prod?.id ?? null,
                 quantity: qty,
                 unit_price: unit,
-                snapshot: {
+                currency,
+                product_snapshot: {
                   name: prod?.name ?? {},
                   image: prod?.image ?? null,
                   sku: prod?.sku ?? null,
@@ -216,6 +217,7 @@ Deno.serve(async (req) => {
                 },
               };
             }).filter((oi) => oi.product_id !== null);
+
 
             if (orderItems.length > 0) {
               await supabase.from('order_items').insert(orderItems);
