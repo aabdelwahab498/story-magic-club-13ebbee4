@@ -177,7 +177,7 @@ const Pricing = () => {
         </p>
       </header>
 
-      {paddleError && (
+      {paddleError && showPaddleError && (
         <div className="max-w-xl mx-auto mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="flex-1">
