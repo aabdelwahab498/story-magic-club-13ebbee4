@@ -45,6 +45,16 @@ export function usePaddle() {
   const [config, setConfig] = useState<PaddleConfig | null>(cachedConfig);
   const [ready, setReady] = useState<boolean>(Boolean(cachedConfig && window.Paddle));
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const reload = useCallback(() => {
+    cachedConfig = null;
+    loaderPromise = null;
+    setConfig(null);
+    setReady(false);
+    setError(null);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,10 +93,11 @@ export function usePaddle() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reloadKey]);
+
 
   const openCheckout = useCallback(
-    (opts: { priceId: string; email?: string; userId?: string; tier?: string }) => {
+    (opts: { priceId: string; email?: string; userId?: string; tier?: string; successPath?: string }) => {
       if (!window.Paddle || !ready) {
         throw new Error("paddle_not_ready");
       }
@@ -100,12 +111,13 @@ export function usePaddle() {
         settings: {
           displayMode: "overlay",
           theme: "light",
-          successUrl: `${window.location.origin}/account?paddle=success`,
+          successUrl: `${window.location.origin}${opts.successPath ?? "/account?paddle=success"}`,
         },
       });
     },
     [ready],
   );
+
 
   const openStoreCheckout = useCallback(
     (opts: {
@@ -134,5 +146,5 @@ export function usePaddle() {
     [ready],
   );
 
-  return { config, ready, error, openCheckout, openStoreCheckout };
+  return { config, ready, error, openCheckout, openStoreCheckout, reload };
 }

@@ -1,15 +1,16 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { Check, Loader2, Crown, Sparkles, Star, AlertCircle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2, Crown, Sparkles, Star, AlertCircle, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchPlans, type PlanTier } from "@/lib/subscriptionApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaddle } from "@/hooks/usePaddle";
 import { toast } from "sonner";
+
 
 const Pricing = () => {
   const { t, i18n } = useTranslation();
@@ -18,10 +19,15 @@ const Pricing = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { tier: currentTier } = useSubscription();
-  const { config: paddleConfig, ready: paddleReady, error: paddleError, openCheckout } = usePaddle();
+  const { config: paddleConfig, ready: paddleReady, error: paddleError, openCheckout, reload: reloadPaddle } = usePaddle();
+  const queryClient = useQueryClient();
 
   const q = useQuery({ queryKey: ["plans"], queryFn: fetchPlans });
   const autoTriggered = useRef(false);
+  const successHandled = useRef(false);
+  const [openingTier, setOpeningTier] = useState<PlanTier | null>(null);
+  const [pollingSuccess, setPollingSuccess] = useState(false);
+
 
 
   const priceIdFor = (tier: string): string | null => {
@@ -37,11 +43,18 @@ const Pricing = () => {
       return;
     }
 
-
     const priceId = priceIdFor(tier);
     if (!priceId) {
       toast.error(
         t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."),
+      );
+      return;
+    }
+    if (paddleError) {
+      toast.error(
+        isAr
+          ? "تعذّر تشغيل نظام الدفع. اضغط إعادة المحاولة."
+          : "Payments could not start. Please retry.",
       );
       return;
     }
@@ -52,9 +65,24 @@ const Pricing = () => {
       return;
     }
     try {
-      openCheckout({ priceId, email: user.email ?? undefined, userId: user.id, tier });
+      setOpeningTier(tier);
+      openCheckout({
+        priceId,
+        email: user.email ?? undefined,
+        userId: user.id,
+        tier,
+        successPath: "/pricing?paddle=success",
+      });
+
+      // Safety: clear the spinner shortly after — Paddle takes over the screen.
+      setTimeout(() => setOpeningTier(null), 4000);
     } catch (e: any) {
-      toast.error(e?.message ?? "checkout_failed");
+      setOpeningTier(null);
+      toast.error(
+        isAr
+          ? `تعذّر فتح نافذة الدفع: ${e?.message ?? "خطأ غير معروف"}`
+          : `Could not open checkout: ${e?.message ?? "unknown error"}`,
+      );
     }
   };
 
@@ -68,15 +96,73 @@ const Pricing = () => {
       subscribe(target);
       return;
     }
+    if (paddleError) return; // wait until user retries
     if (!paddleReady || !paddleConfig) return;
     autoTriggered.current = true;
     subscribe(target);
-    // Clean param so refresh doesn't re-open the modal.
     const next = new URLSearchParams(searchParams);
     next.delete("subscribe");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paddleReady, paddleConfig, user]);
+  }, [paddleReady, paddleConfig, paddleError, user]);
+
+  // Handle return from Paddle. Webhook unlocks features asynchronously,
+  // so we poll the subscription until tier flips off "free".
+  useEffect(() => {
+    if (successHandled.current) return;
+    const paddleResult = searchParams.get("paddle");
+    if (!paddleResult) return;
+    successHandled.current = true;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("paddle");
+    setSearchParams(next, { replace: true });
+
+    if (paddleResult === "cancelled" || paddleResult === "canceled") {
+      toast.warning(
+        isAr ? "تم إلغاء الدفع. يمكنك المحاولة مرة أخرى." : "Payment cancelled. You can try again.",
+      );
+      return;
+    }
+    if (paddleResult !== "success") return;
+
+    toast.success(
+      isAr
+        ? "تم استلام الدفع! جارٍ تفعيل ميزات حسابك..."
+        : "Payment received! Activating your features...",
+    );
+    setPollingSuccess(true);
+    let attempts = 0;
+    const maxAttempts = 12;
+    const tick = async () => {
+      attempts += 1;
+      await queryClient.invalidateQueries({ queryKey: ["active-sub"] });
+      await queryClient.invalidateQueries({ queryKey: ["subscription-plans"] });
+      const fresh = queryClient.getQueryData<any>(["active-sub", user?.id]);
+      const tier = fresh?.plan_tier;
+      if (tier && tier !== "free") {
+        setPollingSuccess(false);
+        toast.success(
+          isAr ? "تم تفعيل ميزات الصور والصوت ✨" : "Images & audio features unlocked ✨",
+        );
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        setPollingSuccess(false);
+        toast.info(
+          isAr
+            ? "الدفع قيد المعالجة. الميزات هتتفعّل خلال دقيقة."
+            : "Payment is being processed. Features will unlock within a minute.",
+        );
+        return;
+      }
+      setTimeout(tick, 2000);
+    };
+    tick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+
 
 
   return (
@@ -97,13 +183,50 @@ const Pricing = () => {
       </header>
 
       {paddleError && (
-        <div className="max-w-xl mx-auto mb-6 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
+        <div className="max-w-xl mx-auto mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div>
-            {paddleError === "paddle_not_configured"
-              ? t("page_pricing.payments_setup_in_progress", "Payments are being set up. Please check back soon.")
-              : t("page_pricing.checkout_unavailable", "Checkout is temporarily unavailable.")}
+          <div className="flex-1">
+            <p className="font-semibold mb-1">
+              {paddleError === "paddle_not_configured"
+                ? t("page_pricing.payments_setup_in_progress", "Payments are being set up. Please check back soon.")
+                : isAr
+                  ? "تعذّر تحميل نظام الدفع."
+                  : "Could not load the payment system."}
+            </p>
+            <p className="text-xs opacity-80 break-all">{paddleError}</p>
           </div>
+          {paddleError !== "paddle_not_configured" && (
+            <button
+              onClick={() => {
+                autoTriggered.current = false;
+                reloadPaddle();
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition"
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+              {isAr ? "إعادة المحاولة" : "Retry"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {pollingSuccess && (
+        <div className="max-w-xl mx-auto mb-6 flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-sm text-emerald-900 dark:text-emerald-100">
+          <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+          <span className="font-semibold">
+            {isAr
+              ? "جارٍ تفعيل اشتراكك وفكّ قفل الصور والصوت..."
+              : "Activating your subscription and unlocking images & audio..."}
+          </span>
+        </div>
+      )}
+
+      {openingTier && !paddleError && (
+        <div className="max-w-xl mx-auto mb-6 flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <Loader2 className="h-5 w-5 animate-spin shrink-0 text-primary" />
+          <span className="font-semibold">
+            {isAr ? "جارٍ فتح نافذة الدفع..." : "Opening secure checkout..."}
+          </span>
         </div>
       )}
 
@@ -112,6 +235,7 @@ const Pricing = () => {
           <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
         </div>
       )}
+
 
       <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto [&>*]:w-full md:[&>*]:w-[calc(33.333%-0.834rem)] [&>*]:max-w-sm">
         {q.data?.map((plan) => {
