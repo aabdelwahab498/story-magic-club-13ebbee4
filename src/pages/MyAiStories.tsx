@@ -90,7 +90,7 @@ const MyAiStories = () => {
               key={s.id}
               className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-card rounded-2xl border border-border"
             >
-              <div className="flex-1 min-w-0">
+              <Link to={`/my-stories/${s.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                 <p className="font-bold text-foreground truncate">
                   {s.title || t("my_stories.untitled", { defaultValue: "Untitled story" })}
                 </p>
@@ -103,9 +103,14 @@ const MyAiStories = () => {
                     </span>
                   )}
                 </p>
-              </div>
+              </Link>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button asChild size="sm" variant="outline" className="rounded-full">
+                  <Link to={`/my-stories/${s.id}`}>
+                    {t("my_stories.open", { defaultValue: "Open" })}
+                  </Link>
+                </Button>
                 {s.audio_url ? (
                   <Button
                     size="sm"
