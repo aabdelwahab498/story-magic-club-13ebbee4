@@ -41,53 +41,6 @@ export default function AdminDashboardOverview() {
       .map((s) => ({ id: s.id, title: s.title, category: s.category, age_range: s.age_range, views: s.views }))
   );
 
-  const [pendingPosts, setPendingPosts] = useState<BlogPostRecord[]>([]);
-  const [pendingLoading, setPendingLoading] = useState(false);
-  const [actingId, setActingId] = useState<string | null>(null);
-
-  const loadPending = () => {
-    if (isMock) {
-      setPendingPosts([]);
-      return;
-    }
-    setPendingLoading(true);
-    fetchBlogPostsAdmin()
-      .then((all) => setPendingPosts(all.filter((p) => p.submission_status === "pending")))
-      .catch((e) => console.error(e))
-      .finally(() => setPendingLoading(false));
-  };
-
-  useEffect(() => {
-    loadPending();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMock]);
-
-  const handleApprove = async (id: string) => {
-    setActingId(id);
-    try {
-      await approveBlogPost(id);
-      toast.success(t("admin_dashboard.blog_review.approved", "Post approved & published"));
-      setPendingPosts((p) => p.filter((x) => x.id !== id));
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
-    } finally {
-      setActingId(null);
-    }
-  };
-
-  const handleReject = async (id: string) => {
-    const note = window.prompt(t("admin_dashboard.blog_review.reject_reason", "Reason (optional)") ?? "") ?? undefined;
-    setActingId(id);
-    try {
-      await rejectBlogPost(id, note);
-      toast.success(t("admin_dashboard.blog_review.rejected", "Post rejected"));
-      setPendingPosts((p) => p.filter((x) => x.id !== id));
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
-    } finally {
-      setActingId(null);
-    }
-  };
 
   useEffect(() => {
     if (isMock) {
