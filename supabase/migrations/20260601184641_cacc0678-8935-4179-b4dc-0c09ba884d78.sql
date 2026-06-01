@@ -1,0 +1,3 @@
+UPDATE public.stories SET image = '/__l5e/assets-v1/4a6a7f92-f01a-46f1-9d92-94f8b6574639/star-of-courage.jpg' WHERE id = '9d98eb35-8254-40ff-8e6a-892e84efe2c2';
+UPDATE public.stories SET image = '/__l5e/assets-v1/b791d16e-f31f-43fb-a6f1-f3ec348ee405/journey-to-moon.jpg' WHERE id = '1e8fd9dc-b1aa-430b-bf09-56a39120591d';
+UPDATE public.stories SET image = '/__l5e/assets-v1/56b7897d-2612-43f3-a9db-cf64641db788/little-rabbit.jpg' WHERE id = '1a16cdfa-b0d9-48f9-b0b0-653224b857b4';
