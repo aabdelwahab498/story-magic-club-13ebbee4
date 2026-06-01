@@ -19,10 +19,15 @@ const Pricing = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { tier: currentTier } = useSubscription();
-  const { config: paddleConfig, ready: paddleReady, error: paddleError, openCheckout } = usePaddle();
+  const { config: paddleConfig, ready: paddleReady, error: paddleError, openCheckout, reload: reloadPaddle } = usePaddle();
+  const queryClient = useQueryClient();
 
   const q = useQuery({ queryKey: ["plans"], queryFn: fetchPlans });
   const autoTriggered = useRef(false);
+  const successHandled = useRef(false);
+  const [openingTier, setOpeningTier] = useState<PlanTier | null>(null);
+  const [pollingSuccess, setPollingSuccess] = useState(false);
+
 
 
   const priceIdFor = (tier: string): string | null => {
