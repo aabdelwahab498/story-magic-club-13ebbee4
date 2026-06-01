@@ -87,9 +87,11 @@ const Navigation = () => {
       icon: StoreIcon,
       items: [
         { to: "/store", labelKey: "nav.store", icon: ShoppingBag },
+        { to: "/store?product=storytelling-course", labelKey: "nav.storytelling_course", icon: GraduationCap },
         { to: "/pricing", labelKey: "nav.pricing", icon: Crown },
       ],
     },
+
   ];
 
   const isGroupActive = (items: NavItem[]) =>
