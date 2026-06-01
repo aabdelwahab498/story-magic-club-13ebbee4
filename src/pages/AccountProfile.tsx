@@ -43,10 +43,45 @@ const PROVIDERS: { id: ProviderId; label: string; placeholder: string; help: str
 const AccountProfile = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const [historyLimit, setHistoryLimit] = useState(5);
-  const { data: recentStories = [], isLoading: storiesLoading, isFetching: storiesFetching } =
-    useMyAiStories(!!user, historyLimit);
-  const canLoadMore = recentStories.length >= historyLimit;
+  const PAGE_SIZE = 5;
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyRows, setHistoryRows] = useState<AiStoryRow[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const {
+    data: historyPageData,
+    isLoading: storiesLoading,
+    isFetching: storiesFetching,
+  } = useMyAiStoriesPage(historyPage, PAGE_SIZE, !!user);
+
+  // Accumulate pages with id-based dedup so a stray duplicate (e.g. a row
+  // inserted between two fetches that bumps another into the next page) can't
+  // appear twice in the visible list.
+  useEffect(() => {
+    if (!historyPageData) return;
+    setHistoryTotal(historyPageData.total);
+    setHistoryRows((prev) => {
+      if (historyPage === 0) return historyPageData.rows;
+      const seen = new Set(prev.map((r) => r.id));
+      const merged = [...prev];
+      for (const row of historyPageData.rows) {
+        if (!seen.has(row.id)) {
+          seen.add(row.id);
+          merged.push(row);
+        }
+      }
+      return merged;
+    });
+  }, [historyPageData, historyPage]);
+
+  // Reset when user changes (sign in/out).
+  useEffect(() => {
+    setHistoryPage(0);
+    setHistoryRows([]);
+    setHistoryTotal(0);
+  }, [user?.id]);
+
+  const recentStories = historyRows;
+  const canLoadMore = recentStories.length < historyTotal;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
