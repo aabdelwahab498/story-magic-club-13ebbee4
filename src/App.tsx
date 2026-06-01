@@ -55,6 +55,7 @@ const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
 const AccountSubscription = lazy(() => import("./pages/AccountSubscription"));
 const MyAiStories = lazy(() => import("./pages/MyAiStories"));
+const MyAiStoryDetail = lazy(() => import("./pages/MyAiStoryDetail"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
