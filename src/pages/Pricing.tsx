@@ -66,7 +66,14 @@ const Pricing = () => {
     }
     try {
       setOpeningTier(tier);
-      openCheckout({ priceId, email: user.email ?? undefined, userId: user.id, tier });
+      openCheckout({
+        priceId,
+        email: user.email ?? undefined,
+        userId: user.id,
+        tier,
+        successPath: "/pricing?paddle=success",
+      });
+
       // Safety: clear the spinner shortly after — Paddle takes over the screen.
       setTimeout(() => setOpeningTier(null), 4000);
     } catch (e: any) {
