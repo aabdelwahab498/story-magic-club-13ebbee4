@@ -55,6 +55,7 @@ const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
 const AccountSubscription = lazy(() => import("./pages/AccountSubscription"));
 const MyAiStories = lazy(() => import("./pages/MyAiStories"));
+const MyAiStoryDetail = lazy(() => import("./pages/MyAiStoryDetail"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
@@ -112,6 +113,7 @@ const App = () => (
                       <Route path="checkout/order" element={<CheckoutOrder />} />
                       <Route path="account/subscription" element={<AccountSubscription />} />
                       <Route path="my-stories" element={<MyAiStories />} />
+                      <Route path="my-stories/:id" element={<MyAiStoryDetail />} />
                       <Route path="account/api-keys" element={<ApiKeys />} />
                       <Route path="account/profile" element={<AccountProfile />} />
                     </Route>

@@ -49,16 +49,16 @@ export async function saveAiStory(input: SaveStoryInput): Promise<string | null>
   return data?.id ?? null;
 }
 
-export const useMyAiStories = (enabled = true) =>
+export const useMyAiStories = (enabled = true, limit = 50) =>
   useQuery({
-    queryKey: ["my_ai_stories"],
+    queryKey: ["my_ai_stories", limit],
     enabled,
     queryFn: async (): Promise<AiStoryRow[]> => {
       const { data, error } = await supabase
         .from("ai_story_history")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(limit);
       if (error) throw error;
       return (data ?? []) as AiStoryRow[];
     },
