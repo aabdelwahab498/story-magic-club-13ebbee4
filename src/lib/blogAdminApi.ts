@@ -46,6 +46,76 @@ const normalizePost = (p: any): BlogPostRecord => ({
   tags: Array.isArray(p.tags) ? p.tags : [],
 });
 
+export type BlogSubmissionStatus = "pending" | "approved" | "rejected" | "all";
+export type BlogSortOrder = "newest" | "oldest";
+
+export interface BlogReviewPageArgs {
+  status: BlogSubmissionStatus;
+  search?: string;
+  sort?: BlogSortOrder;
+  page: number;
+  pageSize: number;
+}
+
+export interface BlogReviewPageResult {
+  rows: BlogPostRecord[];
+  total: number;
+  hasMore: boolean;
+}
+
+export async function fetchBlogPostsAdminPage(
+  args: BlogReviewPageArgs
+): Promise<BlogReviewPageResult> {
+  const { status, search, sort = "newest", page, pageSize } = args;
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+  let q = supabase.from("blog_posts").select("*", { count: "exact" });
+  if (status !== "all") q = q.eq("submission_status", status);
+  if (search && search.trim()) {
+    const term = `%${search.trim().replace(/[%_]/g, "\\$&")}%`;
+    q = q.or(`author_name.ilike.${term},slug.ilike.${term},title->>en.ilike.${term},title->>ar.ilike.${term}`);
+  }
+  q = q
+    .order("created_at", { ascending: sort === "oldest" })
+    .order("id", { ascending: false })
+    .range(from, to);
+  const { data, error, count } = await q;
+  if (error) throw error;
+  const total = count ?? 0;
+  const rows = (data ?? []).map(normalizePost);
+  return { rows, total, hasMore: from + rows.length < total };
+}
+
+export async function fetchBlogStatusCounts(): Promise<{
+  pending: number;
+  approved: number;
+  rejected: number;
+  all: number;
+}> {
+  const statuses: Array<"pending" | "approved" | "rejected"> = [
+    "pending",
+    "approved",
+    "rejected",
+  ];
+  const results = await Promise.all(
+    statuses.map((s) =>
+      supabase
+        .from("blog_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("submission_status", s)
+    )
+  );
+  const allRes = await supabase
+    .from("blog_posts")
+    .select("id", { count: "exact", head: true });
+  return {
+    pending: results[0].count ?? 0,
+    approved: results[1].count ?? 0,
+    rejected: results[2].count ?? 0,
+    all: allRes.count ?? 0,
+  };
+}
+
 export async function fetchBlogPostsAdmin(): Promise<BlogPostRecord[]> {
   const { data, error } = await supabase
     .from("blog_posts")
