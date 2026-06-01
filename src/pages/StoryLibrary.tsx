@@ -9,6 +9,8 @@ import NarratorPicker from "@/components/NarratorPicker";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import type { NarratorId } from "@/lib/narrators";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 
 
 interface DBStory {
