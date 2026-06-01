@@ -299,32 +299,51 @@ const AccountProfile = () => {
             </div>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
-            {recentStories.slice(0, 5).map((s) => (
-              <li key={s.id} className="py-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground truncate">
-                    {s.title || t("profile.history_untitled", { defaultValue: "Untitled story" })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(s.created_at).toLocaleDateString(i18n.language)} •{" "}
-                    {s.language.toUpperCase()}
-                    {s.audio_url && (
-                      <span className="ms-2 inline-flex items-center gap-1 text-primary font-semibold">
-                        <Headphones className="h-3 w-3" />
-                        {t("profile.history_audio", { defaultValue: "Audio" })}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/my-stories">
-                    {t("profile.history_open", { defaultValue: "Open" })}
+          <>
+            <ul className="divide-y divide-border">
+              {recentStories.map((s) => (
+                <li key={s.id} className="py-3 flex items-center gap-3">
+                  <Link
+                    to={`/my-stories/${s.id}`}
+                    className="flex-1 min-w-0 hover:opacity-80 transition-opacity"
+                  >
+                    <p className="font-semibold text-foreground truncate">
+                      {s.title || t("profile.history_untitled", { defaultValue: "Untitled story" })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(s.created_at).toLocaleDateString(i18n.language)} •{" "}
+                      {s.language.toUpperCase()}
+                      {s.audio_url && (
+                        <span className="ms-2 inline-flex items-center gap-1 text-primary font-semibold">
+                          <Headphones className="h-3 w-3" />
+                          {t("profile.history_audio", { defaultValue: "Audio" })}
+                        </span>
+                      )}
+                    </p>
                   </Link>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to={`/my-stories/${s.id}`}>
+                      {t("profile.history_open", { defaultValue: "Open" })}
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {canLoadMore && (
+              <div className="flex justify-center pt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHistoryLimit((n) => n + 10)}
+                  disabled={storiesFetching}
+                  className="gap-2"
+                >
+                  {storiesFetching && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t("profile.history_load_more", { defaultValue: "Load more" })}
                 </Button>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
