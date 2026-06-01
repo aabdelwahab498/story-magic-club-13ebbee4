@@ -15,11 +15,14 @@ const Pricing = () => {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { tier: currentTier } = useSubscription();
   const { config: paddleConfig, ready: paddleReady, error: paddleError, openCheckout } = usePaddle();
 
   const q = useQuery({ queryKey: ["plans"], queryFn: fetchPlans });
+  const autoTriggered = useRef(false);
+
 
   const priceIdFor = (tier: string): string | null => {
     const p = paddleConfig?.plans.find((x) => x.tier === tier);
