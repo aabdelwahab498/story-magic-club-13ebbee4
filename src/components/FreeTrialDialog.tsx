@@ -307,7 +307,9 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                         language: i18n.language?.slice(0, 2) || "en",
                       });
                       handleClose(false);
-                      navigate("/auth", { state: { from: "/ai-storyteller", intent: "image" } });
+                      navigate("/auth", {
+                        state: { from: "/pricing?subscribe=parent&feature=illustrations", intent: "image" },
+                      });
                     }}
                   >
                     <ImageIcon className="h-4 w-4 me-1" />
@@ -325,7 +327,9 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                         language: i18n.language?.slice(0, 2) || "en",
                       });
                       handleClose(false);
-                      navigate("/auth", { state: { from: "/ai-storyteller", intent: "audio" } });
+                      navigate("/auth", {
+                        state: { from: "/pricing?subscribe=parent&feature=audio", intent: "audio" },
+                      });
                     }}
                   >
                     <Volume2 className="h-4 w-4 me-1" />
@@ -343,13 +347,14 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                       language: i18n.language?.slice(0, 2) || "en",
                     });
                     handleClose(false);
-                    navigate("/auth", { state: { from: "/ai-storyteller" } });
+                    navigate("/auth", { state: { from: "/pricing?subscribe=parent" } });
                   }}
                   className="w-full"
                 >
                   <Sparkles className="h-5 w-5 me-2" />
                   {t("trial.signup_cta", "Sign up to illustrate your story")}
                 </Button>
+
               </div>
             </div>
           </>
