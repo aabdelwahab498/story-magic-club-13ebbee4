@@ -52,10 +52,11 @@ const Pricing = () => {
       return;
     }
     if (paddleError) {
+      setShowPaddleError(true);
       toast.error(
         isAr
-          ? "تعذّر تشغيل نظام الدفع. اضغط إعادة المحاولة."
-          : "Payments could not start. Please retry.",
+          ? "تعذّر تشغيل الدفع بالبطاقة. جرّب وسيلة محلية أو أعد المحاولة."
+          : "Card payments could not start. Try a local method or retry.",
       );
       return;
     }
