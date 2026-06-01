@@ -124,13 +124,16 @@ const CheckoutManual = () => {
   // Auto-select first enabled method and a compatible currency
   useEffect(() => {
     if (!method && enabledMethods.length > 0) {
-      const first = enabledMethods[0];
+      const pre = preselectedMethod
+        ? enabledMethods.find((m) => m.id === preselectedMethod)
+        : null;
+      const first = pre ?? enabledMethods[0];
       setMethod(first.id);
       if (!first.currencies.includes(currency as PayCurrency)) {
         setCurrency(first.currencies[0] as Currency);
       }
     }
-  }, [enabledMethods, method, currency]);
+  }, [enabledMethods, method, currency, preselectedMethod]);
 
   if (!plan || !settingsQ.data) {
     return (
