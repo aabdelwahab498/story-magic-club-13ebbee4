@@ -58,9 +58,39 @@ export const useMyAiStories = (enabled = true, limit = 50) =>
         .from("ai_story_history")
         .select("*")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .limit(limit);
       if (error) throw error;
       return (data ?? []) as AiStoryRow[];
+    },
+  });
+
+/** Paginated fetch — returns one page of rows (rows + hasMore + total). */
+export interface AiStoriesPage {
+  rows: AiStoryRow[];
+  total: number;
+  hasMore: boolean;
+}
+
+export const useMyAiStoriesPage = (page: number, pageSize: number, enabled = true) =>
+  useQuery({
+    queryKey: ["my_ai_stories_page", page, pageSize],
+    enabled,
+    queryFn: async (): Promise<AiStoriesPage> => {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error, count } = await supabase
+        .from("ai_story_history")
+        .select("*", { count: "exact" })
+        // Deterministic order so pagination never skips/duplicates rows that
+        // share the same created_at timestamp.
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      const rows = (data ?? []) as AiStoryRow[];
+      const total = count ?? 0;
+      return { rows, total, hasMore: from + rows.length < total };
     },
   });
 

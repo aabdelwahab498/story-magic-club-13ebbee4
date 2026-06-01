@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useMyAiStories } from "@/lib/aiStoryApi";
+import { useMyAiStoriesPage, type AiStoryRow } from "@/lib/aiStoryApi";
 import Seo from "@/components/Seo";
 import PaddleSubscriptionCard from "@/components/PaddleSubscriptionCard";
 
@@ -43,10 +43,45 @@ const PROVIDERS: { id: ProviderId; label: string; placeholder: string; help: str
 const AccountProfile = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const [historyLimit, setHistoryLimit] = useState(5);
-  const { data: recentStories = [], isLoading: storiesLoading, isFetching: storiesFetching } =
-    useMyAiStories(!!user, historyLimit);
-  const canLoadMore = recentStories.length >= historyLimit;
+  const PAGE_SIZE = 5;
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyRows, setHistoryRows] = useState<AiStoryRow[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const {
+    data: historyPageData,
+    isLoading: storiesLoading,
+    isFetching: storiesFetching,
+  } = useMyAiStoriesPage(historyPage, PAGE_SIZE, !!user);
+
+  // Accumulate pages with id-based dedup so a stray duplicate (e.g. a row
+  // inserted between two fetches that bumps another into the next page) can't
+  // appear twice in the visible list.
+  useEffect(() => {
+    if (!historyPageData) return;
+    setHistoryTotal(historyPageData.total);
+    setHistoryRows((prev) => {
+      if (historyPage === 0) return historyPageData.rows;
+      const seen = new Set(prev.map((r) => r.id));
+      const merged = [...prev];
+      for (const row of historyPageData.rows) {
+        if (!seen.has(row.id)) {
+          seen.add(row.id);
+          merged.push(row);
+        }
+      }
+      return merged;
+    });
+  }, [historyPageData, historyPage]);
+
+  // Reset when user changes (sign in/out).
+  useEffect(() => {
+    setHistoryPage(0);
+    setHistoryRows([]);
+    setHistoryTotal(0);
+  }, [user?.id]);
+
+  const recentStories = historyRows;
+  const canLoadMore = recentStories.length < historyTotal;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -330,17 +365,24 @@ const AccountProfile = () => {
               ))}
             </ul>
             {canLoadMore && (
-              <div className="flex justify-center pt-3">
+              <div className="flex flex-col items-center gap-1 pt-3">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setHistoryLimit((n) => n + 10)}
+                  onClick={() => setHistoryPage((p) => p + 1)}
                   disabled={storiesFetching}
                   className="gap-2"
                 >
                   {storiesFetching && <Loader2 className="h-4 w-4 animate-spin" />}
                   {t("profile.history_load_more", { defaultValue: "Load more" })}
                 </Button>
+                <p className="text-xs text-muted-foreground">
+                  {t("profile.history_count", {
+                    defaultValue: "{{shown}} of {{total}}",
+                    shown: recentStories.length,
+                    total: historyTotal,
+                  })}
+                </p>
               </div>
             )}
           </>
