@@ -1,4 +1,6 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useRef } from "react";
+
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, Crown, Sparkles, Star, AlertCircle } from "lucide-react";
