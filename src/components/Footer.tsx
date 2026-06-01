@@ -77,6 +77,10 @@ const Footer = () => {
           <Link to="/terms" className="hover:text-primary transition-colors">
             {t("nav.terms", "Terms of Service")}
           </Link>
+          <span aria-hidden="true" className="opacity-40">•</span>
+          <Link to="/install" className="hover:text-primary transition-colors">
+            {t("pwa.install", "Install app")}
+          </Link>
         </nav>
 
         <p className="text-xs text-muted-foreground text-center">
