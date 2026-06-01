@@ -175,8 +175,9 @@ const Store = () => {
         </p>
       ) : (() => {
         const all = products ?? [];
-        const courses = all.filter((p) => (p.sku ?? "").startsWith("course-") || p.category === "course");
-        const stories = all.filter((p) => !((p.sku ?? "").startsWith("course-") || p.category === "course"));
+        const filtered = focusedSku ? all.filter((p) => p.sku === focusedSku) : all;
+        const courses = filtered.filter((p) => (p.sku ?? "").startsWith("course-") || p.category === "course");
+        const stories = filtered.filter((p) => !((p.sku ?? "").startsWith("course-") || p.category === "course"));
 
         const renderCard = (p: typeof all[number]) => {
           const title = getLocalized(p.name, i18n.language);
