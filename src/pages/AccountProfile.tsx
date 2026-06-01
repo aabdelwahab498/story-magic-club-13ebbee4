@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2, User as UserIcon, Save, KeyRound, Eye, EyeOff, Trash2, ShieldCheck, Lock } from "lucide-react";
+import { Loader2, User as UserIcon, Save, KeyRound, Eye, EyeOff, Trash2, ShieldCheck, Lock, History, BookOpen, Headphones, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useMyAiStories } from "@/lib/aiStoryApi";
 import Seo from "@/components/Seo";
 import PaddleSubscriptionCard from "@/components/PaddleSubscriptionCard";
 
