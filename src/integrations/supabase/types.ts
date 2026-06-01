@@ -807,11 +807,54 @@ export type Database = {
           },
         ]
       }
+      order_notifications: {
+        Row: {
+          channel: string
+          created_at: string
+          error: string | null
+          event: string
+          id: string
+          order_id: string
+          payload: Json
+          recipient: string | null
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          error?: string | null
+          event: string
+          id?: string
+          order_id: string
+          payload?: Json
+          recipient?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          error?: string | null
+          event?: string
+          id?: string
+          order_id?: string
+          payload?: Json
+          recipient?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           admin_note: string | null
           created_at: string
           currency: string
+          delivered_at: string | null
           fulfilled_at: string | null
           fulfilled_by: string | null
           fulfillment_status: string
@@ -822,13 +865,17 @@ export type Database = {
           paid_at: string | null
           payment_method: string | null
           payment_request_id: string | null
+          shipped_at: string | null
           shipping_address: string | null
           shipping_city: string | null
           shipping_country: string | null
           shipping_name: string | null
           shipping_phone: string | null
+          shipping_status: string
           status: string
           total_amount: number
+          tracking_carrier: string | null
+          tracking_number: string | null
           updated_at: string
           user_id: string
         }
@@ -836,6 +883,7 @@ export type Database = {
           admin_note?: string | null
           created_at?: string
           currency?: string
+          delivered_at?: string | null
           fulfilled_at?: string | null
           fulfilled_by?: string | null
           fulfillment_status?: string
@@ -846,13 +894,17 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           payment_request_id?: string | null
+          shipped_at?: string | null
           shipping_address?: string | null
           shipping_city?: string | null
           shipping_country?: string | null
           shipping_name?: string | null
           shipping_phone?: string | null
+          shipping_status?: string
           status?: string
           total_amount?: number
+          tracking_carrier?: string | null
+          tracking_number?: string | null
           updated_at?: string
           user_id: string
         }
@@ -860,6 +912,7 @@ export type Database = {
           admin_note?: string | null
           created_at?: string
           currency?: string
+          delivered_at?: string | null
           fulfilled_at?: string | null
           fulfilled_by?: string | null
           fulfillment_status?: string
@@ -870,13 +923,17 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           payment_request_id?: string | null
+          shipped_at?: string | null
           shipping_address?: string | null
           shipping_city?: string | null
           shipping_country?: string | null
           shipping_name?: string | null
           shipping_phone?: string | null
+          shipping_status?: string
           status?: string
           total_amount?: number
+          tracking_carrier?: string | null
+          tracking_number?: string | null
           updated_at?: string
           user_id?: string
         }
