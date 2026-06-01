@@ -9,6 +9,7 @@ import { useCart, createOrder } from "@/lib/cartApi";
 import { useProducts } from "@/lib/contentApi";
 import { fetchPaymentSettings } from "@/lib/subscriptionApi";
 import { getLocalized } from "@/lib/multilingual";
+import { usePaddle } from "@/hooks/usePaddle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
