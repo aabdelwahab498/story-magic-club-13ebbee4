@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.paddle-config]
 verify_jwt = false
+
+[functions.paddle-webhook-test]
+verify_jwt = false
