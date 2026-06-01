@@ -25,6 +25,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
+const BlogSubmit = lazy(() => import("./pages/BlogSubmit"));
 const Store = lazy(() => import("./pages/Store"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Pricing = lazy(() => import("./pages/Pricing"));
@@ -108,6 +109,7 @@ const App = () => (
                     <Route path="privacy" element={<Privacy />} />
                     <Route path="terms" element={<Terms />} />
                     <Route element={<ProtectedRoute />}>
+                      <Route path="blog/submit" element={<BlogSubmit />} />
                       <Route path="parent" element={<ParentDashboard />} />
                     <Route path="checkout/manual" element={<CheckoutManual />} />
                       <Route path="checkout/order" element={<CheckoutOrder />} />

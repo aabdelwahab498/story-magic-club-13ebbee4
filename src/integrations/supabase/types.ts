@@ -227,9 +227,13 @@ export type Database = {
           published: boolean
           published_at: string | null
           reading_minutes: number | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           seo_description: Json
           seo_title: Json
           slug: string
+          submission_status: string
           tags: string[] | null
           title: Json
           updated_at: string
@@ -247,9 +251,13 @@ export type Database = {
           published?: boolean
           published_at?: string | null
           reading_minutes?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           seo_description?: Json
           seo_title?: Json
           slug: string
+          submission_status?: string
           tags?: string[] | null
           title?: Json
           updated_at?: string
@@ -267,9 +275,13 @@ export type Database = {
           published?: boolean
           published_at?: string | null
           reading_minutes?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           seo_description?: Json
           seo_title?: Json
           slug?: string
+          submission_status?: string
           tags?: string[] | null
           title?: Json
           updated_at?: string

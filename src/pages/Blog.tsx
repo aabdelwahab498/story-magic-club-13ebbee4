@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, PenSquare } from "lucide-react";
 import { useBlogPosts } from "@/lib/contentApi";
+import { useAuth } from "@/hooks/useAuth";
 import BlogCard from "@/components/BlogCard";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const categories = ["all", "updates", "achievements", "collaborations"] as const;
 
 const Blog = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [active, setActive] = useState<(typeof categories)[number]>("all");
   const { data: posts, isLoading } = useBlogPosts();
 
@@ -29,6 +33,14 @@ const Blog = () => {
         <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
           {t("blog.subtitle")}
         </p>
+        <div className="mt-5">
+          <Link to={user ? "/blog/submit" : "/auth"}>
+            <Button className="gap-2 rounded-full shadow-soft hover-pop">
+              <PenSquare className="h-4 w-4" />
+              {t("blog_submit.cta", "Submit a blog post")}
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-wrap justify-center gap-2 mb-8">
