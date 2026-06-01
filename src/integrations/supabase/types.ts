@@ -813,6 +813,9 @@ export type Database = {
           currency: string
           id: string
           notes: string | null
+          paddle_checkout_id: string | null
+          paddle_transaction_id: string | null
+          paid_at: string | null
           payment_method: string | null
           payment_request_id: string | null
           shipping_address: string | null
@@ -830,6 +833,9 @@ export type Database = {
           currency?: string
           id?: string
           notes?: string | null
+          paddle_checkout_id?: string | null
+          paddle_transaction_id?: string | null
+          paid_at?: string | null
           payment_method?: string | null
           payment_request_id?: string | null
           shipping_address?: string | null
@@ -847,6 +853,9 @@ export type Database = {
           currency?: string
           id?: string
           notes?: string | null
+          paddle_checkout_id?: string | null
+          paddle_transaction_id?: string | null
+          paid_at?: string | null
           payment_method?: string | null
           payment_request_id?: string | null
           shipping_address?: string | null
@@ -1034,6 +1043,8 @@ export type Database = {
           id: string
           image: string | null
           name: Json
+          paddle_price_id: string | null
+          paddle_product_id: string | null
           price_egp: number | null
           price_eur: number | null
           price_usd: number | null
@@ -1052,6 +1063,8 @@ export type Database = {
           id?: string
           image?: string | null
           name?: Json
+          paddle_price_id?: string | null
+          paddle_product_id?: string | null
           price_egp?: number | null
           price_eur?: number | null
           price_usd?: number | null
@@ -1070,6 +1083,8 @@ export type Database = {
           id?: string
           image?: string | null
           name?: Json
+          paddle_price_id?: string | null
+          paddle_product_id?: string | null
           price_egp?: number | null
           price_eur?: number | null
           price_usd?: number | null
