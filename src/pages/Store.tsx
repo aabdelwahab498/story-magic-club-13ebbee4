@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown } from "lucide-react";
+import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown, X } from "lucide-react";
 import { useProducts } from "@/lib/contentApi";
 import { getLocalized } from "@/lib/multilingual";
 import PaymentModal from "@/components/payment/PaymentModal";
@@ -30,6 +30,30 @@ const Store = () => {
   const { ready: paddleReady, openStoreCheckout } = usePaddle();
 
   const cartCount = cartItems.reduce((s, it) => s + it.quantity, 0);
+
+  // Track URL hash so we can filter to a single product when linked from About
+  const [focusedSku, setFocusedSku] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const h = window.location.hash?.replace("#product-", "");
+    return h || null;
+  });
+
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash?.replace("#product-", "");
+      setFocusedSku(h || null);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const clearFocus = () => {
+    setFocusedSku(null);
+    if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Scroll to product when hash is present (e.g. /store#product-course-part-1)
   useEffect(() => {
@@ -151,8 +175,9 @@ const Store = () => {
         </p>
       ) : (() => {
         const all = products ?? [];
-        const courses = all.filter((p) => (p.sku ?? "").startsWith("course-") || p.category === "course");
-        const stories = all.filter((p) => !((p.sku ?? "").startsWith("course-") || p.category === "course"));
+        const filtered = focusedSku ? all.filter((p) => p.sku === focusedSku) : all;
+        const courses = filtered.filter((p) => (p.sku ?? "").startsWith("course-") || p.category === "course");
+        const stories = filtered.filter((p) => !((p.sku ?? "").startsWith("course-") || p.category === "course"));
 
         const renderCard = (p: typeof all[number]) => {
           const title = getLocalized(p.name, i18n.language);
@@ -231,6 +256,20 @@ const Store = () => {
 
         return (
           <div className="max-w-6xl mx-auto mb-10 space-y-12">
+            {focusedSku && (
+              <div className="flex items-center justify-center gap-3 -mt-2">
+                <span className="text-sm text-muted-foreground">
+                  {t("store.showing_one", { defaultValue: "Showing the selected item only" })}
+                </span>
+                <button
+                  onClick={clearFocus}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-sm font-semibold hover-pop shadow-soft"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  {t("store.show_all", { defaultValue: "Show all products" })}
+                </button>
+              </div>
+            )}
             {stories.length > 0 && (
               <section>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-5 text-center">
