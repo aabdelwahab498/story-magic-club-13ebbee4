@@ -70,6 +70,7 @@ export interface TrialInput {
   age: number;
   theme: string;
   language?: string;
+  customPrompt?: string;
 }
 
 
