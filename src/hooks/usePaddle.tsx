@@ -145,5 +145,5 @@ export function usePaddle() {
     [ready],
   );
 
-  return { config, ready, error, openCheckout, openStoreCheckout };
+  return { config, ready, error, openCheckout, openStoreCheckout, reload };
 }
