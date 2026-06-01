@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, PenSquare } from "lucide-react";
 import { useBlogPosts } from "@/lib/contentApi";
+import { useAuth } from "@/hooks/useAuth";
 import BlogCard from "@/components/BlogCard";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const categories = ["all", "updates", "achievements", "collaborations"] as const;
