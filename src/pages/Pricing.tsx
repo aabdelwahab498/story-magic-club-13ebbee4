@@ -32,9 +32,11 @@ const Pricing = () => {
   const subscribe = (tier: PlanTier) => {
     if (tier === "free") return;
     if (!user) {
-      navigate(`/auth?redirect=/pricing`);
+      const params = searchParams.toString();
+      navigate(`/auth?redirect=${encodeURIComponent("/pricing" + (params ? `?${params}` : ""))}`);
       return;
     }
+
 
     const priceId = priceIdFor(tier);
     if (!priceId) {
