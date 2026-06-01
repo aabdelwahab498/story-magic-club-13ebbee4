@@ -35,8 +35,23 @@ const CheckoutOrder = () => {
     queryFn: fetchPaymentSettings,
   });
 
+  const { ready: paddleReady, openStoreCheckout } = usePaddle();
+
+  // All cart items priced in Paddle?
+  const allPaddleReady = useMemo(
+    () =>
+      items.length > 0 &&
+      items.every((it) => {
+        const p = products.find((x) => x.id === it.product_id);
+        return Boolean(p?.paddle_price_id);
+      }),
+    [items, products],
+  );
+
   const [currency, setCurrency] = useState<Currency>("USD");
-  const [paymentMethod, setPaymentMethod] = useState<string>("cash_on_delivery");
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    allPaddleReady ? "paddle_card" : "cash_on_delivery",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [form, setForm] = useState({
