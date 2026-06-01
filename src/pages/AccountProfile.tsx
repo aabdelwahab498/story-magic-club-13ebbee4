@@ -365,17 +365,24 @@ const AccountProfile = () => {
               ))}
             </ul>
             {canLoadMore && (
-              <div className="flex justify-center pt-3">
+              <div className="flex flex-col items-center gap-1 pt-3">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setHistoryLimit((n) => n + 10)}
+                  onClick={() => setHistoryPage((p) => p + 1)}
                   disabled={storiesFetching}
                   className="gap-2"
                 >
                   {storiesFetching && <Loader2 className="h-4 w-4 animate-spin" />}
                   {t("profile.history_load_more", { defaultValue: "Load more" })}
                 </Button>
+                <p className="text-xs text-muted-foreground">
+                  {t("profile.history_count", {
+                    defaultValue: "{{shown}} of {{total}}",
+                    shown: recentStories.length,
+                    total: historyTotal,
+                  })}
+                </p>
               </div>
             )}
           </>
