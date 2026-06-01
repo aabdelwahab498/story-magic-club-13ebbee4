@@ -20,6 +20,11 @@ export interface BlogPostRecord {
   views: number;
   created_at: string;
   updated_at: string;
+  submission_status?: "pending" | "approved" | "rejected";
+  review_note?: string | null;
+  created_by?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
 }
 
 export interface BlogCategoryRecord {
