@@ -2,7 +2,7 @@
   "name": "NajmaH — Magical Bedtime Stories",
   "short_name": "NajmaH",
   "description": "Magical bedtime stories, AI storytelling, and weekly drawing competitions for children.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -29,6 +29,29 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create a new AI story",
+      "short_name": "New story",
+      "description": "Generate a personalized AI story",
+      "url": "/ai-storyteller?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My stories",
+      "short_name": "Library",
+      "description": "Open your saved AI stories",
+      "url": "/my-stories?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Drawing competition",
+      "short_name": "Contest",
+      "description": "Join this week's drawing competition",
+      "url": "/drawing-competition?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
