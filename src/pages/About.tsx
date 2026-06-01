@@ -13,6 +13,7 @@ import {
   Clock,
   PlayCircle,
   Quote,
+  ShoppingBag,
 } from "lucide-react";
 import Seo from "@/components/Seo";
 import instructorPhoto from "@/assets/instructor-elham.png";
