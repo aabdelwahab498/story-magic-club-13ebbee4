@@ -1439,7 +1439,7 @@ const AIStoryteller = () => {
                     </p>
                   </Link>
                   <Link
-                    to="/pricing?feature=audio"
+                    to="/pricing?subscribe=parent&feature=audio"
                     className="p-4 rounded-xl bg-white dark:bg-white/5 border border-foreground/10 dark:border-white/20 hover:shadow-lg transition-all text-start"
                   >
                     <div className="flex items-center gap-2 mb-1">
