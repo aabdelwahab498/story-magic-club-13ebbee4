@@ -36,16 +36,49 @@ const Store = () => {
     if (!products?.length) return;
     const hash = window.location.hash?.replace("#", "");
     if (!hash) return;
-    const tryScroll = () => {
+
+    let attempts = 0;
+    let cancelled = false;
+
+    const doScroll = () => {
+      if (cancelled) return;
       const el = document.getElementById(hash);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!el) {
+        if (attempts++ < 20) setTimeout(doScroll, 150);
+        return;
+      }
+      // Wait for images inside the card to load so layout is final
+      const imgs = Array.from(el.querySelectorAll("img"));
+      const pending = imgs.filter((i) => !i.complete);
+      const finalize = () => {
+        if (cancelled) return;
+        const rect = el.getBoundingClientRect();
+        const top = window.scrollY + rect.top - (window.innerHeight / 2 - rect.height / 2);
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
         el.classList.add("ring-4", "ring-primary", "ring-offset-2");
-        setTimeout(() => el.classList.remove("ring-4", "ring-primary", "ring-offset-2"), 2500);
+        setTimeout(() => el.classList.remove("ring-4", "ring-primary", "ring-offset-2"), 2800);
+      };
+      if (pending.length === 0) {
+        finalize();
+      } else {
+        let left = pending.length;
+        pending.forEach((i) => {
+          const done = () => {
+            if (--left <= 0) finalize();
+          };
+          i.addEventListener("load", done, { once: true });
+          i.addEventListener("error", done, { once: true });
+        });
+        // Fallback in case images never resolve
+        setTimeout(finalize, 1200);
       }
     };
-    const timer = setTimeout(tryScroll, 200);
-    return () => clearTimeout(timer);
+
+    const timer = setTimeout(doScroll, 100);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [products]);
 
   const handleBuy = (
