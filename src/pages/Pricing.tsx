@@ -364,9 +364,8 @@ const Pricing = () => {
               </ul>
 
               <button
-                onClick={() => subscribe(plan.tier)}
-                disabled={isCurrent || isFree || (!isFree && !hasPriceId)}
-                title={!isFree && !hasPriceId ? "Not configured yet" : undefined}
+                onClick={() => openConfirm(plan.tier)}
+                disabled={isCurrent || isFree}
                 className={cn(
                   "w-full px-4 py-3 rounded-full font-bold hover-pop shadow-soft disabled:opacity-60 disabled:cursor-not-allowed",
                   isPremium
@@ -378,43 +377,18 @@ const Pricing = () => {
                   ? t("page_pricing.current_plan", "Current plan")
                   : isFree
                   ? t("page_pricing.start_free", "Start free")
-                  : !hasPriceId
-                  ? t("page_pricing.coming_soon", "Coming soon")
                   : isAr
-                  ? "اشترك بالبطاقة (USD) عبر Paddle"
-                  : t("page_pricing.subscribe", "Subscribe with card (USD)")}
+                  ? "اشترك الآن"
+                  : t("page_pricing.subscribe_now", "Subscribe now")}
               </button>
-
               {!isFree && !isCurrent && (
-                <>
-                  <div className="my-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span className="flex-1 h-px bg-border" />
-                    <span>{isAr ? "أو" : "OR"}</span>
-                    <span className="flex-1 h-px bg-border" />
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!user) {
-                        navigate(
-                          `/auth?redirect=${encodeURIComponent(`/checkout/manual?plan=${plan.tier}`)}`,
-                        );
-                        return;
-                      }
-                      navigate(`/checkout/manual?plan=${plan.tier}`);
-                    }}
-                    className="w-full px-4 py-2.5 rounded-full font-bold text-sm border-2 border-primary/40 text-primary bg-white/70 dark:bg-card/60 hover:bg-primary/5 hover-pop"
-                  >
-                    {isAr
-                      ? "ادفع بـ InstaPay / فودافون كاش / تحويل بنكي"
-                      : "Pay with InstaPay / Vodafone Cash / Bank Transfer"}
-                  </button>
-                  <p className="mt-2 text-[11px] text-center text-muted-foreground">
-                    {isAr
-                      ? "وسائل محلية بالجنيه — يتم التفعيل بعد المراجعة"
-                      : "Local methods (EGP) — activated after review"}
-                  </p>
-                </>
+                <p className="mt-2 text-[11px] text-center text-muted-foreground">
+                  {isAr
+                    ? "اختر وسيلة الدفع في الخطوة التالية"
+                    : "Choose your payment method in the next step"}
+                </p>
               )}
+
             </article>
           );
         })}
