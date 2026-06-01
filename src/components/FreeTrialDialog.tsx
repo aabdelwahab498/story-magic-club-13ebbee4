@@ -221,6 +221,26 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                   maxLength={80}
                 />
               </div>
+              <div>
+                <Label htmlFor="trial-details">
+                  {t("trial.details_label", "Story details (optional, up to ~1000 words)")}
+                </Label>
+                <Textarea
+                  id="trial-details"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value.slice(0, 8000))}
+                  placeholder={t(
+                    "trial.details_placeholder",
+                    "Describe the plot, characters, setting, and the lesson you want — the story will follow this exactly.",
+                  )}
+                  rows={6}
+                  maxLength={8000}
+                  className="min-h-[140px]"
+                />
+                <p className="text-xs text-muted-foreground mt-1 text-end">
+                  {customPrompt.length} / 8000
+                </p>
+              </div>
               <Button onClick={submit} size="lg" className="w-full text-base">
                 <Sparkles className="h-5 w-5 me-2" />
                 {t("trial.start_cta", "Start generating now")}
