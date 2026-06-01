@@ -12,6 +12,7 @@ const categories = ["all", "updates", "achievements", "collaborations"] as const
 
 const Blog = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [active, setActive] = useState<(typeof categories)[number]>("all");
   const { data: posts, isLoading } = useBlogPosts();
 
@@ -32,6 +33,14 @@ const Blog = () => {
         <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
           {t("blog.subtitle")}
         </p>
+        <div className="mt-5">
+          <Link to={user ? "/blog/submit" : "/auth"}>
+            <Button className="gap-2 rounded-full shadow-soft hover-pop">
+              <PenSquare className="h-4 w-4" />
+              {t("blog_submit.cta", "Submit a blog post")}
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-wrap justify-center gap-2 mb-8">
