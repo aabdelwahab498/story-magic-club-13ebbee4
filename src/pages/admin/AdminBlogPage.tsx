@@ -10,6 +10,9 @@ import {
   Circle,
   Loader2,
   X,
+  Check,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,8 @@ import {
   deleteBlogPost,
   uploadBlogCover,
   slugify,
+  approveBlogPost,
+  rejectBlogPost,
   type BlogPostRecord,
   type BlogCategoryRecord,
 } from "@/lib/blogAdminApi";
