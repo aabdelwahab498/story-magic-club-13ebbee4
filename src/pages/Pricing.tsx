@@ -319,8 +319,41 @@ const Pricing = () => {
                   ? t("page_pricing.start_free", "Start free")
                   : !hasPriceId
                   ? t("page_pricing.coming_soon", "Coming soon")
-                  : t("page_pricing.subscribe", "Subscribe")}
+                  : isAr
+                  ? "اشترك بالبطاقة (USD) عبر Paddle"
+                  : t("page_pricing.subscribe", "Subscribe with card (USD)")}
               </button>
+
+              {!isFree && !isCurrent && (
+                <>
+                  <div className="my-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className="flex-1 h-px bg-border" />
+                    <span>{isAr ? "أو" : "OR"}</span>
+                    <span className="flex-1 h-px bg-border" />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!user) {
+                        navigate(
+                          `/auth?redirect=${encodeURIComponent(`/checkout/manual?plan=${plan.tier}`)}`,
+                        );
+                        return;
+                      }
+                      navigate(`/checkout/manual?plan=${plan.tier}`);
+                    }}
+                    className="w-full px-4 py-2.5 rounded-full font-bold text-sm border-2 border-primary/40 text-primary bg-white/70 dark:bg-card/60 hover:bg-primary/5 hover-pop"
+                  >
+                    {isAr
+                      ? "ادفع بـ InstaPay / فودافون كاش / تحويل بنكي"
+                      : "Pay with InstaPay / Vodafone Cash / Bank Transfer"}
+                  </button>
+                  <p className="mt-2 text-[11px] text-center text-muted-foreground">
+                    {isAr
+                      ? "وسائل محلية بالجنيه — يتم التفعيل بعد المراجعة"
+                      : "Local methods (EGP) — activated after review"}
+                  </p>
+                </>
+              )}
             </article>
           );
         })}
