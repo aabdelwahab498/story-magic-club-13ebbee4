@@ -179,7 +179,7 @@ const Store = () => {
         const courses = filtered.filter((p) => (p.sku ?? "").startsWith("course-") || p.category === "course");
         const stories = filtered.filter((p) => !((p.sku ?? "").startsWith("course-") || p.category === "course"));
 
-        const renderCard = (p: typeof all[number]) => {
+        const renderCard = (p: typeof all[number], featured = false) => {
           const title = getLocalized(p.name, i18n.language);
           const priceUsd = Number(p.price_usd ?? 0);
           const isCourse = (p.sku ?? "").startsWith("course-") || p.category === "course";
@@ -187,9 +187,17 @@ const Store = () => {
             <article
               key={p.id}
               id={p.sku ? `product-${p.sku}` : undefined}
-              className="group flex flex-col bg-white/95 dark:bg-card/90 rounded-3xl overflow-hidden shadow-soft border-2 border-white/60 hover:shadow-glow transition-all duration-300 hover-pop scroll-mt-28"
+              className={`group bg-white/95 dark:bg-card/90 rounded-3xl overflow-hidden shadow-soft border-2 border-white/60 hover:shadow-glow transition-all duration-300 hover-pop scroll-mt-28 ${
+                featured ? "flex flex-col md:flex-row" : "flex flex-col"
+              }`}
             >
-              <div className="relative aspect-square overflow-hidden bg-muted">
+              <div
+                className={`relative overflow-hidden bg-muted shrink-0 ${
+                  featured
+                    ? "md:w-2/5 aspect-[4/5] md:aspect-auto md:max-h-[520px]"
+                    : "aspect-square"
+                }`}
+              >
                 <img
                   src={p.image || ""}
                   alt={title}
@@ -202,19 +210,35 @@ const Store = () => {
                   </span>
                 )}
               </div>
-              <div className="p-4 flex flex-col flex-1">
-                <h3 className="text-base sm:text-lg font-bold text-kids-midnight dark:text-foreground mb-1 line-clamp-2">
+              <div className={`p-4 sm:p-6 flex flex-col flex-1 ${featured ? "md:p-8" : ""}`}>
+                <h3
+                  className={`font-bold text-kids-midnight dark:text-foreground mb-2 ${
+                    featured
+                      ? "text-xl sm:text-2xl md:text-3xl"
+                      : "text-base sm:text-lg line-clamp-2"
+                  }`}
+                >
                   {title}
                 </h3>
-                <p className="text-sm text-muted-foreground line-clamp-3 mb-3 flex-1">
+                <p
+                  className={`text-sm text-muted-foreground mb-3 flex-1 ${
+                    featured ? "md:text-base" : "line-clamp-3"
+                  }`}
+                >
                   {getLocalized(p.description, i18n.language)}
                 </p>
                 <div className="flex items-baseline gap-2 mb-3">
-                  <span className="text-2xl font-extrabold text-primary">${priceUsd}</span>
+                  <span
+                    className={`font-extrabold text-primary ${
+                      featured ? "text-3xl md:text-4xl" : "text-2xl"
+                    }`}
+                  >
+                    ${priceUsd}
+                  </span>
                 </div>
 
                 {isCourse && (
-                  <Collapsible>
+                  <Collapsible defaultOpen={featured}>
                     <CollapsibleTrigger className="group/coll w-full flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-accent/40 hover:bg-accent/60 text-sm font-semibold text-kids-midnight dark:text-foreground transition-colors">
                       <span>{t("store.details", { defaultValue: "Course details" })}</span>
                       <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/coll:rotate-180" />
@@ -232,7 +256,7 @@ const Store = () => {
                   </Collapsible>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 mt-auto">
                   <button
                     onClick={() => handleAddToCart(p.id)}
                     className="flex-1 px-3 py-2.5 bg-secondary text-secondary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
