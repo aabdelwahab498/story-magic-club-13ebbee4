@@ -91,6 +91,7 @@ const CheckoutManual = () => {
   const [params] = useSearchParams();
   const planTier = (params.get("plan") as PlanTier) || "family";
   const initialCurrency = (params.get("currency") as Currency) || "EGP";
+  const preselectedMethod = params.get("method") as PaymentMethod | null;
   const navigate = useNavigate();
   const { user } = useAuth();
 
