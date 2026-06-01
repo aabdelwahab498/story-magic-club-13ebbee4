@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown } from "lucide-react";
 import { useProducts } from "@/lib/contentApi";
@@ -30,6 +30,23 @@ const Store = () => {
   const { ready: paddleReady, openStoreCheckout } = usePaddle();
 
   const cartCount = cartItems.reduce((s, it) => s + it.quantity, 0);
+
+  // Scroll to product when hash is present (e.g. /store#product-course-part-1)
+  useEffect(() => {
+    if (!products?.length) return;
+    const hash = window.location.hash?.replace("#", "");
+    if (!hash) return;
+    const tryScroll = () => {
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-4", "ring-primary", "ring-offset-2");
+        setTimeout(() => el.classList.remove("ring-4", "ring-primary", "ring-offset-2"), 2500);
+      }
+    };
+    const timer = setTimeout(tryScroll, 200);
+    return () => clearTimeout(timer);
+  }, [products]);
 
   const handleBuy = (
     productTitle: string,
@@ -111,7 +128,8 @@ const Store = () => {
           return (
             <article
               key={p.id}
-              className="group flex flex-col bg-white/95 dark:bg-card/90 rounded-3xl overflow-hidden shadow-soft border-2 border-white/60 hover:shadow-glow transition-all duration-300 hover-pop"
+              id={p.sku ? `product-${p.sku}` : undefined}
+              className="group flex flex-col bg-white/95 dark:bg-card/90 rounded-3xl overflow-hidden shadow-soft border-2 border-white/60 hover:shadow-glow transition-all duration-300 hover-pop scroll-mt-28"
             >
               <div className="relative aspect-square overflow-hidden bg-muted">
                 <img
