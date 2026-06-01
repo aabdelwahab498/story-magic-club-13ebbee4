@@ -145,6 +145,96 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- One-time store purchases ----
+    // Paddle fires `transaction.completed` for any paid transaction. We only treat
+    // it as a store order when there's no subscription_id (i.e. it's not a sub renewal)
+    // and the custom_data marks it as a store checkout.
+    if (eventType === 'transaction.completed' || eventType === 'transaction.paid') {
+      const txId: string | undefined = data.id;
+      const subId: string | undefined = data.subscription_id;
+      const checkoutId: string | undefined = data.checkout?.id;
+      const customerId: string | undefined = data.customer_id;
+      const customData = data?.custom_data ?? {};
+      const userId: string | undefined = customData.user_id;
+      const kind: string | undefined = customData.kind; // 'store_order'
+      const currency: string = data?.currency_code ?? 'USD';
+      const totalCents = Number(data?.details?.totals?.total ?? data?.totals?.total ?? 0);
+      const totalAmount = totalCents > 0 ? totalCents / 100 : 0;
+
+      if (txId && userId && !subId && kind === 'store_order') {
+        // Idempotency on tx id
+        const { data: existingOrder } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('paddle_transaction_id', txId)
+          .maybeSingle();
+
+        if (!existingOrder) {
+          // Build line items from transaction
+          const txItems: any[] = data?.items ?? [];
+          const priceIds = txItems
+            .map((it) => it?.price?.id ?? it?.price_id)
+            .filter(Boolean) as string[];
+
+          const { data: matchedProducts } = await supabase
+            .from('products')
+            .select('id, sku, name, image, price_usd, paddle_price_id')
+            .in('paddle_price_id', priceIds.length ? priceIds : ['__none__']);
+
+          const { data: newOrder, error: orderErr } = await supabase
+            .from('orders')
+            .insert({
+              user_id: userId,
+              status: 'paid',
+              total_amount: totalAmount,
+              currency,
+              payment_method: 'paddle',
+              paddle_transaction_id: txId,
+              paddle_checkout_id: checkoutId,
+              paid_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+
+          if (!orderErr && newOrder) {
+            const orderItems = txItems.map((it) => {
+              const pid = it?.price?.id ?? it?.price_id;
+              const qty = Number(it?.quantity ?? 1);
+              const unitCents = Number(it?.unit_totals?.subtotal ?? it?.price?.unit_price?.amount ?? 0);
+              const unit = unitCents > 0 ? unitCents / 100 : 0;
+              const prod = matchedProducts?.find((mp) => mp.paddle_price_id === pid);
+              return {
+                order_id: newOrder.id,
+                product_id: prod?.id ?? null,
+                quantity: qty,
+                unit_price: unit,
+                snapshot: {
+                  name: prod?.name ?? {},
+                  image: prod?.image ?? null,
+                  sku: prod?.sku ?? null,
+                  paddle_price_id: pid,
+                },
+              };
+            }).filter((oi) => oi.product_id !== null);
+
+            if (orderItems.length > 0) {
+              await supabase.from('order_items').insert(orderItems);
+            }
+
+            // Clear purchased items from the user's cart
+            const purchasedProductIds = orderItems.map((oi) => oi.product_id).filter(Boolean);
+            if (purchasedProductIds.length > 0) {
+              await supabase
+                .from('cart_items')
+                .delete()
+                .eq('user_id', userId)
+                .in('product_id', purchasedProductIds);
+            }
+          }
+        }
+      }
+    }
+
     await supabase.from('paddle_webhook_events')
       .update({ processed_at: new Date().toISOString() })
       .eq('event_id', eventId);

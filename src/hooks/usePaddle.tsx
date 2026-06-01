@@ -107,5 +107,32 @@ export function usePaddle() {
     [ready],
   );
 
-  return { config, ready, error, openCheckout };
+  const openStoreCheckout = useCallback(
+    (opts: {
+      items: Array<{ priceId: string; quantity: number }>;
+      email?: string;
+      userId?: string;
+      successPath?: string;
+    }) => {
+      if (!window.Paddle || !ready) {
+        throw new Error("paddle_not_ready");
+      }
+      window.Paddle.Checkout.open({
+        items: opts.items.map((i) => ({ priceId: i.priceId, quantity: i.quantity })),
+        customer: opts.email ? { email: opts.email } : undefined,
+        customData: {
+          user_id: opts.userId,
+          kind: "store_order",
+        },
+        settings: {
+          displayMode: "overlay",
+          theme: "light",
+          successUrl: `${window.location.origin}${opts.successPath ?? "/store?paddle=success"}`,
+        },
+      });
+    },
+    [ready],
+  );
+
+  return { config, ready, error, openCheckout, openStoreCheckout };
 }

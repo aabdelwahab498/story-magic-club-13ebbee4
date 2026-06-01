@@ -8,6 +8,7 @@ import type { PaymentItem } from "@/components/payment/PaymentSummary";
 import CartDrawer from "@/components/cart/CartDrawer";
 import { useAuth } from "@/hooks/useAuth";
 import { useAddToCart, useCart } from "@/lib/cartApi";
+import { usePaddle } from "@/hooks/usePaddle";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -26,10 +27,36 @@ const Store = () => {
   const [payOpen, setPayOpen] = useState(false);
   const [payItem, setPayItem] = useState<PaymentItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const { ready: paddleReady, openStoreCheckout } = usePaddle();
 
   const cartCount = cartItems.reduce((s, it) => s + it.quantity, 0);
 
-  const handleBuy = (productTitle: string, priceUsd: number) => {
+  const handleBuy = (
+    productTitle: string,
+    priceUsd: number,
+    paddlePriceId: string | null | undefined,
+  ) => {
+    if (!user) {
+      toast.info(t("cart.signin_required", { defaultValue: "Sign in to continue" }));
+      navigate("/auth?redirect=/store");
+      return;
+    }
+    // Prefer Paddle one-time checkout when configured.
+    if (paddlePriceId && paddleReady) {
+      try {
+        openStoreCheckout({
+          items: [{ priceId: paddlePriceId, quantity: 1 }],
+          email: user.email ?? undefined,
+          userId: user.id,
+          successPath: "/store?paddle=success",
+        });
+        return;
+      } catch (e: any) {
+        toast.error(e?.message ?? "checkout_failed");
+        return;
+      }
+    }
+    // Fallback to manual payment modal
     setPayItem({
       name: productTitle,
       price: priceUsd,
@@ -139,7 +166,7 @@ const Store = () => {
                     {t("store.add_to_cart", { defaultValue: "Add" })}
                   </button>
                   <button
-                    onClick={() => handleBuy(title, priceUsd)}
+                    onClick={() => handleBuy(title, priceUsd, p.paddle_price_id)}
                     className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
                   >
                     <ShoppingBag className="h-4 w-4" />
