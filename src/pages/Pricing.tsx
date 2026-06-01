@@ -1,15 +1,26 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Crown, Sparkles, Star, AlertCircle, RotateCw } from "lucide-react";
+import { Check, Loader2, Crown, Sparkles, Star, AlertCircle, RotateCw, CreditCard, Smartphone, Wallet, Building2, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchPlans, type PlanTier } from "@/lib/subscriptionApi";
+import { fetchPlans, fetchPaymentSettings, type PlanTier, type PaymentMethod, type PayCurrency } from "@/lib/subscriptionApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaddle } from "@/hooks/usePaddle";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+type SelectableMethod = "paddle" | PaymentMethod;
+
 
 
 const Pricing = () => {
