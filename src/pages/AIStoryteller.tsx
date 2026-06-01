@@ -244,47 +244,9 @@ const AIStoryteller = () => {
       setGuestTrial(res);
       setIllustrationsGated(false);
 
-      // ── Step 2: Illustrations (background, non-blocking)
-      // Guest gets all images via Pollinations (no AI credits burned).
-      setGuestIllustrating(true);
-      generateTrialIllustrations(
-        {
-          pages: res.pages.map((p) => ({
-            index: p.index,
-            illustrationPrompt: p.illustrationPrompt,
-            emotionTag: p.emotionTag,
-          })),
-          childName,
-          theme: themeLabel,
-        },
-        { trigger: "user", source: "AIStoryteller.guestTrialChained" },
-      )
-        .then((ill) => {
-          // Map into the shape the existing UI expects (ClassicIllustration[]).
-          setIllustrations(
-            ill.illustrations.map((i) => ({
-              index: i.index,
-              imageUrl: i.imageUrl,
-              status: i.status,
-            })),
-          );
-          // Merge image URLs back into guestTrial pages for PDF generation
-          setGuestTrial((prev) => {
-            if (!prev) return prev;
-            const byIdx = new Map(ill.illustrations.map((i) => [i.index, i.imageUrl] as const));
-            return {
-              ...prev,
-              pages: prev.pages.map((p) => ({ ...p, imageUrl: byIdx.get(p.index) ?? null })),
-            };
-          });
-          if (ill.ready === 0) {
-            toast.info(t("page_ai_storyteller.story_ready_images_unavailable_right_now", "Story ready (images unavailable right now)"));
-          }
-        })
-        .catch((e) => {
-          console.warn("[trial-illustrate] failed:", e);
-        })
-        .finally(() => setGuestIllustrating(false));
+      // ── Step 2: Images/Audio are now opt-in via subscription.
+      // The trial returns text only; the user chooses (Images or Audio) after reading.
+
     } catch (e) {
       stopProgressTimeline("idle");
       if (e instanceof TrialRateLimitedError) {
