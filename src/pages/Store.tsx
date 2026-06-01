@@ -166,7 +166,7 @@ const Store = () => {
                     {t("store.add_to_cart", { defaultValue: "Add" })}
                   </button>
                   <button
-                    onClick={() => handleBuy(title, priceUsd)}
+                    onClick={() => handleBuy(title, priceUsd, p.paddle_price_id)}
                     className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
                   >
                     <ShoppingBag className="h-4 w-4" />
