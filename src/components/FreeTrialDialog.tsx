@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, Lock, Clock, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, Lock, Clock, ShieldAlert, CheckCircle2, Image as ImageIcon, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   generateTrialStory,
@@ -280,17 +280,59 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                   {t("trial.next", "Next")}
                 </Button>
               </div>
-              <div className="border-t pt-4 mt-4 text-center bg-gradient-to-br from-primary/10 to-kids-softPurple rounded-2xl p-5">
-                <Lock className="h-8 w-8 text-primary mx-auto mb-2" />
-                <h4 className="font-bold text-lg mb-1">
-                  {t("trial.upsell_title", "Want illustrations and narration?")}
-                </h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {t(
-                    "trial.upsell_desc",
-                    "Sign up and subscribe to complete the story with images and audio + unlimited stories for your child.",
-                  )}
-                </p>
+              <div className="border-t pt-4 mt-4 bg-gradient-to-br from-primary/10 to-kids-softPurple rounded-2xl p-5 space-y-3">
+                <div className="text-center">
+                  <Lock className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <h4 className="font-bold text-lg mb-1">
+                    {t("trial.upsell_title", "Want illustrations and narration?")}
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {t(
+                      "trial.upsell_desc_v2",
+                      "The free trial generates text only. Subscribe to unlock images and audio narration for each page.",
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      saveTrialResume({
+                        childName: childName.trim(),
+                        age,
+                        theme: theme.trim(),
+                        language: i18n.language?.slice(0, 2) || "en",
+                      });
+                      handleClose(false);
+                      navigate("/auth", { state: { from: "/ai-storyteller", intent: "image" } });
+                    }}
+                  >
+                    <ImageIcon className="h-4 w-4 me-1" />
+                    {t("trial.unlock_image", "Unlock images")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      saveTrialResume({
+                        childName: childName.trim(),
+                        age,
+                        theme: theme.trim(),
+                        language: i18n.language?.slice(0, 2) || "en",
+                      });
+                      handleClose(false);
+                      navigate("/auth", { state: { from: "/ai-storyteller", intent: "audio" } });
+                    }}
+                  >
+                    <Volume2 className="h-4 w-4 me-1" />
+                    {t("trial.unlock_audio", "Unlock audio")}
+                  </Button>
+                </div>
+
                 <Button
                   size="lg"
                   onClick={() => {
@@ -303,7 +345,6 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                     handleClose(false);
                     navigate("/auth", { state: { from: "/ai-storyteller" } });
                   }}
-
                   className="w-full"
                 >
                   <Sparkles className="h-5 w-5 me-2" />
