@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2, User as UserIcon, Save, KeyRound, Eye, EyeOff, Trash2, ShieldCheck, Lock } from "lucide-react";
+import { Loader2, User as UserIcon, Save, KeyRound, Eye, EyeOff, Trash2, ShieldCheck, Lock, History, BookOpen, Headphones, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useMyAiStories } from "@/lib/aiStoryApi";
 import Seo from "@/components/Seo";
 import PaddleSubscriptionCard from "@/components/PaddleSubscriptionCard";
 
@@ -39,8 +41,9 @@ const PROVIDERS: { id: ProviderId; label: string; placeholder: string; help: str
 ];
 
 const AccountProfile = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { data: recentStories = [], isLoading: storiesLoading } = useMyAiStories(!!user);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -252,6 +255,75 @@ const AccountProfile = () => {
       </Card>
 
       <PaddleSubscriptionCard />
+
+      <Card className="p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              {t("profile.history_title", { defaultValue: "Story history" })}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("profile.history_subtitle", {
+                defaultValue: "All stories you generated are saved here.",
+              })}
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm" className="gap-1">
+            <Link to="/my-stories">
+              {t("profile.history_view_all", { defaultValue: "View all" })}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+
+        {storiesLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          </div>
+        ) : recentStories.length === 0 ? (
+          <div className="text-center py-6 text-sm text-muted-foreground">
+            <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            {t("profile.history_empty", {
+              defaultValue: "You haven't generated any stories yet.",
+            })}
+            <div className="mt-3">
+              <Button asChild size="sm">
+                <Link to="/ai-storyteller">
+                  {t("profile.history_create", { defaultValue: "Create your first story" })}
+                </Link>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {recentStories.slice(0, 5).map((s) => (
+              <li key={s.id} className="py-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground truncate">
+                    {s.title || t("profile.history_untitled", { defaultValue: "Untitled story" })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(s.created_at).toLocaleDateString(i18n.language)} •{" "}
+                    {s.language.toUpperCase()}
+                    {s.audio_url && (
+                      <span className="ms-2 inline-flex items-center gap-1 text-primary font-semibold">
+                        <Headphones className="h-3 w-3" />
+                        {t("profile.history_audio", { defaultValue: "Audio" })}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/my-stories">
+                    {t("profile.history_open", { defaultValue: "Open" })}
+                  </Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card className="p-5 sm:p-6 space-y-5">
         <div>
