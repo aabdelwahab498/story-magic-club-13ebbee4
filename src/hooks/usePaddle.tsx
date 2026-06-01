@@ -97,7 +97,7 @@ export function usePaddle() {
 
 
   const openCheckout = useCallback(
-    (opts: { priceId: string; email?: string; userId?: string; tier?: string }) => {
+    (opts: { priceId: string; email?: string; userId?: string; tier?: string; successPath?: string }) => {
       if (!window.Paddle || !ready) {
         throw new Error("paddle_not_ready");
       }
@@ -111,12 +111,13 @@ export function usePaddle() {
         settings: {
           displayMode: "overlay",
           theme: "light",
-          successUrl: `${window.location.origin}/account?paddle=success`,
+          successUrl: `${window.location.origin}${opts.successPath ?? "/account?paddle=success"}`,
         },
       });
     },
     [ready],
   );
+
 
   const openStoreCheckout = useCallback(
     (opts: {
