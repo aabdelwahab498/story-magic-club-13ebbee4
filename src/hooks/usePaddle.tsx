@@ -45,6 +45,16 @@ export function usePaddle() {
   const [config, setConfig] = useState<PaddleConfig | null>(cachedConfig);
   const [ready, setReady] = useState<boolean>(Boolean(cachedConfig && window.Paddle));
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const reload = useCallback(() => {
+    cachedConfig = null;
+    loaderPromise = null;
+    setConfig(null);
+    setReady(false);
+    setError(null);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,7 +93,8 @@ export function usePaddle() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reloadKey]);
+
 
   const openCheckout = useCallback(
     (opts: { priceId: string; email?: string; userId?: string; tier?: string }) => {
