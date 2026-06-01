@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus } from "lucide-react";
+import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown } from "lucide-react";
 import { useProducts } from "@/lib/contentApi";
 import { getLocalized } from "@/lib/multilingual";
 import PaymentModal from "@/components/payment/PaymentModal";
@@ -10,6 +10,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAddToCart, useCart } from "@/lib/cartApi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const Store = () => {
   const { t, i18n } = useTranslation();
