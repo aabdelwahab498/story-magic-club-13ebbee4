@@ -176,13 +176,50 @@ const Pricing = () => {
       </header>
 
       {paddleError && (
-        <div className="max-w-xl mx-auto mb-6 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
+        <div className="max-w-xl mx-auto mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div>
-            {paddleError === "paddle_not_configured"
-              ? t("page_pricing.payments_setup_in_progress", "Payments are being set up. Please check back soon.")
-              : t("page_pricing.checkout_unavailable", "Checkout is temporarily unavailable.")}
+          <div className="flex-1">
+            <p className="font-semibold mb-1">
+              {paddleError === "paddle_not_configured"
+                ? t("page_pricing.payments_setup_in_progress", "Payments are being set up. Please check back soon.")
+                : isAr
+                  ? "تعذّر تحميل نظام الدفع."
+                  : "Could not load the payment system."}
+            </p>
+            <p className="text-xs opacity-80 break-all">{paddleError}</p>
           </div>
+          {paddleError !== "paddle_not_configured" && (
+            <button
+              onClick={() => {
+                autoTriggered.current = false;
+                reloadPaddle();
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition"
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+              {isAr ? "إعادة المحاولة" : "Retry"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {pollingSuccess && (
+        <div className="max-w-xl mx-auto mb-6 flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-sm text-emerald-900 dark:text-emerald-100">
+          <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+          <span className="font-semibold">
+            {isAr
+              ? "جارٍ تفعيل اشتراكك وفكّ قفل الصور والصوت..."
+              : "Activating your subscription and unlocking images & audio..."}
+          </span>
+        </div>
+      )}
+
+      {openingTier && !paddleError && (
+        <div className="max-w-xl mx-auto mb-6 flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <Loader2 className="h-5 w-5 animate-spin shrink-0 text-primary" />
+          <span className="font-semibold">
+            {isAr ? "جارٍ فتح نافذة الدفع..." : "Opening secure checkout..."}
+          </span>
         </div>
       )}
 
@@ -191,6 +228,7 @@ const Pricing = () => {
           <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
         </div>
       )}
+
 
       <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto [&>*]:w-full md:[&>*]:w-[calc(33.333%-0.834rem)] [&>*]:max-w-sm">
         {q.data?.map((plan) => {
