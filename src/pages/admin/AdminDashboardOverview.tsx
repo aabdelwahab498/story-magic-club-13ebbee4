@@ -1,17 +1,15 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { BookOpen, Video, Languages, Eye, TrendingUp, Sparkles, Loader2, FileCheck2, CheckCircle2, XCircle } from "lucide-react";
+import { BookOpen, Video, Languages, Eye, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { MOCK_STATS, MOCK_STORIES } from "@/lib/adminMockData";
 import { fetchStories, fetchVideos, type StoryRecord } from "@/lib/adminApi";
-import { fetchBlogPostsAdmin, approveBlogPost, rejectBlogPost, type BlogPostRecord } from "@/lib/blogAdminApi";
 import { useAdminDataSource } from "@/hooks/useAdminDataSource";
 import { getLocalized } from "@/lib/multilingual";
 import { ADMIN_LANGUAGES } from "@/lib/adminConstants";
 import { toast } from "sonner";
+import BlogReviewSection from "@/components/admin/BlogReviewSection";
 
 interface DashboardStats {
   totalStories: number;
