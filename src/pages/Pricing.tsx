@@ -86,25 +86,18 @@ const Pricing = () => {
     }
   };
 
-  // Auto-open Paddle checkout when arriving with ?subscribe=<tier> (e.g. from trial upsell).
+  // NOTE: We intentionally do NOT auto-open Paddle when arriving with ?subscribe=<tier>.
+  // The customer should pick their payment method (card via Paddle, or local methods)
+  // themselves from the plan card. We just clean the param so it doesn't linger.
   useEffect(() => {
     if (autoTriggered.current) return;
-    const target = searchParams.get("subscribe") as PlanTier | null;
-    if (!target || target === "free") return;
-    if (!user) {
-      autoTriggered.current = true;
-      subscribe(target);
-      return;
-    }
-    if (paddleError) return; // wait until user retries
-    if (!paddleReady || !paddleConfig) return;
+    if (!searchParams.get("subscribe")) return;
     autoTriggered.current = true;
-    subscribe(target);
     const next = new URLSearchParams(searchParams);
     next.delete("subscribe");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paddleReady, paddleConfig, paddleError, user]);
+  }, []);
 
   // Handle return from Paddle. Webhook unlocks features asynchronously,
   // so we poll the subscription until tier flips off "free".
