@@ -248,52 +248,68 @@ const About = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-          {curriculum.map((mod, idx) => (
-            <article
-              key={idx}
-              style={{ animationDelay: `${idx * 0.1}s` }}
-              className="group relative rounded-3xl p-6 sm:p-7 bg-white/80 dark:bg-card/80 backdrop-blur-md border border-white/60 dark:border-white/10 shadow-soft hover:shadow-glow transition-all duration-500 hover:-translate-y-1 animate-fade-in"
-            >
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-kids-pink text-white flex items-center justify-center font-extrabold shadow-pop">
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wide">
-                      {mod.level}
-                    </p>
-                    <h3 className="text-lg sm:text-xl font-bold text-kids-midnight dark:text-white">
-                      {mod.title}
-                    </h3>
+          {curriculum.map((mod, idx) => {
+            const skus = ["course-part-1", "course-part-2", "course-part-3", "course-workbook"];
+            const sku = skus[idx];
+            return (
+              <article
+                key={idx}
+                onClick={() => navigate(`/store#product-${sku}`)}
+                style={{ animationDelay: `${idx * 0.1}s` }}
+                className="group cursor-pointer relative rounded-3xl p-6 sm:p-7 bg-white/80 dark:bg-card/80 backdrop-blur-md border border-white/60 dark:border-white/10 shadow-soft hover:shadow-glow transition-all duration-500 hover:-translate-y-1 animate-fade-in"
+              >
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-kids-pink text-white flex items-center justify-center font-extrabold shadow-pop">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                        {mod.level}
+                      </p>
+                      <h3 className="text-lg sm:text-xl font-bold text-kids-midnight dark:text-white">
+                        {mod.title}
+                      </h3>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-3 mb-4 text-xs sm:text-sm">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kids-softPurple/40 dark:bg-primary/10 text-kids-midnight dark:text-white font-semibold">
-                  <PlayCircle className="h-3.5 w-3.5" />
-                  {t("about.lessons_count", { count: mod.lessons })}
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kids-softYellow/40 dark:bg-kids-yellow/10 text-kids-midnight dark:text-white font-semibold">
-                  <Clock className="h-3.5 w-3.5" />
-                  {mod.duration}
-                </span>
-              </div>
+                <div className="flex flex-wrap items-center gap-3 mb-4 text-xs sm:text-sm">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kids-softPurple/40 dark:bg-primary/10 text-kids-midnight dark:text-white font-semibold">
+                    <PlayCircle className="h-3.5 w-3.5" />
+                    {t("about.lessons_count", { count: mod.lessons })}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kids-softYellow/40 dark:bg-kids-yellow/10 text-kids-midnight dark:text-white font-semibold">
+                    <Clock className="h-3.5 w-3.5" />
+                    {mod.duration}
+                  </span>
+                </div>
 
-              <ul className="space-y-2">
-                {mod.topics.map((tp, ti) => (
-                  <li
-                    key={ti}
-                    className="flex items-start gap-2 text-sm text-kids-midnight/85 dark:text-white/85"
-                  >
-                    <Sparkles className="h-4 w-4 text-kids-pink shrink-0 mt-0.5" />
-                    <span>{tp}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
+                <ul className="space-y-2 mb-4">
+                  {mod.topics.map((tp, ti) => (
+                    <li
+                      key={ti}
+                      className="flex items-start gap-2 text-sm text-kids-midnight/85 dark:text-white/85"
+                    >
+                      <Sparkles className="h-4 w-4 text-kids-pink shrink-0 mt-0.5" />
+                      <span>{tp}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/store#product-${sku}`);
+                  }}
+                  className="w-full mt-2 px-4 py-2.5 bg-gradient-to-r from-primary to-kids-pink text-white rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-2"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  {t("about.curriculum_view_in_shop", { defaultValue: "View in shop" })}
+                </button>
+              </article>
+            );
+          })}
         </div>
       </section>
 
