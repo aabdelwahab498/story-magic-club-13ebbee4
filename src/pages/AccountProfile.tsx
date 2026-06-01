@@ -43,7 +43,10 @@ const PROVIDERS: { id: ProviderId; label: string; placeholder: string; help: str
 const AccountProfile = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { data: recentStories = [], isLoading: storiesLoading } = useMyAiStories(!!user);
+  const [historyLimit, setHistoryLimit] = useState(5);
+  const { data: recentStories = [], isLoading: storiesLoading, isFetching: storiesFetching } =
+    useMyAiStories(!!user, historyLimit);
+  const canLoadMore = recentStories.length >= historyLimit;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
