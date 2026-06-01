@@ -256,8 +256,13 @@ export default function AdminBlogPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("admin_blog.all_status", "All status")}</SelectItem>
+              <SelectItem value="pending">
+                {t("admin_blog.pending", "Pending review")}
+                {pendingCount > 0 ? ` (${pendingCount})` : ""}
+              </SelectItem>
               <SelectItem value="published">{t("admin_blog.published", "Published")}</SelectItem>
               <SelectItem value="draft">{t("admin_blog.draft", "Draft")}</SelectItem>
+              <SelectItem value="rejected">{t("admin_blog.rejected", "Rejected")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -322,7 +327,17 @@ export default function AdminBlogPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {p.published ? (
+                          {p.submission_status === "pending" ? (
+                            <Badge className="gap-1 rounded-full bg-amber-500/15 text-amber-700 border-amber-300/40 border">
+                              <Clock className="h-3 w-3" />
+                              {t("admin_blog.pending", "Pending")}
+                            </Badge>
+                          ) : p.submission_status === "rejected" ? (
+                            <Badge className="gap-1 rounded-full bg-destructive/15 text-destructive border-destructive/30 border">
+                              <XCircle className="h-3 w-3" />
+                              {t("admin_blog.rejected", "Rejected")}
+                            </Badge>
+                          ) : p.published ? (
                             <Badge className="gap-1 rounded-full bg-magic border-0">
                               <CheckCircle2 className="h-3 w-3" />
                               {t("admin_blog.published", "Published")}
@@ -337,6 +352,28 @@ export default function AdminBlogPage() {
                         <TableCell>{(p.views ?? 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
+                            {p.submission_status === "pending" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleApprove(p.id)}
+                                  className="rounded-full text-emerald-600 hover:text-emerald-700"
+                                  title={t("admin_blog.approve", "Approve & publish")}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleReject(p.id)}
+                                  className="rounded-full text-amber-600 hover:text-amber-700"
+                                  title={t("admin_blog.reject", "Reject")}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
