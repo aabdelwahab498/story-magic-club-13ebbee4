@@ -206,6 +206,13 @@ const Pricing = () => {
         toast.success(
           isAr ? "تم تفعيل ميزات الصور والصوت ✨" : "Images & audio features unlocked ✨",
         );
+        // If the user came here from /stories with a pending idea, resume generation.
+        try {
+          const raw = localStorage.getItem("pending-story-idea");
+          if (raw) {
+            navigate("/ai-storyteller");
+          }
+        } catch { /* ignore */ }
         return;
       }
       if (attempts >= maxAttempts) {

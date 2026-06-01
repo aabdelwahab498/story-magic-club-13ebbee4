@@ -407,6 +407,32 @@ const AIStoryteller = () => {
     }
   }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Resume a pending story idea saved from /stories before the user subscribed.
+  // Only fires once the user is signed in AND has an active audio-capable plan.
+  const pendingFiredRef = useRef(false);
+  useEffect(() => {
+    if (pendingFiredRef.current) return;
+    if (!user || sub.loading) return;
+    if (!sub.canAudio || sub.tier === "free") return;
+    let pending: { idea?: string; narrator?: string; ts?: number } | null = null;
+    try {
+      const raw = localStorage.getItem("pending-story-idea");
+      if (raw) pending = JSON.parse(raw);
+    } catch { /* ignore */ }
+    if (!pending?.idea) return;
+    pendingFiredRef.current = true;
+    try { localStorage.removeItem("pending-story-idea"); } catch {}
+    setCustomPrompt(pending.idea);
+    if (pending.narrator && (CHARACTER_KEYS as readonly string[]).includes(pending.narrator)) {
+      setCharacterId(pending.narrator as typeof CHARACTER_KEYS[number]);
+    }
+    setSelMode(true);
+    if (!autoFiredRef.current) {
+      autoFiredRef.current = true;
+      setTimeout(() => { handleGenerateSel(); }, 80);
+    }
+  }, [user, sub.loading, sub.canAudio, sub.tier]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Resume free-trial inputs after sign-up: prefill the form so the user can
   // continue the same story idea now that they have a real account.
   const resumeFiredRef = useRef(false);

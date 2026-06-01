@@ -9,6 +9,8 @@ import NarratorPicker from "@/components/NarratorPicker";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import type { NarratorId } from "@/lib/narrators";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 
 
 interface DBStory {
@@ -31,6 +33,8 @@ const StoryLibrary = () => {
   const lang = i18n.language;
   const navigate = useNavigate();
   const isAr = lang === "ar";
+  const { user } = useAuth();
+  const sub = useSubscription();
   const [ideaPrompt, setIdeaPrompt] = useState("");
   const [ideaNarrator, setIdeaNarrator] = useState<NarratorId>(DEFAULT_NARRATOR);
   const [stories, setStories] = useState<DBStory[]>([]);
@@ -326,6 +330,23 @@ const StoryLibrary = () => {
                 toast.error(t("stories.idea_required", "Please write your idea first"));
                 return;
               }
+              const pending = { idea, narrator: ideaNarrator, ts: Date.now() };
+              try { localStorage.setItem("pending-story-idea", JSON.stringify(pending)); } catch {}
+
+              // Not signed in → go to auth, then back to pricing (audio requires subscription)
+              if (!user) {
+                navigate("/auth", { state: { from: "/pricing?subscribe=parent&feature=audio" } });
+                toast.info(t("stories.signin_to_generate", "Please sign in, then subscribe to generate your audio story."));
+                return;
+              }
+              // Signed in but no audio capability / free tier → go subscribe first
+              if (!sub.loading && (!sub.canAudio || sub.tier === "free")) {
+                navigate("/pricing?subscribe=parent&feature=audio");
+                toast.info(t("stories.subscribe_to_generate", "Subscribe to generate your full audio story. We'll resume right after."));
+                return;
+              }
+              // Subscribed → generate immediately
+              try { localStorage.removeItem("pending-story-idea"); } catch {}
               navigate("/ai-storyteller", { state: { idea, autoGenerate: true, narrator: ideaNarrator } });
             }}
             className="px-5 py-2.5 rounded-full inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:scale-[1.03] transition-transform"
