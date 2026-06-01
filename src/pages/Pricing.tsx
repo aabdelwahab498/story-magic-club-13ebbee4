@@ -85,7 +85,7 @@ const Pricing = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+      <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto [&>*]:w-full md:[&>*]:w-[calc(33.333%-0.834rem)] [&>*]:max-w-sm">
         {q.data?.map((plan) => {
           const isCurrent = currentTier === plan.tier;
           const isPremium = plan.tier === "premium";
