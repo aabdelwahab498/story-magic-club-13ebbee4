@@ -43,6 +43,8 @@ export interface ProductRow {
   stock: number | null;
   active: boolean;
   featured: boolean;
+  paddle_product_id?: string | null;
+  paddle_price_id?: string | null;
 }
 
 // ---------- Blog ----------
