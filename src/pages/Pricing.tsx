@@ -400,8 +400,104 @@ const Pricing = () => {
           "Payments are processed securely by Paddle. Cancel or manage your subscription anytime from your account.",
         )}
       </p>
+
+      <Dialog open={!!confirmTier} onOpenChange={(o) => !o && setConfirmTier(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isAr ? "تأكيد الاشتراك" : "Confirm subscription"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmPlan && (
+                <>
+                  {isAr ? "خطة" : "Plan"}: <b>{confirmPlan.name[isAr ? "ar" : "en"]}</b>
+                  {" · "}
+                  {isAr ? "اختر وسيلة الدفع لإكمال العملية." : "Choose a payment method to continue."}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+            {availableMethods.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {isAr ? "لا توجد وسائل دفع متاحة حالياً." : "No payment methods available."}
+              </p>
+            )}
+            {availableMethods.map((m) => {
+              const Icon = m.icon;
+              const selected = chosenMethod === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setChosenMethod(m.id)}
+                  className={cn(
+                    "w-full text-start flex items-center gap-3 p-3 rounded-2xl border-2 transition",
+                    selected
+                      ? "border-primary bg-primary/5"
+                      : "border-muted hover:border-primary/40",
+                  )}
+                >
+                  <div className={cn(
+                    "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
+                    selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                  )}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{m.label}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{m.sub}</p>
+                  </div>
+                  <div className="text-end">
+                    <p className="font-extrabold text-primary text-sm whitespace-nowrap">
+                      {m.currency === "USD" ? "$" : ""}{m.price}{m.currency !== "USD" ? ` ${m.currency}` : ""}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">/ {isAr ? "شهر" : "mo"}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {chosenMethod === "paddle" && paddleError && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">
+                  {isAr ? "تعذّر تشغيل الدفع بالبطاقة." : "Card payment is unavailable right now."}
+                </p>
+                <p className="opacity-80 break-all">{paddleError}</p>
+              </div>
+              <button
+                onClick={() => reloadPaddle()}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500 text-white font-bold text-[11px]"
+              >
+                <RotateCw className="h-3 w-3" />
+                {isAr ? "إعادة" : "Retry"}
+              </button>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              onClick={() => setConfirmTier(null)}
+              className="flex-1 px-4 py-2.5 rounded-full font-bold text-sm border-2 border-muted hover:bg-muted/40"
+            >
+              {isAr ? "إلغاء" : "Cancel"}
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={!chosenMethod || (chosenMethod === "paddle" && (!paddleReady || !!paddleError))}
+              className="flex-1 px-4 py-2.5 rounded-full font-bold text-sm bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAr ? "تأكيد ومتابعة" : "Confirm & continue"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 };
 
 export default Pricing;
