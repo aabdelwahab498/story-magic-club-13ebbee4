@@ -222,75 +222,7 @@ export default function AdminDashboardOverview() {
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-kids-softPurple/40 dark:border-primary/20">
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <FileCheck2 className="h-5 w-5 text-primary" />
-            {t("admin_dashboard.blog_review.title", "Blog posts awaiting review")}
-            {pendingPosts.length > 0 && (
-              <Badge variant="secondary" className="ml-1 rounded-full">
-                {pendingPosts.length}
-              </Badge>
-            )}
-          </CardTitle>
-          <Link to="/admin/dashboard/blog">
-            <Button variant="outline" size="sm">
-              {t("admin_dashboard.blog_review.open_blog", "Open blog manager")}
-            </Button>
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {pendingLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            </div>
-          ) : pendingPosts.length === 0 ? (
-            <p className="text-center text-muted-foreground py-6 text-sm">
-              {t("admin_dashboard.blog_review.empty", "No pending submissions right now.")}
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {pendingPosts.slice(0, 8).map((p) => (
-                <li key={p.id} className="py-3 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold truncate">
-                      {getLocalized(p.title, i18n.language) || p.slug}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {p.author_name ?? "—"} • {new Date(p.created_at).toLocaleDateString(i18n.language)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleReject(p.id)}
-                      disabled={actingId === p.id}
-                      className="gap-1"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      {t("admin_dashboard.blog_review.reject", "Reject")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(p.id)}
-                      disabled={actingId === p.id}
-                      className="gap-1"
-                    >
-                      {actingId === p.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-                      {t("admin_dashboard.blog_review.approve", "Approve")}
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <BlogReviewSection />
     </div>
   );
 }
