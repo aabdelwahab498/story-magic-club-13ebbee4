@@ -58,6 +58,27 @@ const Pricing = () => {
     }
   };
 
+  // Auto-open Paddle checkout when arriving with ?subscribe=<tier> (e.g. from trial upsell).
+  useEffect(() => {
+    if (autoTriggered.current) return;
+    const target = searchParams.get("subscribe") as PlanTier | null;
+    if (!target || target === "free") return;
+    if (!user) {
+      autoTriggered.current = true;
+      subscribe(target);
+      return;
+    }
+    if (!paddleReady || !paddleConfig) return;
+    autoTriggered.current = true;
+    subscribe(target);
+    // Clean param so refresh doesn't re-open the modal.
+    const next = new URLSearchParams(searchParams);
+    next.delete("subscribe");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paddleReady, paddleConfig, user]);
+
+
   return (
     <div className="py-4 sm:py-6">
       <header className="text-center mb-8 animate-fade-in">
