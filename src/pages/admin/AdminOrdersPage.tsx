@@ -217,7 +217,7 @@ const AdminOrdersPage = () => {
         eventName = "cancelled";
       }
 
-      const { error } = await supabase.from("orders").update(patch).eq("id", selected.id);
+      const { error } = await supabase.from("orders").update(patch as any).eq("id", selected.id);
       if (error) throw error;
       toast({ title: t("admin_orders.updated", "Order updated") });
 
