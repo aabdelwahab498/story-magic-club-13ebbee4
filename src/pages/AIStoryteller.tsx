@@ -1408,7 +1408,55 @@ const AIStoryteller = () => {
                 </span>
               </div>
             )}
+
+            {/* Guest upsell: after free text, let the user pick Images or Audio (both require subscription) */}
+            {guestMode && story && (
+              <div className="mt-6 p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-pink-50 dark:from-white/5 dark:to-white/10 border border-amber-200/60 dark:border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Crown className="h-5 w-5 text-amber-500" />
+                  <h3 className="font-extrabold text-foreground dark:text-white">
+                    {isAr ? "تحب تنشر قصتك وتحصل على نسختك؟" : "Want to publish your story and get your copy?"}
+                  </h3>
+                </div>
+                <p className="text-sm text-foreground/80 dark:text-white/80 mb-4">
+                  {isAr
+                    ? "اشترك علشان تضيف الميزة اللي تحبها — صور ملوّنة للقصة أو سرد صوتي بصوت ساحر. اختار واحدة وكمّل."
+                    : "Subscribe to add the feature you love — colorful illustrations or a magical voice narration. Pick one to continue."}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Link
+                    to="/pricing?feature=illustrations"
+                    className="p-4 rounded-xl bg-white dark:bg-white/5 border border-foreground/10 dark:border-white/20 hover:shadow-lg transition-all text-start"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wand2 className="h-5 w-5 text-pink-500" />
+                      <span className="font-bold text-foreground dark:text-white">
+                        {isAr ? "أضف الصور" : "Add Images"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-foreground/70 dark:text-white/70">
+                      {isAr ? "صور ملوّنة لكل مشهد من قصتك." : "Colorful illustrations for every scene."}
+                    </p>
+                  </Link>
+                  <Link
+                    to="/pricing?feature=audio"
+                    className="p-4 rounded-xl bg-white dark:bg-white/5 border border-foreground/10 dark:border-white/20 hover:shadow-lg transition-all text-start"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Volume2 className="h-5 w-5 text-indigo-500" />
+                      <span className="font-bold text-foreground dark:text-white">
+                        {isAr ? "فعّل الصوت" : "Enable Audio"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-foreground/70 dark:text-white/70">
+                      {isAr ? "اسمع قصتك بصوت سارد جميل." : "Hear your story with a beautiful narrator."}
+                    </p>
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
+
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <button
