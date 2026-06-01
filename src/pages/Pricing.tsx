@@ -27,6 +27,7 @@ const Pricing = () => {
   const successHandled = useRef(false);
   const [openingTier, setOpeningTier] = useState<PlanTier | null>(null);
   const [pollingSuccess, setPollingSuccess] = useState(false);
+  const [showPaddleError, setShowPaddleError] = useState(false);
 
 
 
