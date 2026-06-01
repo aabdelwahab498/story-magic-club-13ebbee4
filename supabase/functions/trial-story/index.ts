@@ -95,9 +95,9 @@ async function handle(req: Request): Promise<Response> {
   const fail = (msg: string, extra: Record<string, unknown> = {}) =>
     console.error(`[trial-story][${requestId}] ${msg}`, { ms: Date.now() - t0, ...extra });
 
-  // Body guard
+  // Body guard — allow up to ~1000-word custom prompt
   const cl = Number(req.headers.get("content-length") || "0");
-  if (cl > 8_192) {
+  if (cl > 16_384) {
     return json({ error: "payload_too_large", message: "Request too large." }, 413, corsHeaders);
   }
 
@@ -157,6 +157,7 @@ async function handle(req: Request): Promise<Response> {
   let theme = "";
   let age = NaN;
   let language = "ar";
+  let customPrompt = "";
   let effectiveFingerprint = `req:${requestId}`;
 
   try {
@@ -164,6 +165,7 @@ async function handle(req: Request): Promise<Response> {
     childName = str(raw.childName, 60);
     theme = str(raw.theme, 80);
     age = Number(raw.age);
+    customPrompt = str(raw.customPrompt, 8000); // ~1000 words
     const fingerprint = str(raw.fingerprint, 128);
     language = (str(raw.language, 5).toLowerCase() || "ar");
 
@@ -222,6 +224,7 @@ async function handle(req: Request): Promise<Response> {
     blueprint = await planStory({
       childName, age, ageBand, theme,
       emotionalFocus: [], language,
+      customPrompt: customPrompt || undefined,
     });
     log("plan_ok", { title: blueprint.title });
   } catch (planErr) {

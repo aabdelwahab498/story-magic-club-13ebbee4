@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, Lock, Clock, ShieldAlert, CheckCircle2, Image as ImageIcon, Volume2 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
   const [childName, setChildName] = useState("");
   const [age, setAge] = useState<number>(5);
   const [theme, setTheme] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
   const [loadingStep, setLoadingStep] = useState(0);
   const [result, setResult] = useState<TrialStoryResponse | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
@@ -75,6 +77,7 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
         age,
         theme: theme.trim(),
         language: i18n.language?.slice(0, 2) || "en",
+        customPrompt: customPrompt.trim() || undefined,
       });
       clearInterval(cycle);
       setResult(data);
@@ -217,6 +220,26 @@ export default function FreeTrialDialog({ open, onOpenChange }: Props) {
                   placeholder={t("trial.theme_placeholder", "e.g. A forest adventure with a lost chick")}
                   maxLength={80}
                 />
+              </div>
+              <div>
+                <Label htmlFor="trial-details">
+                  {t("trial.details_label", "Story details (optional, up to ~1000 words)")}
+                </Label>
+                <Textarea
+                  id="trial-details"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value.slice(0, 8000))}
+                  placeholder={t(
+                    "trial.details_placeholder",
+                    "Describe the plot, characters, setting, and the lesson you want — the story will follow this exactly.",
+                  )}
+                  rows={6}
+                  maxLength={8000}
+                  className="min-h-[140px]"
+                />
+                <p className="text-xs text-muted-foreground mt-1 text-end">
+                  {customPrompt.length} / 8000
+                </p>
               </div>
               <Button onClick={submit} size="lg" className="w-full text-base">
                 <Sparkles className="h-5 w-5 me-2" />
