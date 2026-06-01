@@ -40,6 +40,7 @@ const AdminBlogPage = lazy(() => import("./pages/admin/AdminBlogPage"));
 const AdminLanguagesPage = lazy(() => import("./pages/admin/AdminLanguagesPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage"));
+const AdminSubscriptionsPage = lazy(() => import("./pages/admin/AdminSubscriptionsPage"));
 const AdminPaymentSettingsPage = lazy(() => import("./pages/admin/AdminPaymentSettingsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
@@ -129,6 +130,7 @@ const App = () => (
                       <Route path="videos" element={<AdminVideosPage />} />
                       <Route path="blog" element={<AdminBlogPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />
+                      <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
                       <Route path="payment-settings" element={<AdminPaymentSettingsPage />} />
                       <Route path="plans" element={<AdminPlansPage />} />
                       <Route path="products" element={<AdminProductsPage />} />

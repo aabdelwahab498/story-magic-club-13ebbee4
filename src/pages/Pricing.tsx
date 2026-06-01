@@ -1,15 +1,26 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Crown, Sparkles, Star, AlertCircle, RotateCw } from "lucide-react";
+import { Check, Loader2, Crown, Sparkles, Star, AlertCircle, RotateCw, CreditCard, Smartphone, Wallet, Building2, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchPlans, type PlanTier } from "@/lib/subscriptionApi";
+import { fetchPlans, fetchPaymentSettings, type PlanTier, type PaymentMethod, type PayCurrency } from "@/lib/subscriptionApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaddle } from "@/hooks/usePaddle";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+type SelectableMethod = "paddle" | PaymentMethod;
+
 
 
 const Pricing = () => {
@@ -30,56 +41,98 @@ const Pricing = () => {
   const [showPaddleError, setShowPaddleError] = useState(false);
 
 
+  const settingsQ = useQuery({ queryKey: ["payment-settings"], queryFn: fetchPaymentSettings });
+  const [confirmTier, setConfirmTier] = useState<PlanTier | null>(null);
+  const [chosenMethod, setChosenMethod] = useState<SelectableMethod | null>(null);
 
   const priceIdFor = (tier: string): string | null => {
     const p = paddleConfig?.plans.find((x) => x.tier === tier);
     return p?.paddle_price_id ?? null;
   };
 
-  const subscribe = (tier: PlanTier) => {
+  const confirmPlan = useMemo(
+    () => q.data?.find((p) => p.tier === confirmTier) ?? null,
+    [q.data, confirmTier],
+  );
+
+  // Build available methods for the dialog based on payment_settings
+  const availableMethods = useMemo(() => {
+    const s = settingsQ.data;
+    const list: { id: SelectableMethod; label: string; sub: string; icon: typeof CreditCard; price: number; currency: string }[] = [];
+    if (!confirmPlan) return list;
+    if (priceIdFor(confirmPlan.tier)) {
+      list.push({
+        id: "paddle",
+        label: isAr ? "بطاقة بنكية (USD) عبر Paddle" : "Credit card (USD) via Paddle",
+        sub: isAr ? "تفعيل فوري بعد الدفع" : "Instant activation after payment",
+        icon: CreditCard,
+        price: confirmPlan.price_usd,
+        currency: "USD",
+      });
+    }
+    if (s) {
+      const local: { id: PaymentMethod; label: string; icon: typeof CreditCard; enabled: boolean; currencies: PayCurrency[] }[] = [
+        { id: "instapay", label: "InstaPay", icon: Smartphone, enabled: s.instapay_enabled && !!s.instapay_handle, currencies: s.instapay_currencies as PayCurrency[] },
+        { id: "vodafone_cash", label: isAr ? "فودافون كاش" : "Vodafone Cash", icon: Wallet, enabled: s.vodafone_enabled && !!s.vodafone_number, currencies: s.vodafone_currencies as PayCurrency[] },
+        { id: "payoneer", label: "Payoneer", icon: Globe, enabled: s.payoneer_enabled && !!s.payoneer_email, currencies: s.payoneer_currencies as PayCurrency[] },
+        { id: "bank_transfer", label: isAr ? "تحويل بنكي" : "Bank Transfer", icon: Building2, enabled: s.bank_enabled && !!(s.bank_account_number || s.bank_iban), currencies: s.bank_currencies as PayCurrency[] },
+      ];
+      for (const m of local) {
+        if (!m.enabled) continue;
+        const cur = (m.currencies?.[0] ?? "EGP") as string;
+        const price = cur === "USD" ? confirmPlan.price_usd : confirmPlan.price_egp;
+        list.push({
+          id: m.id,
+          label: m.label,
+          sub: isAr ? "يتم التفعيل بعد المراجعة" : "Activated after review",
+          icon: m.icon,
+          price,
+          currency: cur,
+        });
+      }
+    }
+    return list;
+  }, [settingsQ.data, confirmPlan, paddleConfig, isAr]);
+
+  const openConfirm = (tier: PlanTier) => {
     if (tier === "free") return;
     if (!user) {
       const params = searchParams.toString();
       navigate(`/auth?redirect=${encodeURIComponent("/pricing" + (params ? `?${params}` : ""))}`);
       return;
     }
+    setConfirmTier(tier);
+    setChosenMethod(null);
+  };
 
+
+  const startPaddle = (tier: PlanTier) => {
     const priceId = priceIdFor(tier);
     if (!priceId) {
-      toast.error(
-        t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."),
-      );
+      toast.error(t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."));
       return;
     }
     if (paddleError) {
       setShowPaddleError(true);
-      toast.error(
-        isAr
-          ? "تعذّر تشغيل الدفع بالبطاقة. جرّب وسيلة محلية أو أعد المحاولة."
-          : "Card payments could not start. Try a local method or retry.",
-      );
       return;
     }
     if (!paddleReady) {
-      toast.error(
-        t("page_pricing.checkout_not_ready", "Payments are still loading. Please try again in a moment."),
-      );
+      toast.error(t("page_pricing.checkout_not_ready", "Payments are still loading. Please try again in a moment."));
       return;
     }
     try {
       setOpeningTier(tier);
       openCheckout({
         priceId,
-        email: user.email ?? undefined,
-        userId: user.id,
+        email: user?.email ?? undefined,
+        userId: user!.id,
         tier,
         successPath: "/pricing?paddle=success",
       });
-
-      // Safety: clear the spinner shortly after — Paddle takes over the screen.
       setTimeout(() => setOpeningTier(null), 4000);
     } catch (e: any) {
       setOpeningTier(null);
+      setShowPaddleError(true);
       toast.error(
         isAr
           ? `تعذّر فتح نافذة الدفع: ${e?.message ?? "خطأ غير معروف"}`
@@ -87,6 +140,19 @@ const Pricing = () => {
       );
     }
   };
+
+  const handleConfirm = () => {
+    if (!confirmTier || !chosenMethod) return;
+    const tier = confirmTier;
+    const method = chosenMethod;
+    setConfirmTier(null);
+    if (method === "paddle") {
+      startPaddle(tier);
+    } else {
+      navigate(`/checkout/manual?plan=${tier}&method=${method}`);
+    }
+  };
+
 
   // NOTE: We intentionally do NOT auto-open Paddle when arriving with ?subscribe=<tier>.
   // The customer should pick their payment method (card via Paddle, or local methods)
@@ -238,7 +304,7 @@ const Pricing = () => {
           const isPremium = plan.tier === "premium";
           const isFree = plan.tier === "free";
           const price = plan.price_usd;
-          const hasPriceId = Boolean(priceIdFor(plan.tier));
+          
 
           return (
             <article
@@ -298,9 +364,8 @@ const Pricing = () => {
               </ul>
 
               <button
-                onClick={() => subscribe(plan.tier)}
-                disabled={isCurrent || isFree || (!isFree && !hasPriceId)}
-                title={!isFree && !hasPriceId ? "Not configured yet" : undefined}
+                onClick={() => openConfirm(plan.tier)}
+                disabled={isCurrent || isFree}
                 className={cn(
                   "w-full px-4 py-3 rounded-full font-bold hover-pop shadow-soft disabled:opacity-60 disabled:cursor-not-allowed",
                   isPremium
@@ -312,43 +377,18 @@ const Pricing = () => {
                   ? t("page_pricing.current_plan", "Current plan")
                   : isFree
                   ? t("page_pricing.start_free", "Start free")
-                  : !hasPriceId
-                  ? t("page_pricing.coming_soon", "Coming soon")
                   : isAr
-                  ? "اشترك بالبطاقة (USD) عبر Paddle"
-                  : t("page_pricing.subscribe", "Subscribe with card (USD)")}
+                  ? "اشترك الآن"
+                  : t("page_pricing.subscribe_now", "Subscribe now")}
               </button>
-
               {!isFree && !isCurrent && (
-                <>
-                  <div className="my-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span className="flex-1 h-px bg-border" />
-                    <span>{isAr ? "أو" : "OR"}</span>
-                    <span className="flex-1 h-px bg-border" />
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!user) {
-                        navigate(
-                          `/auth?redirect=${encodeURIComponent(`/checkout/manual?plan=${plan.tier}`)}`,
-                        );
-                        return;
-                      }
-                      navigate(`/checkout/manual?plan=${plan.tier}`);
-                    }}
-                    className="w-full px-4 py-2.5 rounded-full font-bold text-sm border-2 border-primary/40 text-primary bg-white/70 dark:bg-card/60 hover:bg-primary/5 hover-pop"
-                  >
-                    {isAr
-                      ? "ادفع بـ InstaPay / فودافون كاش / تحويل بنكي"
-                      : "Pay with InstaPay / Vodafone Cash / Bank Transfer"}
-                  </button>
-                  <p className="mt-2 text-[11px] text-center text-muted-foreground">
-                    {isAr
-                      ? "وسائل محلية بالجنيه — يتم التفعيل بعد المراجعة"
-                      : "Local methods (EGP) — activated after review"}
-                  </p>
-                </>
+                <p className="mt-2 text-[11px] text-center text-muted-foreground">
+                  {isAr
+                    ? "اختر وسيلة الدفع في الخطوة التالية"
+                    : "Choose your payment method in the next step"}
+                </p>
               )}
+
             </article>
           );
         })}
@@ -360,8 +400,104 @@ const Pricing = () => {
           "Payments are processed securely by Paddle. Cancel or manage your subscription anytime from your account.",
         )}
       </p>
+
+      <Dialog open={!!confirmTier} onOpenChange={(o) => !o && setConfirmTier(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isAr ? "تأكيد الاشتراك" : "Confirm subscription"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmPlan && (
+                <>
+                  {isAr ? "خطة" : "Plan"}: <b>{confirmPlan.name[isAr ? "ar" : "en"]}</b>
+                  {" · "}
+                  {isAr ? "اختر وسيلة الدفع لإكمال العملية." : "Choose a payment method to continue."}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+            {availableMethods.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {isAr ? "لا توجد وسائل دفع متاحة حالياً." : "No payment methods available."}
+              </p>
+            )}
+            {availableMethods.map((m) => {
+              const Icon = m.icon;
+              const selected = chosenMethod === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setChosenMethod(m.id)}
+                  className={cn(
+                    "w-full text-start flex items-center gap-3 p-3 rounded-2xl border-2 transition",
+                    selected
+                      ? "border-primary bg-primary/5"
+                      : "border-muted hover:border-primary/40",
+                  )}
+                >
+                  <div className={cn(
+                    "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
+                    selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                  )}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{m.label}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{m.sub}</p>
+                  </div>
+                  <div className="text-end">
+                    <p className="font-extrabold text-primary text-sm whitespace-nowrap">
+                      {m.currency === "USD" ? "$" : ""}{m.price}{m.currency !== "USD" ? ` ${m.currency}` : ""}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">/ {isAr ? "شهر" : "mo"}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {chosenMethod === "paddle" && paddleError && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">
+                  {isAr ? "تعذّر تشغيل الدفع بالبطاقة." : "Card payment is unavailable right now."}
+                </p>
+                <p className="opacity-80 break-all">{paddleError}</p>
+              </div>
+              <button
+                onClick={() => reloadPaddle()}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500 text-white font-bold text-[11px]"
+              >
+                <RotateCw className="h-3 w-3" />
+                {isAr ? "إعادة" : "Retry"}
+              </button>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              onClick={() => setConfirmTier(null)}
+              className="flex-1 px-4 py-2.5 rounded-full font-bold text-sm border-2 border-muted hover:bg-muted/40"
+            >
+              {isAr ? "إلغاء" : "Cancel"}
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={!chosenMethod || (chosenMethod === "paddle" && (!paddleReady || !!paddleError))}
+              className="flex-1 px-4 py-2.5 rounded-full font-bold text-sm bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAr ? "تأكيد ومتابعة" : "Confirm & continue"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 };
 
 export default Pricing;
