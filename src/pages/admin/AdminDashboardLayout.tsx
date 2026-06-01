@@ -15,6 +15,7 @@ import {
   Wallet,
   ShoppingBag,
   Package,
+  Webhook,
   Crown,
   Bot,
   Activity,
