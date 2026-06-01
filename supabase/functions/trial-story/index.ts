@@ -248,6 +248,7 @@ async function handle(req: Request): Promise<Response> {
     try {
       written = await writeStory(blueprint, ageBand, language, {
         visualStyle: "Pixar/Ghibli",
+        customPrompt: customPrompt || undefined,
         cinematicFields: {
           visualPrompt: false, animationPrompt: false, voiceOver: false,
           dialogue: false, soundEffects: false, backgroundMusic: false,

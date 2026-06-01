@@ -60,9 +60,9 @@ export async function writeStory(
   const enabled = (k: string) => fields[k] !== false; // default ON if unspecified
 
   const baseSystem =
-    `You are a master children's author AND a cinematic multimedia director. You write entirely in ${langName}. ` +
+    `You are a master children's author AND a cinematic multimedia director. You write ALL prose, dialogue, narration, and titles 100% in ${langName} — never mix languages, never transliterate, never insert another language for "flavor". ` +
     `You follow the 1-meter-tall rule (write from the child's eye level). ` +
-    `Every page ends with a soft emotional hook. The first sentence is a sensory hook. ` +
+    `Every page ends with a soft emotional hook. The first sentence is a sensory hook tied to the story's actual subject. ` +
     `The last sentence is a peaceful echo of the message — never a stated moral. ` +
     `Validate feelings; never use "must" or "should". ` +
     `Visual style for prompts: warm ${visualStyle}-inspired children's illustration, soft cinematic lighting, NEVER photoreal, NEVER scary. ` +
@@ -77,11 +77,17 @@ export async function writeStory(
     : baseSystem;
 
   const requestedBrief = settings.customPrompt?.trim().slice(0, 800) ?? "";
-  const user = `Turn this blueprint into a structured ${targetPages}-page cinematic story (${band.pages[0]}-${band.pages[1]} pages allowed):
+  const user = `Turn this blueprint into a structured ${targetPages}-page cinematic story (${band.pages[0]}-${band.pages[1]} pages allowed).
+
+OUTPUT LANGUAGE (HARD LOCK): ${langName}. Every value of text, voiceOver, dialogue, illustrationPrompt, and the title MUST be in ${langName}. JSON keys stay English. If you produce any value in a different language, the answer is invalid — rewrite it.
+
+TITLE RULE: Use EXACTLY the blueprint's title ("${blueprint.title}") unless it is not in ${langName} — in that case translate it faithfully to ${langName} keeping the same characters and event. Never invent a new unrelated title.
+
+SUBJECT LOCK: The story's hero is "${blueprint.hero.name}". The central conflict is described in acts.act2_disturbance and resolved in acts.act4_resolution. Every page MUST visibly belong to THIS story — the hero's name, the setting, and the central event from the blueprint must appear across the pages. Do NOT write a generic bakery/garden/forest scene that ignores the blueprint.
 
 BLUEPRINT:
 ${JSON.stringify(blueprint, null, 2)}
-${requestedBrief ? `\n=== USER STORY BRIEF (BINDING — THE STORY MUST BE ABOUT THIS) ===\n"""${requestedBrief}"""\nEvery scene must clearly belong to the user's brief. Keep the characters they named, the relationship they described, and the central arc. Do NOT replace it with a generic adventure.\nIf the brief asks for a girl, boy, named child, animal friend, sibling, or specific transformation, those exact concrete elements MUST appear from page 1 and drive the plot.\nDo not use a different generic setting or conflict unless it is explicitly in the brief.\n=== END USER BRIEF ===\n` : ""}
+${requestedBrief ? `\n=== USER STORY BRIEF (BINDING — THE STORY MUST BE ABOUT THIS) ===\n"""${requestedBrief}"""\nEvery scene must clearly belong to the user's brief. Keep the characters they named (by name), the relationship they described, the setting, and the central arc. The hero's name and the key noun(s) from the brief MUST appear on page 1 and recur through the story. Do NOT replace it with a generic adventure.\n=== END USER BRIEF ===\n` : ""}
 
 PAGE / SCENE RULES:
 - text: ${band.sentencesPerPage[0]}-${band.sentencesPerPage[1]} sentences per page, each sentence ${band.sentenceWords[0]}-${band.sentenceWords[1]} words, in ${langName}.
@@ -90,7 +96,8 @@ PAGE / SCENE RULES:
 - illustrationPrompt: 1 short sentence, consistent with hero's visual signature.
 - The hero MUST resolve the climax themselves. Mentor supports, never rescues.
 - End with a peaceful sensory closing in ${langName}.
-${requestedBrief ? `- USER-BRIEF MATCH CHECK: Before returning JSON, silently verify the title, first page, climax, and resolution all clearly match: "${requestedBrief}". If not, rewrite them now.` : ""}
+- SELF-CHECK before returning: (a) title matches the blueprint and is in ${langName}; (b) hero "${blueprint.hero.name}" is named on page 1; (c) the central event from acts.act2_disturbance is present by page 2-3; (d) climax matches acts.act4_resolution; (e) no sentence is in a language other than ${langName}. If any check fails, rewrite before returning.
+${requestedBrief ? `- USER-BRIEF MATCH CHECK: title, page 1, climax, and resolution must each contain the concrete nouns from: "${requestedBrief}".` : ""}
 
 CINEMATIC MULTIMEDIA FIELDS (include ONLY the enabled ones below, age-appropriate):
 ${enabled("visualPrompt") ? "- visualPrompt: a rich cinematic image description — character (consistent), setting, props, lighting, color palette tied to emotionTag, camera framing.\n" : ""}${enabled("animationPrompt") ? "- animationPrompt: camera movement (slow push-in, gentle pan, parallax), character movement, atmosphere, lighting changes.\n" : ""}${enabled("voiceOver") ? `- voiceOver: 1–2 short narrator lines in ${langName}, warm storytelling tone.\n` : ""}${enabled("dialogue") ? `- dialogue: short character dialogue in ${langName} ("" if none).\n` : ""}${enabled("soundEffects") ? "- soundEffects: comma-separated diegetic sounds. NO scary or violent sfx.\n" : ""}${enabled("backgroundMusic") ? "- backgroundMusic: music style + emotional mood.\n" : ""}${enabled("imagePrompt") ? "- imagePrompt: one-line prompt optimized for Midjourney / DALL·E / Leonardo.\n" : ""}${enabled("videoPrompt") ? "- videoPrompt: one-line prompt optimized for Runway / Kling / Pika / Sora.\n" : ""}
@@ -102,7 +109,7 @@ Return ONLY JSON: { "title": string, "pages": [ { "index": 1, "text": "...", "em
     system,
     user,
     model: settings.model,
-    temperature: settings.temperature ?? 0.85,
-    maxTokens: 5000,
+    temperature: settings.temperature ?? (requestedBrief ? 0.55 : 0.85),
+    maxTokens: 6000,
   });
 }

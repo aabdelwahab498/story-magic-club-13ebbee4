@@ -74,7 +74,9 @@ REQUIREMENTS:
 5. Map all 4 bibliotherapy stages (identification, catharsis, insight, universalization) to concrete moments in the story.
 6. Hero MUST solve the climax themselves (with mentor support, not rescue).
 7. Avoid for this age band: ${band.avoid.join(", ")}.
-${requestedBrief ? `8. USER-BRIEF MATCH CHECK: title + act1 + act2 + act4 must clearly match this exact brief: "${requestedBrief}".` : ""}
+8. LANGUAGE LOCK: Every human-readable string in the JSON (title, hero.name unless brief specifies otherwise, mentor/companion/challenger names and roles, all acts, selOutcome.statement, bibliotherapyMap.*, dominantEmotion) MUST be written natively in ${input.language === "ar" ? "Arabic" : input.language === "en" ? "English" : input.language === "de" ? "German" : input.language === "fr" ? "French" : input.language === "it" ? "Italian" : input.language === "es" ? "Spanish" : input.language}. Do NOT mix languages. Schema KEYS stay English; VALUES in target language.
+9. TITLE RULE: The title MUST literally name the hero and the central event/object from ${requestedBrief ? "the user brief" : "the theme"}, in the target language. Generic titles are forbidden.
+${requestedBrief ? `10. USER-BRIEF MATCH CHECK: title + act1 + act2 + act3_attempts + act4 must each contain the concrete nouns from this brief: "${requestedBrief}". If the brief mentions a cat/dog/sibling/object, those words must appear in those fields.` : ""}
 
 Return ONLY a JSON object with keys: title, hero{name,age,sense,problem,engine,charm,visibleFlaw,skinTone,hair,outfitColor,signatureItem}, mentor{name,role}, companion{name,role}, challenger{name,nature}, acts{act1_normalWorld,act2_disturbance,act3_attempts[],act4_resolution}, selOutcome{skill,emotion,statement}, bibliotherapyMap{identification,catharsis,insight,universalization}, dominantEmotion.`;
 
