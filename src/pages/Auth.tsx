@@ -25,7 +25,15 @@ const Auth = () => {
   const [showOwnerField, setShowOwnerField] = useState(false);
   const [masterKey, setMasterKey] = useState("");
 
-  const from = (location.state as { from?: string } | null)?.from;
+  const stateFrom = (location.state as { from?: string } | null)?.from;
+  const queryRedirect = new URLSearchParams(location.search).get("redirect");
+  const from = stateFrom || queryRedirect || undefined;
+  const resolveDest = (goStaff: boolean) =>
+    from && !from.startsWith("/admin")
+      ? from
+      : goStaff
+      ? "/admin/dashboard"
+      : "/";
 
   useEffect(() => {
     if (authLoading || !session?.user?.id) return;
