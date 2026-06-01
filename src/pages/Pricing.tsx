@@ -106,50 +106,33 @@ const Pricing = () => {
   };
 
 
-  const subscribe = (tier: PlanTier) => {
-    if (tier === "free") return;
-    if (!user) {
-      const params = searchParams.toString();
-      navigate(`/auth?redirect=${encodeURIComponent("/pricing" + (params ? `?${params}` : ""))}`);
-      return;
-    }
-
+  const startPaddle = (tier: PlanTier) => {
     const priceId = priceIdFor(tier);
     if (!priceId) {
-      toast.error(
-        t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."),
-      );
+      toast.error(t("page_pricing.plan_not_configured", "This plan is not configured for checkout yet."));
       return;
     }
     if (paddleError) {
       setShowPaddleError(true);
-      toast.error(
-        isAr
-          ? "تعذّر تشغيل الدفع بالبطاقة. جرّب وسيلة محلية أو أعد المحاولة."
-          : "Card payments could not start. Try a local method or retry.",
-      );
       return;
     }
     if (!paddleReady) {
-      toast.error(
-        t("page_pricing.checkout_not_ready", "Payments are still loading. Please try again in a moment."),
-      );
+      toast.error(t("page_pricing.checkout_not_ready", "Payments are still loading. Please try again in a moment."));
       return;
     }
     try {
       setOpeningTier(tier);
       openCheckout({
         priceId,
-        email: user.email ?? undefined,
-        userId: user.id,
+        email: user?.email ?? undefined,
+        userId: user!.id,
         tier,
         successPath: "/pricing?paddle=success",
       });
-
-      // Safety: clear the spinner shortly after — Paddle takes over the screen.
       setTimeout(() => setOpeningTier(null), 4000);
     } catch (e: any) {
       setOpeningTier(null);
+      setShowPaddleError(true);
       toast.error(
         isAr
           ? `تعذّر فتح نافذة الدفع: ${e?.message ?? "خطأ غير معروف"}`
@@ -157,6 +140,19 @@ const Pricing = () => {
       );
     }
   };
+
+  const handleConfirm = () => {
+    if (!confirmTier || !chosenMethod) return;
+    const tier = confirmTier;
+    const method = chosenMethod;
+    setConfirmTier(null);
+    if (method === "paddle") {
+      startPaddle(tier);
+    } else {
+      navigate(`/checkout/manual?plan=${tier}&method=${method}`);
+    }
+  };
+
 
   // NOTE: We intentionally do NOT auto-open Paddle when arriving with ?subscribe=<tier>.
   // The customer should pick their payment method (card via Paddle, or local methods)
