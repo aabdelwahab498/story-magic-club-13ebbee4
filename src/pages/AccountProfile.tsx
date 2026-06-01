@@ -41,8 +41,9 @@ const PROVIDERS: { id: ProviderId; label: string; placeholder: string; help: str
 ];
 
 const AccountProfile = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { data: recentStories = [], isLoading: storiesLoading } = useMyAiStories(!!user);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
