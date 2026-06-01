@@ -160,10 +160,39 @@ export default function AdminProductsPage() {
             {t("admin_products.manage_store_products_pricing_and_attach", "Manage store products, pricing, and attachments.")}
           </p>
         </div>
-        <Button onClick={() => setEditing(emptyProduct())} className="gap-2 rounded-full">
-          <Plus className="h-4 w-4" />
-          {t("admin_products.new_product", "New Product")}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            className="gap-2 rounded-full"
+            onClick={async () => {
+              const tid = toast.loading(
+                t("admin_products.syncing_paddle", "Syncing products to Paddle…"),
+              );
+              try {
+                const { supabase } = await import("@/integrations/supabase/client");
+                const { data, error } = await supabase.functions.invoke(
+                  "paddle-seed-store-products",
+                  { method: "POST" },
+                );
+                if (error) throw error;
+                console.log("paddle-seed-store-products result", data);
+                toast.success(
+                  t("admin_products.paddle_synced", "Products synced with Paddle."),
+                  { id: tid },
+                );
+                qc.invalidateQueries({ queryKey: ["admin-products"] });
+              } catch (err: any) {
+                toast.error(err?.message ?? "Failed to sync", { id: tid });
+              }
+            }}
+          >
+            {t("admin_products.sync_to_paddle", "Sync to Paddle")}
+          </Button>
+          <Button onClick={() => setEditing(emptyProduct())} className="gap-2 rounded-full">
+            <Plus className="h-4 w-4" />
+            {t("admin_products.new_product", "New Product")}
+          </Button>
+        </div>
       </div>
 
       <Card>
