@@ -47,11 +47,11 @@ const Auth = () => {
       const goStaff = (roles ?? []).some(
         (r) => r.role === "admin" || r.role === "editor"
       );
-      navigate(
-        goStaff ? "/admin/dashboard" : from && !from.startsWith("/admin") ? from : "/",
-        { replace: true }
-      );
+      navigate(resolveDest(goStaff), { replace: true });
     })();
+    return () => {
+      cancelled = true;
+    };
     return () => {
       cancelled = true;
     };
