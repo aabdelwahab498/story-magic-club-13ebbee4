@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus } from "lucide-react";
+import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown } from "lucide-react";
 import { useProducts } from "@/lib/contentApi";
 import { getLocalized } from "@/lib/multilingual";
 import PaymentModal from "@/components/payment/PaymentModal";
@@ -10,6 +10,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAddToCart, useCart } from "@/lib/cartApi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const Store = () => {
   const { t, i18n } = useTranslation();
@@ -100,6 +105,24 @@ const Store = () => {
                   <div className="flex items-baseline gap-2 mb-3">
                     <span className="text-2xl font-extrabold text-primary">${priceUsd}</span>
                   </div>
+
+                  <Collapsible>
+                    <CollapsibleTrigger className="group/coll w-full flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-accent/40 hover:bg-accent/60 text-sm font-semibold text-kids-midnight dark:text-foreground transition-colors">
+                      <span>{t("store.details", { defaultValue: "Course details" })}</span>
+                      <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/coll:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                      <div className="px-3 py-2 mb-2 text-sm text-muted-foreground bg-muted/40 rounded-xl space-y-1.5">
+                        <p>{getLocalized(p.description, i18n.language)}</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-xs">
+                          <li>{t("store.detail_interactive", { defaultValue: "Interactive lessons for kids" })}</li>
+                          <li>{t("store.detail_lifetime", { defaultValue: "Lifetime access" })}</li>
+                          <li>{t("store.detail_certificate", { defaultValue: "Completion certificate" })}</li>
+                        </ul>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleAddToCart(p.id)}
