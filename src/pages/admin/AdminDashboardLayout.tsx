@@ -132,7 +132,7 @@ export default function AdminDashboardLayout() {
 
   useEffect(() => {
     if (!loading && !session) {
-      navigate("/auth", { replace: true });
+      navigate("/admin/auth", { replace: true });
     }
   }, [loading, session, navigate]);
 
