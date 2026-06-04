@@ -22,6 +22,7 @@ const StoryDetail = lazy(() => import("./pages/StoryDetail"));
 const AIStoryteller = lazy(() => import("./pages/AIStoryteller"));
 const DrawingCompetition = lazy(() => import("./pages/DrawingCompetition"));
 const Auth = lazy(() => import("./pages/Auth"));
+const AdminAuth = lazy(() => import("./pages/AdminAuth"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
@@ -96,6 +97,7 @@ const App = () => (
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/admin/auth" element={<AdminAuth />} />
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Index />} />
                     <Route path="stories" element={<StoryLibrary />} />
