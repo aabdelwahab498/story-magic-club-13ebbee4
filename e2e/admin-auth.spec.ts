@@ -38,6 +38,41 @@ test.describe("admin auth flow", () => {
     }
   });
 
+  test("resend confirmation button enforces a cooldown", async ({ page }) => {
+    await page.goto("/admin/auth");
+    await page.getByRole("tab", { name: /register admin/i }).click();
+
+    const email = `${unique()}@example.com`;
+    await page.getByLabel(/admin email/i).fill(email);
+    await page.locator("#ar-pw").fill("Sup3rSecret!");
+    await page.locator("#ar-pw2").fill("Sup3rSecret!");
+    await page.locator("#ar-master").fill("dummy-master-key");
+    await page.getByRole("button", { name: /create admin account/i }).click();
+
+    const resend = page.getByTestId("resend-confirmation");
+    // Confirmation screen may not appear if signup is rejected; skip if so.
+    if (!(await resend.isVisible({ timeout: 8_000 }).catch(() => false))) {
+      test.skip(true, "Sign-up did not reach confirmation screen in this env");
+      return;
+    }
+
+    // Initially enabled, no cooldown.
+    await expect(resend).toBeEnabled();
+    await expect(resend).toHaveAttribute("data-cooldown", "0");
+
+    await resend.click();
+
+    // Cooldown engages immediately and disables the button.
+    await expect(resend).toBeDisabled();
+    await expect(resend).not.toHaveAttribute("data-cooldown", "0");
+    await expect(resend).toContainText(/resend in \d+s/i);
+
+    // A second click within the cooldown is a no-op (still disabled, label unchanged).
+    await resend.click({ force: true }).catch(() => undefined);
+    await expect(resend).toBeDisabled();
+    await expect(resend).toContainText(/resend in \d+s/i);
+  });
+
   test("sign-in with bad credentials shows error toast", async ({ page }) => {
     await page.goto("/admin/auth");
     await page.locator("#ai-email").fill(`nobody-${unique()}@example.com`);

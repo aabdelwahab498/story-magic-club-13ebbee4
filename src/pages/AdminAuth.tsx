@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import ResendConfirmation from "@/components/ResendConfirmation";
+import { describeAuthError } from "@/lib/authErrors";
 
 const AdminAuth = () => {
   const { t } = useTranslation();
@@ -38,16 +39,7 @@ const AdminAuth = () => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setSubmitting(false);
-      if (error.message.toLowerCase().includes("email not confirmed")) {
-        toast.error(
-          t(
-            "admin_auth.email_not_confirmed",
-            "Please confirm your email first — check your inbox."
-          )
-        );
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(describeAuthError(error, t, "signin"), { duration: 7000 });
       return;
     }
 
@@ -132,7 +124,7 @@ const AdminAuth = () => {
     });
     setSubmitting(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(describeAuthError(error, t, "signup"), { duration: 7000 });
       return;
     }
     setSignupSuccess(email);

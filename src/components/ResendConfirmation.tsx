@@ -4,6 +4,8 @@ import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { checkRateLimit, recordHit } from "@/lib/rateLimit";
+import { describeAuthError } from "@/lib/authErrors";
 
 interface Props {
   email: string;
@@ -11,6 +13,11 @@ interface Props {
   /** Cooldown in seconds between resends (default 30). */
   cooldown?: number;
 }
+
+// Hard cap: 5 resends per email per hour, then 1h lockout.
+const RL_WINDOW_MS = 60 * 60 * 1000;
+const RL_MAX_HITS = 5;
+const RL_BLOCK_MS = 60 * 60 * 1000;
 
 const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
   const { t } = useTranslation();
@@ -25,6 +32,22 @@ const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
 
   const resend = async () => {
     if (secondsLeft > 0 || sending) return;
+
+    const key = `resend:${email.toLowerCase()}`;
+    const rl = checkRateLimit(key, RL_MAX_HITS, RL_WINDOW_MS);
+    if (!rl.allowed) {
+      const mins = Math.ceil(rl.retryInSeconds / 60);
+      toast.error(
+        t(
+          "resend.rate_limited",
+          "You've requested too many emails. Try again in {{mins}} min.",
+          { mins }
+        )
+      );
+      setSecondsLeft(rl.retryInSeconds);
+      return;
+    }
+
     setSending(true);
     const { error } = await supabase.auth.resend({
       type: "signup",
@@ -33,9 +56,10 @@ const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
     });
     setSending(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(describeAuthError(error, t, "resend"), { duration: 7000 });
       return;
     }
+    recordHit(key, RL_MAX_HITS, RL_WINDOW_MS, RL_BLOCK_MS);
     setSecondsLeft(cooldown);
     toast.success(t("resend.sent", "Confirmation email re-sent ✉️"));
   };
@@ -47,6 +71,8 @@ const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
       className="w-full"
       onClick={resend}
       disabled={sending || secondsLeft > 0}
+      data-testid="resend-confirmation"
+      data-cooldown={secondsLeft}
     >
       {sending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { checkRateLimit, recordHit } from "@/lib/rateLimit";
+import { describeAuthError } from "@/lib/authErrors";
+
+// Allow at most 3 reset-email requests per email per 10 min, then block for 15 min.
+const RL_WINDOW_MS = 10 * 60 * 1000;
+const RL_MAX_HITS = 3;
+const RL_BLOCK_MS = 15 * 60 * 1000;
 
 const ForgotPassword = () => {
   const { t } = useTranslation();
@@ -16,13 +23,33 @@ const ForgotPassword = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) return;
+
+    const key = `forgot:${trimmed}`;
+    const state = checkRateLimit(key, RL_MAX_HITS, RL_WINDOW_MS);
+    if (!state.allowed) {
+      const mins = Math.ceil(state.retryInSeconds / 60);
+      toast.error(
+        t(
+          "forgot.rate_limited",
+          "Too many reset requests for this email. Try again in {{mins}} min.",
+          { mins }
+        )
+      );
+      return;
+    }
+
     setSubmitting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setSubmitting(false);
+    recordHit(key, RL_MAX_HITS, RL_WINDOW_MS, RL_BLOCK_MS);
+
     if (error) {
-      toast.error(error.message);
+      const msg = describeAuthError(error, t, "forgot");
+      toast.error(msg, { duration: 7000 });
       return;
     }
     setSent(true);
@@ -31,6 +58,7 @@ const ForgotPassword = () => {
       { duration: 6000 }
     );
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-kids-softPurple to-kids-softBlue font-comic">
