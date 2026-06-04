@@ -7,6 +7,7 @@ import SocialMediaIcons from "./SocialMediaIcons";
 import AiAssistantButton from "./AiAssistantButton";
 import BottomNav from "./BottomNav";
 import AdPlaceholder from "./AdPlaceholder";
+import OfflineBanner from "./OfflineBanner";
 import { useTheme } from "@/hooks/useTheme";
 
 const Layout = () => {
@@ -32,6 +33,7 @@ const Layout = () => {
       className={`min-h-screen font-comic relative transition-colors duration-500 flex flex-col overflow-x-clip ${bgClass}`}
     >
       <PageBackground />
+      <OfflineBanner />
 
       <LanguageSuggestionBanner />
       <Navigation />
