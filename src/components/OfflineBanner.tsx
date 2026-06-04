@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -32,6 +33,12 @@ export default function OfflineBanner() {
               "يمكنك تصفّح القصص والصور والصوت التي زرتها سابقاً. الميزات التي تحتاج اتصالاً (توليد قصة جديدة، تسجيل الدخول، الدفع) ستعود عند رجوع الاتصال.",
             )}
           </p>
+          <Link
+            to="/offline"
+            className="inline-block mt-1 font-bold underline underline-offset-2 hover:no-underline"
+          >
+            {t("offline.view_available", "عرض المحتوى المتاح بدون إنترنت ←")}
+          </Link>
         </div>
         <button
           onClick={() => setDismissed(true)}

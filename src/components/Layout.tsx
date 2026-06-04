@@ -8,6 +8,7 @@ import AiAssistantButton from "./AiAssistantButton";
 import BottomNav from "./BottomNav";
 import AdPlaceholder from "./AdPlaceholder";
 import OfflineBanner from "./OfflineBanner";
+import SwUpdateIndicator from "./SwUpdateIndicator";
 import { useTheme } from "@/hooks/useTheme";
 
 const Layout = () => {
@@ -52,6 +53,7 @@ const Layout = () => {
       <AdPlaceholder />
       <Footer />
       <AiAssistantButton />
+      <SwUpdateIndicator />
       <BottomNav />
     </div>
   );
