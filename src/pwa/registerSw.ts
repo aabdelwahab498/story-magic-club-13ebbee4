@@ -1,6 +1,7 @@
 // Guarded service worker registration for Lovable.
 // Only registers in production, real origins, never inside iframe/preview.
 import { toast } from "sonner";
+import { setPendingSwUpdate, applyPendingSwUpdate } from "./swUpdate";
 
 const SW_URL = "/sw.js";
 
@@ -51,17 +52,17 @@ export async function registerServiceWorker() {
     const wb = new Workbox(SW_URL, { scope: "/" });
 
     wb.addEventListener("waiting", () => {
-      // New version ready — tell SW to skip waiting then reload
+      // Defer the update — store it and surface a non-blocking toast.
+      // Auto-applies on `story:ended` event, or the user can apply now.
+      setPendingSwUpdate(wb);
       toast("تحديث جديد متاح", {
-        description: "اضغط لتحديث التطبيق إلى أحدث إصدار.",
+        description:
+          "سيتم تطبيق التحديث تلقائياً بعد انتهاء القصة الحالية، أو اضغط لتحديث الآن.",
         action: {
-          label: "تحديث",
-          onClick: () => {
-            wb.addEventListener("controlling", () => window.location.reload());
-            wb.messageSkipWaiting();
-          },
+          label: "تحديث الآن",
+          onClick: () => applyPendingSwUpdate(),
         },
-        duration: 10000,
+        duration: 12000,
       });
     });
 
