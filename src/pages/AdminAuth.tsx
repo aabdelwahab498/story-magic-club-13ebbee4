@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import ResendConfirmation from "@/components/ResendConfirmation";
 
 const AdminAuth = () => {
   const { t } = useTranslation();
@@ -221,6 +222,11 @@ const AdminAuth = () => {
                   )}
                 </p>
               </div>
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                  {t("admin_auth.forgot_password", "Forgot password?")}
+                </Link>
+              </div>
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -247,9 +253,13 @@ const AdminAuth = () => {
                     { email: signupSuccess }
                   )}
                 </p>
+                <ResendConfirmation
+                  email={signupSuccess}
+                  redirectTo={`${window.location.origin}/admin/auth`}
+                />
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   className="w-full"
                   onClick={() => {
                     setSignupSuccess(null);
