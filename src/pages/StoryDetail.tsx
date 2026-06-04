@@ -151,7 +151,12 @@ const StoryDetail = () => {
         language: storyLang,
         character: narrator,
         ageId: story.age_range || undefined,
-        onEnd: () => { ttsRef.current = null; setIsPlaying(false); },
+        onEnd: () => {
+          ttsRef.current = null;
+          setIsPlaying(false);
+          // Signal that it's a safe moment to apply any deferred SW update.
+          try { window.dispatchEvent(new Event("story:ended")); } catch { /* noop */ }
+        },
         onError: () => { ttsRef.current = null; setIsPlaying(false); },
       });
       ttsRef.current = handle;
