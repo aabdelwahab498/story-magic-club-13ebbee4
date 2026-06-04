@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import ResendConfirmation from "@/components/ResendConfirmation";
 
 const Auth = () => {
   const { t } = useTranslation();
@@ -294,6 +295,11 @@ const Auth = () => {
                   </button>
                 )}
               </div>
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                  {t("auth.forgot_password", "Forgot password?")}
+                </Link>
+              </div>
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.submit_sign_in")}
               </Button>
@@ -316,9 +322,13 @@ const Auth = () => {
                     { email: signupSuccess }
                   )}
                 </p>
+                <ResendConfirmation
+                  email={signupSuccess}
+                  redirectTo={`${window.location.origin}/`}
+                />
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   className="w-full"
                   onClick={() => {
                     setSignupSuccess(null);

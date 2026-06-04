@@ -23,6 +23,8 @@ const AIStoryteller = lazy(() => import("./pages/AIStoryteller"));
 const DrawingCompetition = lazy(() => import("./pages/DrawingCompetition"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AdminAuth = lazy(() => import("./pages/AdminAuth"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
@@ -98,6 +100,8 @@ const App = () => (
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/admin/auth" element={<AdminAuth />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Index />} />
                     <Route path="stories" element={<StoryLibrary />} />
