@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { checkRateLimit, recordHit } from "@/lib/rateLimit";
+import { describeAuthError } from "@/lib/authErrors";
+
+// Allow at most 5 password-update attempts per 10 min, then 15 min cooldown.
+const RL_WINDOW_MS = 10 * 60 * 1000;
+const RL_MAX_HITS = 5;
+const RL_BLOCK_MS = 15 * 60 * 1000;
+const RL_KEY = "reset:update";
 
 const ResetPassword = () => {
   const { t } = useTranslation();
@@ -55,11 +63,27 @@ const ResetPassword = () => {
       toast.error(t("reset.mismatch", "Passwords do not match"));
       return;
     }
+
+    const rl = checkRateLimit(RL_KEY, RL_MAX_HITS, RL_WINDOW_MS);
+    if (!rl.allowed) {
+      const mins = Math.ceil(rl.retryInSeconds / 60);
+      toast.error(
+        t(
+          "reset.rate_limited",
+          "Too many attempts. Please wait {{mins}} min before trying again.",
+          { mins }
+        )
+      );
+      return;
+    }
+
     setSubmitting(true);
     const { error: upErr } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
+    recordHit(RL_KEY, RL_MAX_HITS, RL_WINDOW_MS, RL_BLOCK_MS);
+
     if (upErr) {
-      toast.error(upErr.message);
+      toast.error(describeAuthError(upErr, t, "reset"), { duration: 7000 });
       return;
     }
     toast.success(t("reset.success", "Password updated — please sign in ✨"));
