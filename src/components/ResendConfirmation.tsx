@@ -71,6 +71,8 @@ const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
       className="w-full"
       onClick={resend}
       disabled={sending || secondsLeft > 0}
+      data-testid="resend-confirmation"
+      data-cooldown={secondsLeft}
     >
       {sending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
