@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import ResendConfirmation from "@/components/ResendConfirmation";
+import { describeAuthError } from "@/lib/authErrors";
 
 const Auth = () => {
   const { t } = useTranslation();
@@ -64,7 +65,7 @@ const Auth = () => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setSubmitting(false);
-      toast.error(error.message);
+      toast.error(describeAuthError(error, t, "signin"), { duration: 7000 });
       return;
     }
 
@@ -136,7 +137,7 @@ const Auth = () => {
     });
     setSubmitting(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(describeAuthError(error, t, "signup"), { duration: 7000 });
       return;
     }
     setSignupSuccess(email);
