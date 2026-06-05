@@ -8,3 +8,10 @@ verify_jwt = false
 
 [functions.paddle-webhook-test]
 verify_jwt = false
+
+[functions.send-welcome-email]
+verify_jwt = false
+
+[functions.send-contact-email]
+verify_jwt = false
+
