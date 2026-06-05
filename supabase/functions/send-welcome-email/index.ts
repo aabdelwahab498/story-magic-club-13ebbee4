@@ -93,6 +93,39 @@ function tryJson(s: string) { try { return JSON.parse(s); } catch { return null;
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Auth: must be called either from the app with a valid user JWT (matching email)
+  // or from server code carrying the service-role bearer.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const isService = bearer && serviceKey && bearer === serviceKey;
+
+  let callerEmail: string | null = null;
+  if (!isService) {
+    if (!bearer) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    try {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        serviceKey,
+      );
+      const { data: userData, error: userErr } = await adminClient.auth.getUser(bearer);
+      if (userErr || !userData?.user?.email) {
+        return new Response(JSON.stringify({ error: "invalid_token" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      callerEmail = userData.user.email.toLowerCase();
+    } catch {
+      return new Response(JSON.stringify({ error: "auth_failed" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   let body: Body;
   try {
     body = await req.json();
@@ -104,6 +137,13 @@ Deno.serve(async (req) => {
   if (!body.email || typeof body.email !== "string") {
     return new Response(JSON.stringify({ error: "email_required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Non-service callers can only send to their own email (prevents spam)
+  if (!isService && callerEmail && body.email.toLowerCase() !== callerEmail) {
+    return new Response(JSON.stringify({ error: "email_mismatch" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
