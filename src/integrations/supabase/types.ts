@@ -478,6 +478,36 @@ export type Database = {
           },
         ]
       }
+      email_delivery_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          payload: Json
+          recipient: string
+          status: string
+          template: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          recipient: string
+          status?: string
+          template: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          recipient?: string
+          status?: string
+          template?: string
+        }
+        Relationships: []
+      }
       file_scan_jobs: {
         Row: {
           attempts: number
@@ -1007,6 +1037,57 @@ export type Database = {
           tier?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      paddle_transactions: {
+        Row: {
+          amount_cents: number | null
+          created_at: string
+          currency: string | null
+          event_type: string
+          id: string
+          occurred_at: string | null
+          paddle_customer_id: string | null
+          paddle_price_id: string | null
+          paddle_subscription_id: string | null
+          paddle_transaction_id: string | null
+          raw: Json
+          status: string | null
+          tier: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string | null
+          paddle_customer_id?: string | null
+          paddle_price_id?: string | null
+          paddle_subscription_id?: string | null
+          paddle_transaction_id?: string | null
+          raw?: Json
+          status?: string | null
+          tier?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string | null
+          paddle_customer_id?: string | null
+          paddle_price_id?: string | null
+          paddle_subscription_id?: string | null
+          paddle_transaction_id?: string | null
+          raw?: Json
+          status?: string | null
+          tier?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
