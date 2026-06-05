@@ -69,6 +69,14 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Replay protection: reject events older than 5 minutes
+  const tsNum = Number(ts);
+  if (!Number.isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > 300) {
+    return new Response(JSON.stringify({ error: 'stale_timestamp' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   let event: any;
   try { event = JSON.parse(raw); } catch {
     return new Response(JSON.stringify({ error: 'invalid_json' }), {

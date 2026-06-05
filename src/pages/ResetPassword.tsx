@@ -50,8 +50,28 @@ const ResetPassword = () => {
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    // Fallback timeout: if neither session nor PASSWORD_RECOVERY fires within 6s,
+    // surface the invalid-link UI so users aren't stuck on a spinner.
+    const timeout = window.setTimeout(() => {
+      setReady((curr) => {
+        if (!curr) {
+          setError(
+            t(
+              "reset.invalid_link",
+              "Reset link is missing or expired. Please request a new one."
+            )
+          );
+        }
+        return curr;
+      });
+    }, 6000);
+
+    return () => {
+      sub.subscription.unsubscribe();
+      window.clearTimeout(timeout);
+    };
   }, [t]);
+
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

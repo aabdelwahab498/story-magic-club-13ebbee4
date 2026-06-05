@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power, Zap, Plus, Trash2 } from "lucide-react";
+import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power, Zap, Plus, Trash2, AlertTriangle, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,7 @@ export default function AdminPlansPage() {
         sort_order: Number(plan.sort_order) || 0,
         paddle_price_id: plan.paddle_price_id?.trim() || null,
         paddle_product_id: plan.paddle_product_id?.trim() || null,
+        is_featured: !!plan.is_featured,
       });
       toast.success(t("admin_plans.saved", "Saved — changes are live on /pricing"));
     } catch (e: any) {
@@ -114,6 +115,28 @@ export default function AdminPlansPage() {
           Sync Paddle products
         </Button>
       </header>
+
+      {(() => {
+        const missing = plans.filter(
+          (p) => p.tier !== "free" && p.active && !p.paddle_price_id?.trim(),
+        );
+        if (missing.length === 0) return null;
+        return (
+          <div className="flex items-start gap-3 rounded-2xl border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-900 dark:text-amber-200">
+                Paddle Price ID missing on {missing.length} paid plan{missing.length > 1 ? "s" : ""}
+              </p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-1">
+                Users will not be able to check out on:{" "}
+                <span className="font-mono">{missing.map((m) => m.tier).join(", ")}</span>.
+                Paste the IDs from Paddle (or click "Sync Paddle products") and save.
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {plans.map((plan) => (
@@ -297,6 +320,7 @@ export default function AdminPlansPage() {
               <FeatureToggle icon={<ImageIcon className="h-4 w-4" />} label={t("admin_plans.illustrations", "Illustrations")} checked={plan.allow_illustrations} onChange={(v) => patch(plan.id, { allow_illustrations: v })} />
               <FeatureToggle icon={<FileText className="h-4 w-4" />} label={t("admin_plans.download_pdf", "Download PDF")} checked={plan.allow_pdf} onChange={(v) => patch(plan.id, { allow_pdf: v })} />
               <FeatureToggle icon={<Headphones className="h-4 w-4" />} label={t("admin_plans.audio_book_elevenlabs", "Audio Book")} checked={plan.allow_audio} onChange={(v) => patch(plan.id, { allow_audio: v })} />
+              <FeatureToggle icon={<Star className="h-4 w-4" />} label={'Show as "Most popular"'} checked={!!plan.is_featured} onChange={(v) => patch(plan.id, { is_featured: v })} />
               <FeatureToggle icon={<Power className="h-4 w-4" />} label={t("admin_plans.plan_active", "Plan active (show on /pricing)")} checked={plan.active} onChange={(v) => patch(plan.id, { active: v })} />
             </div>
 

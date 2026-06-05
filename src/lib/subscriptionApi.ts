@@ -24,6 +24,7 @@ export interface SubscriptionPlan {
   sort_order: number;
   paddle_price_id?: string | null;
   paddle_product_id?: string | null;
+  is_featured?: boolean;
 }
 
 export interface UserSubscription {

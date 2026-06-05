@@ -5,5 +5,7 @@ Disallow: /admin/
 Disallow: /parent
 Disallow: /account/
 Disallow: /checkout/
+Disallow: /reset-password
+Disallow: /forgot-password
 
-Sitemap: https://bedtime-buddy-box.lovable.app/sitemap.xml
+Sitemap: https://najmah.app/sitemap.xml
