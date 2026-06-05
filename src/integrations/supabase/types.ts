@@ -478,6 +478,36 @@ export type Database = {
           },
         ]
       }
+      email_delivery_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          payload: Json
+          recipient: string
+          status: string
+          template: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          recipient: string
+          status?: string
+          template: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          recipient?: string
+          status?: string
+          template?: string
+        }
+        Relationships: []
+      }
       file_scan_jobs: {
         Row: {
           attempts: number
