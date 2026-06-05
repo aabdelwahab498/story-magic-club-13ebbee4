@@ -405,8 +405,10 @@ const Pricing = () => {
 
             </article>
           );
-        })}
+        });
+        })()}
       </div>
+
 
       <p className="text-center text-xs text-muted-foreground max-w-xl mx-auto mt-8">
         {t(
