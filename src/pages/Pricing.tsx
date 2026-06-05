@@ -309,7 +309,10 @@ const Pricing = () => {
         {(() => {
           const list = q.data ?? [];
           const paid = list.filter((p) => (p.price_usd ?? 0) > 0);
-          const popularId = paid.length
+          const explicitlyFeatured = paid.find((p) => p.is_featured);
+          const popularId = explicitlyFeatured
+            ? explicitlyFeatured.id
+            : paid.length
             ? paid.reduce((a, b) => ((b.price_usd ?? 0) > (a.price_usd ?? 0) ? b : a)).id
             : null;
           return list.map((plan) => {
