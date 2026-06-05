@@ -16,10 +16,11 @@ import { PLATFORM_CONFIG } from "@/components/SocialIcons";
 const PLACEHOLDERS: Record<string, string> = {
   facebook: "https://facebook.com/yourpage",
   instagram: "https://instagram.com/yourhandle",
-  snapchat: "https://snapchat.com/add/yourhandle",
+  youtube: "https://youtube.com/@yourchannel",
   tiktok: "https://tiktok.com/@yourhandle",
-  telegram: "https://t.me/yourchannel",
-  whatsapp: "+201234567890 or https://wa.me/201234567890",
+  pinterest: "https://pinterest.com/yourhandle",
+  reddit: "https://reddit.com/r/yoursub",
+  amazon: "https://amazon.com/shops/yourstore",
 };
 
 const SocialLinksManager = () => {
