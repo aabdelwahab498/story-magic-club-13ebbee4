@@ -1010,6 +1010,57 @@ export type Database = {
         }
         Relationships: []
       }
+      paddle_transactions: {
+        Row: {
+          amount_cents: number | null
+          created_at: string
+          currency: string | null
+          event_type: string
+          id: string
+          occurred_at: string | null
+          paddle_customer_id: string | null
+          paddle_price_id: string | null
+          paddle_subscription_id: string | null
+          paddle_transaction_id: string | null
+          raw: Json
+          status: string | null
+          tier: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string | null
+          paddle_customer_id?: string | null
+          paddle_price_id?: string | null
+          paddle_subscription_id?: string | null
+          paddle_transaction_id?: string | null
+          raw?: Json
+          status?: string | null
+          tier?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string | null
+          paddle_customer_id?: string | null
+          paddle_price_id?: string | null
+          paddle_subscription_id?: string | null
+          paddle_transaction_id?: string | null
+          raw?: Json
+          status?: string | null
+          tier?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       paddle_webhook_events: {
         Row: {
           created_at: string
