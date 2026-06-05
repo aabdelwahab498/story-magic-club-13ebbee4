@@ -4,10 +4,10 @@ export type SocialPlatform =
   | "facebook"
   | "instagram"
   | "youtube"
-  | "whatsapp"
-  | "telegram"
   | "tiktok"
-  | "snapchat";
+  | "pinterest"
+  | "reddit"
+  | "amazon";
 
 export type SocialLinks = Record<SocialPlatform, string>;
 
@@ -15,22 +15,22 @@ export const SOCIAL_PLATFORMS: SocialPlatform[] = [
   "facebook",
   "instagram",
   "youtube",
-  "whatsapp",
-  "telegram",
   "tiktok",
-  "snapchat",
+  "pinterest",
+  "reddit",
+  "amazon",
 ];
 
-const STORAGE_KEY = "najmah:social_links:v1";
+const STORAGE_KEY = "najmah:social_links:v2";
 
 const DEFAULTS: SocialLinks = {
   facebook: "",
   instagram: "",
   youtube: "",
-  whatsapp: "",
-  telegram: "",
   tiktok: "",
-  snapchat: "",
+  pinterest: "",
+  reddit: "",
+  amazon: "",
 };
 
 const read = (): SocialLinks => {
