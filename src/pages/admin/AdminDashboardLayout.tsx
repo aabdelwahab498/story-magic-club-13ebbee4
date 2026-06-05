@@ -22,6 +22,7 @@ import {
   Volume2,
   Inbox,
   Receipt,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
