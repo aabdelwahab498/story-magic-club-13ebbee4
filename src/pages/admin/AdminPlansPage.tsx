@@ -138,6 +138,7 @@ export default function AdminPlansPage() {
         );
       })()}
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {plans.map((plan) => (
           <Card key={plan.id} className="p-5 space-y-4 border-2">
             <div className={`-m-5 mb-2 px-5 py-3 rounded-t-lg bg-gradient-to-r ${tierColor[plan.tier] ?? "from-primary to-primary"} text-white`}>
