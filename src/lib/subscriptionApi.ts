@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type PlanTier = "free" | "family" | "premium";
+// Plan tiers are free-form strings sourced from the DB (free, parent, growth, pro, …)
+export type PlanTier = string;
 export type Currency = "EGP" | "USD";
 export type PaymentMethod = "instapay" | "vodafone_cash" | "payoneer" | "bank_transfer";
 export type PaymentStatus = "pending" | "approved" | "rejected";
@@ -13,12 +14,16 @@ export interface SubscriptionPlan {
   price_egp: number;
   price_usd: number;
   monthly_story_limit: number;
+  daily_story_limit?: number;
+  illustration_credits?: number;
   allow_illustrations: boolean;
   allow_pdf: boolean;
   allow_audio: boolean;
   features: { ar?: string; en?: string }[];
   active: boolean;
   sort_order: number;
+  paddle_price_id?: string | null;
+  paddle_product_id?: string | null;
 }
 
 export interface UserSubscription {
