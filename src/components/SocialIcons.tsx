@@ -83,6 +83,13 @@ export const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     defaultUrl: "https://reddit.com",
     href: (v) => v || "https://reddit.com",
   },
+  quora: {
+    Icon: QuoraIcon,
+    label: "Quora",
+    hoverClass: "hover:bg-[#B92B27] hover:text-white hover:border-[#B92B27]",
+    defaultUrl: "https://quora.com",
+    href: (v) => v || "https://quora.com",
+  },
   amazon: {
     Icon: ({ className }) => <AmazonIcon className={className} />,
     label: "Amazon",

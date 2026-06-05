@@ -20,6 +20,7 @@ const PLACEHOLDERS: Record<string, string> = {
   tiktok: "https://tiktok.com/@yourhandle",
   pinterest: "https://pinterest.com/yourhandle",
   reddit: "https://reddit.com/r/yoursub",
+  quora: "https://quora.com/profile/yourhandle",
   amazon: "https://amazon.com/shops/yourstore",
 };
 
