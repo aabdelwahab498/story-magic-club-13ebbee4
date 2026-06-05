@@ -306,11 +306,18 @@ const Pricing = () => {
 
 
       <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto [&>*]:w-full md:[&>*]:w-[calc(33.333%-0.834rem)] [&>*]:max-w-sm">
-        {q.data?.map((plan) => {
+        {(() => {
+          const list = q.data ?? [];
+          const paid = list.filter((p) => (p.price_usd ?? 0) > 0);
+          const popularId = paid.length
+            ? paid.reduce((a, b) => ((b.price_usd ?? 0) > (a.price_usd ?? 0) ? b : a)).id
+            : null;
+          return list.map((plan) => {
           const isCurrent = currentTier === plan.tier;
-          const isPremium = plan.tier === "premium";
-          const isFree = plan.tier === "free";
+          const isPremium = plan.id === popularId;
+          const isFree = (plan.price_usd ?? 0) <= 0;
           const price = plan.price_usd;
+
           
 
           return (
