@@ -104,6 +104,50 @@ Deno.serve(async (req) => {
   try {
     const data = event?.data ?? {};
 
+    // Always log a row in paddle_transactions for admin audit (subscription.*, transaction.*, etc.)
+    try {
+      const txId: string | undefined =
+        eventType.startsWith('transaction.') ? data?.id : data?.transaction_id;
+      const subId: string | undefined =
+        eventType.startsWith('subscription.') ? data?.id : data?.subscription_id;
+      const customerIdLog: string | undefined = data?.customer_id;
+      const customDataLog = data?.custom_data ?? event?.custom_data ?? {};
+      const userIdLog: string | undefined = customDataLog?.user_id;
+      const firstItemLog = (data?.items ?? [])[0];
+      const priceIdLog: string | undefined =
+        firstItemLog?.price?.id ?? firstItemLog?.price_id;
+      const currencyLog: string | undefined =
+        data?.currency_code ?? data?.details?.totals?.currency_code;
+      const amountCentsLog = Number(
+        data?.details?.totals?.total ?? data?.totals?.total ?? data?.amount ?? 0,
+      );
+      let tierLog: string | null = null;
+      if (priceIdLog) {
+        const { data: planLog } = await supabase
+          .from('subscription_plans')
+          .select('tier')
+          .eq('paddle_price_id', priceIdLog)
+          .maybeSingle();
+        tierLog = planLog?.tier ?? null;
+      }
+      await supabase.from('paddle_transactions').insert({
+        user_id: userIdLog ?? null,
+        paddle_transaction_id: txId ?? null,
+        paddle_subscription_id: subId ?? null,
+        paddle_customer_id: customerIdLog ?? null,
+        paddle_price_id: priceIdLog ?? null,
+        tier: tierLog,
+        event_type: eventType,
+        status: data?.status ?? null,
+        amount_cents: Number.isFinite(amountCentsLog) ? amountCentsLog : null,
+        currency: currencyLog ?? null,
+        occurred_at: event?.occurred_at ?? null,
+        raw: data,
+      });
+    } catch (logErr) {
+      console.error('paddle_transactions insert failed:', logErr);
+    }
+
     if (eventType.startsWith('subscription.')) {
       const paddleSubId: string | undefined = data.id;
       const customerId: string | undefined = data.customer_id;
