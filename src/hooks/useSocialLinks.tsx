@@ -7,6 +7,7 @@ export type SocialPlatform =
   | "tiktok"
   | "pinterest"
   | "reddit"
+  | "quora"
   | "amazon";
 
 export type SocialLinks = Record<SocialPlatform, string>;
@@ -18,6 +19,7 @@ export const SOCIAL_PLATFORMS: SocialPlatform[] = [
   "tiktok",
   "pinterest",
   "reddit",
+  "quora",
   "amazon",
 ];
 
@@ -30,6 +32,7 @@ const DEFAULTS: SocialLinks = {
   tiktok: "",
   pinterest: "",
   reddit: "",
+  quora: "",
   amazon: "",
 };
 
