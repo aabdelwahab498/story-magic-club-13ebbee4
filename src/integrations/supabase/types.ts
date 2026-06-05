@@ -1576,6 +1576,7 @@ export type Database = {
           features: Json
           id: string
           illustration_credits: number
+          is_featured: boolean
           monthly_story_limit: number
           name: Json
           paddle_price_id: string | null
@@ -1599,6 +1600,7 @@ export type Database = {
           features?: Json
           id?: string
           illustration_credits?: number
+          is_featured?: boolean
           monthly_story_limit?: number
           name?: Json
           paddle_price_id?: string | null
@@ -1622,6 +1624,7 @@ export type Database = {
           features?: Json
           id?: string
           illustration_credits?: number
+          is_featured?: boolean
           monthly_story_limit?: number
           name?: Json
           paddle_price_id?: string | null
@@ -1970,13 +1973,19 @@ export type Database = {
       }
       check_story_quota: { Args: { _user_id: string }; Returns: Json }
       cleanup_rate_limit_data: { Args: never; Returns: undefined }
+      cleanup_rate_limit_events: { Args: never; Returns: number }
       cleanup_upload_pipeline: { Args: never; Returns: undefined }
+      consume_credits: {
+        Args: { _n: number; _user_id: string }
+        Returns: number
+      }
       consume_illustration_credits: {
         Args: { _amount: number; _user_id: string }
         Returns: Json
       }
       expire_due_subscriptions: { Args: never; Returns: number }
       get_active_paddle_tier: { Args: { _user_id: string }; Returns: string }
+      grant_credits: { Args: { _n: number; _user_id: string }; Returns: number }
       has_paid_feature: {
         Args: { _feature: string; _user_id: string }
         Returns: boolean
@@ -1997,6 +2006,7 @@ export type Database = {
         Args: { _reason?: string; _request_id: string }
         Returns: undefined
       }
+      reset_monthly_credits: { Args: never; Returns: number }
       reset_monthly_illustration_credits: { Args: never; Returns: number }
       user_daily_upload_bytes: { Args: { _user_id: string }; Returns: number }
     }
