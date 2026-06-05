@@ -50,6 +50,8 @@ const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
 const AdminWebhookLogsPage = lazy(() => import("./pages/admin/AdminWebhookLogsPage"));
+const AdminContactInboxPage = lazy(() => import("./pages/admin/AdminContactInboxPage"));
+const AdminPaymentLogsPage = lazy(() => import("./pages/admin/AdminPaymentLogsPage"));
 const AdminStoryEnginePage = lazy(() => import("./pages/admin/AdminStoryEnginePage"));
 const AdminAiModelsPage = lazy(() => import("./pages/admin/AdminAiModelsPage"));
 const AdminIllustrationAnalyticsPage = lazy(() => import("./pages/admin/AdminIllustrationAnalyticsPage"));
@@ -152,6 +154,8 @@ const App = () => (
                       <Route path="products" element={<AdminProductsPage />} />
                       <Route path="orders" element={<AdminOrdersPage />} />
                       <Route path="webhook-logs" element={<AdminWebhookLogsPage />} />
+                      <Route path="payment-logs" element={<AdminPaymentLogsPage />} />
+                      <Route path="contact-inbox" element={<AdminContactInboxPage />} />
                       <Route path="languages" element={<AdminLanguagesPage />} />
                       <Route path="settings" element={<AdminSettingsPage />} />
                     </Route>

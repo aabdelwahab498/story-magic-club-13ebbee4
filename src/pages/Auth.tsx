@@ -140,6 +140,16 @@ const Auth = () => {
       toast.error(describeAuthError(error, t, "signup"), { duration: 7000 });
       return;
     }
+    // Fire-and-forget welcome email; never block signup.
+    supabase.functions
+      .invoke("send-welcome-email", {
+        body: {
+          email,
+          name: displayName,
+          language: localStorage.getItem("starry-tales-language") || "en",
+        },
+      })
+      .catch(() => { /* logged server-side */ });
     setSignupSuccess(email);
     toast.success(
       t("auth.check_email", "Check your inbox to confirm your email ✉️"),
