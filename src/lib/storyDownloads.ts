@@ -100,12 +100,13 @@ export async function exportStoryEpub(storyId: string): Promise<string> {
 export interface BatchStartResult {
   jobId: string;
   total: number;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "cancelled";
 }
 
 export async function startBatchDownload(args: {
   childId?: string;
   formats: ("pdf" | "mp3" | "txt" | "epub")[];
+  storyIds?: string[];
 }): Promise<BatchStartResult> {
   const { data, error } = await supabase.functions.invoke("batch-download-stories", {
     body: args,
@@ -113,6 +114,23 @@ export async function startBatchDownload(args: {
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return { jobId: data.jobId, total: data.total, status: data.status ?? "running" };
+}
+
+export async function cancelBatchJob(jobId: string): Promise<void> {
+  const { error } = await supabase
+    .from("batch_export_jobs")
+    .update({ cancel_requested: true })
+    .eq("id", jobId);
+  if (error) throw error;
+}
+
+export async function refreshBundleUrl(jobId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("refresh-bundle-url", {
+    body: { jobId },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data.bundleUrl as string;
 }
 
 // Backwards-compat name (kept so older callers still type-check).
