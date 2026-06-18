@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: permRows } = await supabase
       .from("rbac_permissions")
       .select("permission_key, granted, role")
-      .in("role", userRoles as string[])
+      .in("role", userRoles as unknown as ("admin" | "editor" | "user")[])
       .eq("granted", true);
     const perms = Array.from(
       new Set(((permRows ?? []) as { permission_key: string }[]).map((p) => p.permission_key))
