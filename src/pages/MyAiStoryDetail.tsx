@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Seo from "@/components/Seo";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
+import DownloadMenu from "@/components/story/DownloadMenu";
 import type { AiStoryRow } from "@/lib/aiStoryApi";
 
 const splitTextIntoPages = (text: string): StoryVideoPage[] => {
