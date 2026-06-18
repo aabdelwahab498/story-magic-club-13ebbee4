@@ -154,6 +154,15 @@ const App = () => (
                       <Route path="illustration-analytics" element={<AdminIllustrationAnalyticsPage />} />
                       <Route path="ai-usage" element={<AdminAiUsagePage />} />
                       <Route path="audio" element={<AdminAudioPage />} />
+                      <Route path="ai/agents" element={<AdminAiAgentsPage />} />
+                      <Route path="ai/prompts" element={<AdminAiPromptsPage />} />
+                      <Route path="ai/features" element={<AdminAiFeatureTogglesPage />} />
+                      <Route path="ai/limits" element={<AdminAiUsageLimitsPage />} />
+                      <Route path="ai/analytics" element={<AdminAiAnalyticsPage />} />
+                      <Route path="ai/pdf-templates" element={<AdminPdfTemplatesPage />} />
+                      <Route path="ai/voices" element={<AdminAudioVoicesPage />} />
+                      <Route path="ai/rbac" element={<AdminRbacPage />} />
+                      <Route path="ai/audit" element={<AdminAuditLogsPage />} />
                       <Route path="videos" element={<AdminVideosPage />} />
                       <Route path="blog" element={<AdminBlogPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />
