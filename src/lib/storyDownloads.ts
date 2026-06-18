@@ -48,6 +48,35 @@ export function downloadTxt(title: string, pages: StoryPageLike[]) {
   downloadBlob(blob, `${safeFilename(title)}.txt`);
 }
 
+/**
+ * Resolve a public storage URL into a short-lived signed URL so the browser
+ * can stream the file directly to disk (Content-Disposition triggered by the
+ * `download` attribute on a synthetic anchor).
+ * Falls back to the original URL if path extraction or signing fails.
+ */
+export async function signStorageUrl(
+  publicUrl: string,
+  bucket: string,
+  ttl = 3600,
+): Promise<string> {
+  try {
+    const marker = `/object/public/${bucket}/`;
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return publicUrl;
+    const path = decodeURIComponent(publicUrl.slice(idx + marker.length).split("?")[0]);
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, ttl);
+    if (error || !data?.signedUrl) return publicUrl;
+    return data.signedUrl;
+  } catch {
+    return publicUrl;
+  }
+}
+
+export async function downloadAudioMp3(audioUrl: string, filename: string) {
+  const signed = await signStorageUrl(audioUrl, "story-audio");
+  await downloadFromUrl(signed, filename);
+}
+
 // === Edge function callers ===
 
 export async function exportStoryPdf(storyId: string): Promise<string> {
@@ -68,14 +97,23 @@ export async function exportStoryEpub(storyId: string): Promise<string> {
   return data.epubUrl as string;
 }
 
-export async function batchDownloadStories(args: {
+export interface BatchStartResult {
+  jobId: string;
+  total: number;
+  status: "running" | "completed" | "failed";
+}
+
+export async function startBatchDownload(args: {
   childId?: string;
   formats: ("pdf" | "mp3" | "txt" | "epub")[];
-}): Promise<{ bundleUrl: string; total: number }> {
+}): Promise<BatchStartResult> {
   const { data, error } = await supabase.functions.invoke("batch-download-stories", {
     body: args,
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
-  return { bundleUrl: data.bundleUrl as string, total: data.total as number };
+  return { jobId: data.jobId, total: data.total, status: data.status ?? "running" };
 }
+
+// Backwards-compat name (kept so older callers still type-check).
+export const batchDownloadStories = startBatchDownload;
