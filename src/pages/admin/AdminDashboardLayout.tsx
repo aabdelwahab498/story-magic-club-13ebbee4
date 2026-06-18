@@ -22,6 +22,11 @@ import {
   Volume2,
   Inbox,
   Receipt,
+  ToggleRight,
+  Gauge,
+  FileType2,
+  ShieldCheck,
+  ScrollText,
 } from "lucide-react";
 import {
   Sidebar,
