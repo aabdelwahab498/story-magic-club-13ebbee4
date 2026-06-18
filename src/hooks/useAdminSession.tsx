@@ -89,9 +89,9 @@ export function useAdminSession() {
       "click",
       "scroll",
       "touchstart",
-      "visibilitychange",
     ];
     events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    document.addEventListener("visibilitychange", reset);
     reset();
 
     return () => {
