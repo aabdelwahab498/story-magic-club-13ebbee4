@@ -362,6 +362,9 @@ export async function fetchUsageStats(days = 30): Promise<UsageStats> {
 
 // ============== AUDIT LOGS ==============
 export async function fetchAuditLogs(limit = 200) {
+  // Defense-in-depth: require an authenticated session before issuing the query.
+  const { data: sess } = await supabase.auth.getSession();
+  if (!sess.session) throw new Error("not_authenticated");
   const { data, error } = await supabase
     .from("ai_audit_logs" as any)
     .select("*")
@@ -369,6 +372,37 @@ export async function fetchAuditLogs(limit = 200) {
     .limit(limit);
   if (error) throw error;
   return (data ?? []) as unknown as AiAuditLog[];
+}
+
+export async function fetchAuditLogsPaged(opts: {
+  page: number;
+  pageSize: number;
+  userId?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+}) {
+  const { data: sess } = await supabase.auth.getSession();
+  if (!sess.session) throw new Error("not_authenticated");
+  const start = opts.page * opts.pageSize;
+  const end = start + opts.pageSize - 1;
+  let q = supabase
+    .from("ai_audit_logs" as any)
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false });
+  if (opts.userId) q = q.eq("actor_id", opts.userId);
+  if (opts.from) q = q.gte("created_at", new Date(opts.from).toISOString());
+  if (opts.to) {
+    const toDate = new Date(opts.to);
+    toDate.setDate(toDate.getDate() + 1);
+    q = q.lt("created_at", toDate.toISOString());
+  }
+  if (opts.search) q = q.or(
+    `action.ilike.%${opts.search}%,entity_type.ilike.%${opts.search}%,entity_id.ilike.%${opts.search}%`,
+  );
+  const { data, error, count } = await q.range(start, end);
+  if (error) throw error;
+  return { rows: (data ?? []) as unknown as AiAuditLog[], total: count ?? 0 };
 }
 
 export async function logAudit(
