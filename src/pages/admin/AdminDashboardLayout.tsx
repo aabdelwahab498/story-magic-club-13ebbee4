@@ -69,6 +69,15 @@ const navItems = [
   { titleKey: "admin_dashboard.nav.plans", url: "/admin/dashboard/plans", icon: Crown, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Subscription Plans" },
   { titleKey: "admin_dashboard.nav.languages", url: "/admin/dashboard/languages", icon: Languages, gradient: "from-kids-green to-kids-blue", labelFallback: "Languages" },
   { titleKey: "admin_dashboard.nav.settings", url: "/admin/dashboard/settings", icon: Settings, gradient: "from-kids-orange to-kids-yellow", labelFallback: "Settings" },
+  { titleKey: "admin_dashboard.nav.ai_agents", url: "/admin/dashboard/ai/agents", icon: Bot, gradient: "from-violet-500 to-fuchsia-500", labelFallback: "AI Agents" },
+  { titleKey: "admin_dashboard.nav.ai_prompts", url: "/admin/dashboard/ai/prompts", icon: FileText, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Prompts" },
+  { titleKey: "admin_dashboard.nav.ai_features", url: "/admin/dashboard/ai/features", icon: ToggleRight, gradient: "from-emerald-500 to-cyan-500", labelFallback: "Feature Toggles" },
+  { titleKey: "admin_dashboard.nav.ai_limits", url: "/admin/dashboard/ai/limits", icon: Gauge, gradient: "from-amber-500 to-orange-500", labelFallback: "Usage Limits" },
+  { titleKey: "admin_dashboard.nav.ai_analytics", url: "/admin/dashboard/ai/analytics", icon: Activity, gradient: "from-sky-500 to-indigo-500", labelFallback: "AI Analytics" },
+  { titleKey: "admin_dashboard.nav.ai_pdf", url: "/admin/dashboard/ai/pdf-templates", icon: FileType2, gradient: "from-rose-500 to-red-500", labelFallback: "PDF Templates" },
+  { titleKey: "admin_dashboard.nav.ai_voices", url: "/admin/dashboard/ai/voices", icon: Volume2, gradient: "from-pink-500 to-rose-500", labelFallback: "Voice Profiles" },
+  { titleKey: "admin_dashboard.nav.ai_rbac", url: "/admin/dashboard/ai/rbac", icon: ShieldCheck, gradient: "from-teal-500 to-emerald-500", labelFallback: "RBAC" },
+  { titleKey: "admin_dashboard.nav.ai_audit", url: "/admin/dashboard/ai/audit", icon: ScrollText, gradient: "from-slate-500 to-zinc-600", labelFallback: "Audit Logs" },
 ];
 
 const AdminSidebar = () => {
