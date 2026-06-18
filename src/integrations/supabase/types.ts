@@ -44,6 +44,256 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_agents: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          custom_tone_text: string | null
+          description: string | null
+          id: string
+          is_default: boolean
+          max_tokens: number
+          model: string
+          name: string
+          slug: string
+          system_prompt: string
+          temperature: number
+          tone: Database["public"]["Enums"]["ai_tone"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          custom_tone_text?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          max_tokens?: number
+          model?: string
+          name: string
+          slug: string
+          system_prompt?: string
+          temperature?: number
+          tone?: Database["public"]["Enums"]["ai_tone"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          custom_tone_text?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          max_tokens?: number
+          model?: string
+          name?: string
+          slug?: string
+          system_prompt?: string
+          temperature?: number
+          tone?: Database["public"]["Enums"]["ai_tone"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      ai_capabilities: {
+        Row: {
+          agent_id: string
+          capability_key: string
+          config: Json
+          created_at: string
+          enabled: boolean
+          id: string
+        }
+        Insert: {
+          agent_id: string
+          capability_key: string
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+        }
+        Update: {
+          agent_id?: string
+          capability_key?: string
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_capabilities_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_feature_toggles: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          feature_key: string
+          id: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          feature_key: string
+          id?: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          feature_key?: string
+          id?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ai_prompt_templates: {
+        Row: {
+          active: boolean
+          body: string
+          category: string
+          created_at: string
+          created_by: string | null
+          current_version: number
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          active?: boolean
+          body?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          current_version?: number
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          active?: boolean
+          body?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          current_version?: number
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
+      ai_prompt_versions: {
+        Row: {
+          body: string
+          changelog: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          published: boolean
+          template_id: string
+          variables: Json
+          version_no: number
+        }
+        Insert: {
+          body: string
+          changelog?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published?: boolean
+          template_id: string
+          variables?: Json
+          version_no: number
+        }
+        Update: {
+          body?: string
+          changelog?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published?: boolean
+          template_id?: string
+          variables?: Json
+          version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_story_history: {
         Row: {
           age_band: string | null
@@ -122,6 +372,101 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_limits: {
+        Row: {
+          created_at: string
+          daily_limit: number | null
+          feature_key: string | null
+          id: string
+          monthly_limit: number | null
+          notes: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+          scope: Database["public"]["Enums"]["ai_limit_scope"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number | null
+          feature_key?: string | null
+          id?: string
+          monthly_limit?: number | null
+          notes?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          scope?: Database["public"]["Enums"]["ai_limit_scope"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number | null
+          feature_key?: string | null
+          id?: string
+          monthly_limit?: number | null
+          notes?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          scope?: Database["public"]["Enums"]["ai_limit_scope"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_usage_logs: {
+        Row: {
+          agent_id: string | null
+          cost_usd: number | null
+          created_at: string
+          error: string | null
+          feature_key: string
+          id: string
+          latency_ms: number | null
+          metadata: Json
+          model: string | null
+          status: Database["public"]["Enums"]["ai_usage_status"]
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error?: string | null
+          feature_key: string
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json
+          model?: string | null
+          status?: Database["public"]["Enums"]["ai_usage_status"]
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error?: string | null
+          feature_key?: string
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json
+          model?: string | null
+          status?: Database["public"]["Enums"]["ai_usage_status"]
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           allow_free_registrations: boolean
@@ -140,6 +485,54 @@ export type Database = {
           id?: boolean
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      audio_voice_profiles: {
+        Row: {
+          active: boolean
+          config: Json
+          created_at: string
+          description: string | null
+          gender: string | null
+          id: string
+          is_default: boolean
+          language: string | null
+          name: string
+          provider: string
+          sample_url: string | null
+          updated_at: string
+          voice_id: string
+        }
+        Insert: {
+          active?: boolean
+          config?: Json
+          created_at?: string
+          description?: string | null
+          gender?: string | null
+          id?: string
+          is_default?: boolean
+          language?: string | null
+          name: string
+          provider?: string
+          sample_url?: string | null
+          updated_at?: string
+          voice_id: string
+        }
+        Update: {
+          active?: boolean
+          config?: Json
+          created_at?: string
+          description?: string | null
+          gender?: string | null
+          id?: string
+          is_default?: boolean
+          language?: string | null
+          name?: string
+          provider?: string
+          sample_url?: string | null
+          updated_at?: string
+          voice_id?: string
         }
         Relationships: []
       }
@@ -556,6 +949,56 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_audio_files: {
+        Row: {
+          created_at: string
+          duration_sec: number | null
+          error: string | null
+          id: string
+          size_bytes: number | null
+          status: string
+          text_hash: string | null
+          text_preview: string | null
+          url: string | null
+          user_id: string | null
+          voice_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_sec?: number | null
+          error?: string | null
+          id?: string
+          size_bytes?: number | null
+          status?: string
+          text_hash?: string | null
+          text_preview?: string | null
+          url?: string | null
+          user_id?: string | null
+          voice_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_sec?: number | null
+          error?: string | null
+          id?: string
+          size_bytes?: number | null
+          status?: string
+          text_hash?: string | null
+          text_preview?: string | null
+          url?: string | null
+          user_id?: string | null
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_audio_files_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "audio_voice_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_illustrations: {
         Row: {
           character_profile_hash: string | null
@@ -602,6 +1045,56 @@ export type Database = {
             columns: ["story_id"]
             isOneToOne: false
             referencedRelation: "ai_story_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_pdfs: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          metadata: Json
+          size_bytes: number | null
+          status: string
+          story_id: string | null
+          template_id: string | null
+          title: string | null
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          metadata?: Json
+          size_bytes?: number | null
+          status?: string
+          story_id?: string | null
+          template_id?: string | null
+          title?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          metadata?: Json
+          size_bytes?: number | null
+          status?: string
+          story_id?: string | null
+          template_id?: string | null
+          title?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_pdfs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "pdf_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1193,6 +1686,57 @@ export type Database = {
         }
         Relationships: []
       }
+      pdf_templates: {
+        Row: {
+          active: boolean
+          branding: Json
+          created_at: string
+          description: string | null
+          footer_html: string | null
+          header_html: string | null
+          id: string
+          is_default: boolean
+          layout: Json
+          name: string
+          orientation: string
+          page_size: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          branding?: Json
+          created_at?: string
+          description?: string | null
+          footer_html?: string | null
+          header_html?: string | null
+          id?: string
+          is_default?: boolean
+          layout?: Json
+          name: string
+          orientation?: string
+          page_size?: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          branding?: Json
+          created_at?: string
+          description?: string | null
+          footer_html?: string | null
+          header_html?: string | null
+          id?: string
+          is_default?: boolean
+          layout?: Json
+          name?: string
+          orientation?: string
+          page_size?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
@@ -1331,6 +1875,30 @@ export type Database = {
           endpoint?: string
           id?: number
           identifier?: string
+        }
+        Relationships: []
+      }
+      rbac_permissions: {
+        Row: {
+          created_at: string
+          granted: boolean
+          id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission_key?: string
+          role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
       }
@@ -1990,6 +2558,10 @@ export type Database = {
         Args: { _feature: string; _user_id: string }
         Returns: boolean
       }
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2011,7 +2583,15 @@ export type Database = {
       user_daily_upload_bytes: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
-      app_role: "admin" | "user" | "editor"
+      ai_limit_scope: "global" | "role" | "user"
+      ai_tone:
+        | "professional"
+        | "friendly"
+        | "educational"
+        | "marketing"
+        | "custom"
+      ai_usage_status: "success" | "error" | "blocked" | "quota_exceeded"
+      app_role: "admin" | "user" | "editor" | "super_admin" | "support"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2139,7 +2719,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "editor"],
+      ai_limit_scope: ["global", "role", "user"],
+      ai_tone: [
+        "professional",
+        "friendly",
+        "educational",
+        "marketing",
+        "custom",
+      ],
+      ai_usage_status: ["success", "error", "blocked", "quota_exceeded"],
+      app_role: ["admin", "user", "editor", "super_admin", "support"],
     },
   },
 } as const
