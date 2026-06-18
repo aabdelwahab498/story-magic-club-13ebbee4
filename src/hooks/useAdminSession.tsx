@@ -97,6 +97,7 @@ export function useAdminSession() {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
       events.forEach((e) => window.removeEventListener(e, reset));
+      document.removeEventListener("visibilitychange", reset);
     };
   }, [navigate]);
 }
