@@ -104,7 +104,7 @@ const Navigation = () => {
     <nav className="bg-white/70 dark:bg-card/70 backdrop-blur-md shadow-soft py-3 px-4 sm:px-6 rounded-b-3xl border-b-2 border-kids-softPurple/40 dark:border-primary/30 sticky top-0 z-40">
       <div className="container mx-auto flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2 group" {...sfx}>
+          <Link to="/" className="flex items-center gap-2 group" onMouseEnter={sfx.onMouseEnter} onClick={sfx.onClick}>
             <img
               src={najmahLogoFull}
               alt={t("app.name")}
