@@ -30,11 +30,25 @@ const AdminAuth = () => {
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    // Support `/admin/auth?signout=1` — force sign-out before showing the form.
+    const params = new URLSearchParams(location.search);
+    if (params.get("signout") === "1") {
+      void supabase.auth.signOut().finally(() => {
+        try {
+          localStorage.removeItem("admin-last-activity");
+          localStorage.removeItem("admin-remember");
+        } catch {
+          /* noop */
+        }
+        navigate("/admin/auth", { replace: true });
+      });
+      return;
+    }
     if (authLoading) return;
     if (session && isStaff) {
       navigate("/admin/dashboard", { replace: true });
     }
-  }, [authLoading, session, isStaff, navigate]);
+  }, [authLoading, session, isStaff, navigate, location.search]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
