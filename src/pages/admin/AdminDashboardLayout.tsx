@@ -120,7 +120,7 @@ const AdminSidebar = () => {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5">
-              {navItems.map((item) => {
+              {visibleItems.map((item) => {
                 const active =
                   location.pathname === item.url ||
                   (item.url !== "/admin/dashboard" &&
