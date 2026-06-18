@@ -10,6 +10,7 @@ import {
   Settings,
   Loader2,
   ArrowLeft,
+  LogOut,
   Sparkles,
   CreditCard,
   Wallet,
@@ -47,6 +48,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useAdminSession, adminSignOut } from "@/hooks/useAdminSession";
 
 const navItems: Array<{
   titleKey: string;
@@ -160,6 +162,9 @@ export default function AdminDashboardLayout() {
   const navigate = useNavigate();
   const isAr = i18n.language?.startsWith("ar");
 
+  // Enforce session timeout + remember-me + idle auto-logout for admin.
+  useAdminSession();
+
   useEffect(() => {
     if (!loading && !session) {
       navigate("/admin/auth", { replace: true });
@@ -227,6 +232,15 @@ export default function AdminDashboardLayout() {
             </Badge>
             <ThemeToggle />
             <LanguageSwitcher />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => adminSignOut(navigate)}
+              className="gap-2 rounded-full border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("nav.sign_out", "Sign out")}</span>
+            </Button>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden overflow-y-auto animate-fade-in">
             <Outlet context={{ isAdmin, isEditor }} />
