@@ -16,11 +16,13 @@ import { useSubscription } from "@/hooks/useSubscription";
 import {
   downloadFromUrl,
   downloadTxt,
+  downloadAudioMp3,
   exportStoryPdf,
   exportStoryEpub,
   safeFilename,
   type StoryPageLike,
 } from "@/lib/storyDownloads";
+import StoryPreviewDialog from "@/components/story/StoryPreviewDialog";
 
 interface DownloadMenuProps {
   storyId: string;
