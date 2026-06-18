@@ -536,6 +536,51 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_export_jobs: {
+        Row: {
+          bundle_path: string | null
+          bundle_url: string | null
+          child_id: string | null
+          completed: number
+          created_at: string
+          error: string | null
+          formats: string[]
+          id: string
+          status: string
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bundle_path?: string | null
+          bundle_url?: string | null
+          child_id?: string | null
+          completed?: number
+          created_at?: string
+          error?: string | null
+          formats?: string[]
+          id?: string
+          status?: string
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bundle_path?: string | null
+          bundle_url?: string | null
+          child_id?: string | null
+          completed?: number
+          created_at?: string
+          error?: string | null
+          formats?: string[]
+          id?: string
+          status?: string
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bedtime_schedules: {
         Row: {
           child_profile_id: string

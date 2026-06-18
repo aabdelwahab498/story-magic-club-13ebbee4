@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Seo from "@/components/Seo";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
+import DownloadMenu from "@/components/story/DownloadMenu";
 import type { AiStoryRow } from "@/lib/aiStoryApi";
 
 const splitTextIntoPages = (text: string): StoryVideoPage[] => {
@@ -95,6 +96,13 @@ const MyAiStoryDetail = () => {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="secondary">{story.language.toUpperCase()}</Badge>
           <span>{new Date(story.created_at).toLocaleDateString(i18n.language)}</span>
+          <DownloadMenu
+            storyId={story.id}
+            title={story.title ?? "Story"}
+            pages={pages}
+            pdfUrl={(story as unknown as { pdf_url?: string | null }).pdf_url ?? null}
+            audioUrl={story.audio_url ?? null}
+          />
         </div>
       </header>
 
