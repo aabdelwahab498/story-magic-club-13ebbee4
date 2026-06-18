@@ -91,10 +91,15 @@ const AdminSidebar = () => {
   const { t } = useTranslation();
   const { state } = useSidebar();
   const location = useLocation();
+  const { hasPermission, isAdmin } = useAuth();
   const collapsed = state === "collapsed";
   const labelFor = (item: { titleKey: string; labelFallback?: string }) => {
     return t(item.titleKey, item.labelFallback ?? "");
   };
+  const visibleItems = navItems.filter(
+    (i) => isAdmin || !i.permission || hasPermission(i.permission)
+  );
+
 
   return (
     <Sidebar collapsible="icon" className="border-r-2 border-kids-softPurple/60 dark:border-primary/20">
