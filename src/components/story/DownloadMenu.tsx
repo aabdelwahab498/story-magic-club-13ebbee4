@@ -16,11 +16,13 @@ import { useSubscription } from "@/hooks/useSubscription";
 import {
   downloadFromUrl,
   downloadTxt,
+  downloadAudioMp3,
   exportStoryPdf,
   exportStoryEpub,
   safeFilename,
   type StoryPageLike,
 } from "@/lib/storyDownloads";
+import StoryPreviewDialog from "@/components/story/StoryPreviewDialog";
 
 interface DownloadMenuProps {
   storyId: string;
@@ -73,7 +75,7 @@ export default function DownloadMenu({
           toast.error(t("downloads.no_audio", { defaultValue: "Generate narration first." }));
           return;
         }
-        await downloadFromUrl(audioUrl, `${filename}.mp3`);
+        await downloadAudioMp3(audioUrl, `${filename}.mp3`);
       } else if (fmt === "txt") {
         downloadTxt(title, pages);
       } else if (fmt === "epub") {

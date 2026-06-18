@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import Seo from "@/components/Seo";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
 import DownloadMenu from "@/components/story/DownloadMenu";
+import StoryPreviewDialog from "@/components/story/StoryPreviewDialog";
+import { downloadAudioMp3, safeFilename } from "@/lib/storyDownloads";
+import { toast } from "sonner";
 import type { AiStoryRow } from "@/lib/aiStoryApi";
 
 const splitTextIntoPages = (text: string): StoryVideoPage[] => {
@@ -93,9 +96,10 @@ const MyAiStoryDetail = () => {
           <ArrowLeft className="h-4 w-4" />
           {t("story_detail.back", { defaultValue: "Back" })}
         </Button>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <Badge variant="secondary">{story.language.toUpperCase()}</Badge>
           <span>{new Date(story.created_at).toLocaleDateString(i18n.language)}</span>
+          <StoryPreviewDialog title={story.title ?? "Story"} pages={pages} />
           <DownloadMenu
             storyId={story.id}
             title={story.title ?? "Story"}
@@ -118,6 +122,22 @@ const MyAiStoryDetail = () => {
               {t("story_detail.audio", { defaultValue: "Audio" })}
             </div>
             <audio src={story.audio_url} controls preload="metadata" className="flex-1 min-w-[200px]" />
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              onClick={async () => {
+                try {
+                  await downloadAudioMp3(story.audio_url!, `${safeFilename(story.title ?? "story")}.mp3`);
+                  toast.success(t("downloads.done", { defaultValue: "Download started" }));
+                } catch {
+                  toast.error(t("downloads.failed", { defaultValue: "Download failed" }));
+                }
+              }}
+            >
+              <Headphones className="h-4 w-4" />
+              {t("story_detail.download_mp3", { defaultValue: "Download MP3" })}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setVideoOpen(true)} className="gap-1">
               <Film className="h-4 w-4" />
               {t("story_detail.watch_video", { defaultValue: "Watch as video" })}
