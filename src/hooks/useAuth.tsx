@@ -8,6 +8,8 @@ interface AuthCtx {
   session: Session | null;
   user: User | null;
   roles: AppRole[];
+  permissions: string[];
+  hasPermission: (key: string) => boolean;
   isAdmin: boolean;
   isEditor: boolean;
   isStaff: boolean;
@@ -21,18 +23,35 @@ const Ctx = createContext<AuthCtx | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const checkRoles = async (userId: string | undefined) => {
     if (!userId) {
       setRoles([]);
+      setPermissions([]);
       return;
     }
-    const { data } = await supabase
+    const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
-    setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+    const userRoles = ((roleRows ?? []) as { role: AppRole }[]).map((r) => r.role);
+    setRoles(userRoles);
+
+    if (userRoles.length === 0) {
+      setPermissions([]);
+      return;
+    }
+    const { data: permRows } = await supabase
+      .from("rbac_permissions")
+      .select("permission_key, granted, role")
+      .in("role", userRoles as string[])
+      .eq("granted", true);
+    const perms = Array.from(
+      new Set(((permRows ?? []) as { permission_key: string }[]).map((p) => p.permission_key))
+    );
+    setPermissions(perms);
   };
 
   useEffect(() => {
@@ -61,12 +80,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isEditor = roles.includes("editor");
   const isStaff = isAdmin || isEditor;
 
+  const hasPermission = (key: string) => isAdmin || permissions.includes(key);
+
   return (
     <Ctx.Provider
       value={{
         session,
         user: session?.user ?? null,
         roles,
+        permissions,
+        hasPermission,
         isAdmin,
         isEditor,
         isStaff,
