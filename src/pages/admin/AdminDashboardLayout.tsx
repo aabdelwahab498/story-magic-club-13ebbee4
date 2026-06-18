@@ -48,36 +48,43 @@ import { useTheme } from "@/hooks/useTheme";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const navItems = [
+const navItems: Array<{
+  titleKey: string;
+  url: string;
+  icon: typeof LayoutDashboard;
+  gradient: string;
+  labelFallback: string;
+  permission?: string;
+}> = [
   { titleKey: "admin_dashboard.nav.dashboard", url: "/admin/dashboard", icon: LayoutDashboard, gradient: "from-primary to-primary-glow", labelFallback: "Dashboard" },
-  { titleKey: "admin_dashboard.nav.stories", url: "/admin/dashboard/stories", icon: BookOpen, gradient: "from-kids-pink to-kids-purple", labelFallback: "Stories" },
-  { titleKey: "admin_dashboard.nav.story_engine", url: "/admin/dashboard/story-engine", icon: Sparkles, gradient: "from-fuchsia-500 to-violet-500", labelFallback: "Story Engine" },
-  { titleKey: "admin_dashboard.nav.ai_models", url: "/admin/dashboard/ai-models", icon: Bot, gradient: "from-violet-500 to-indigo-500", labelFallback: "AI Models" },
-  { titleKey: "admin_dashboard.nav.illustration_analytics", url: "/admin/dashboard/illustration-analytics", icon: Activity, gradient: "from-sky-500 to-cyan-500", labelFallback: "Illustration Analytics" },
-  { titleKey: "admin_dashboard.nav.ai_usage", url: "/admin/dashboard/ai-usage", icon: Activity, gradient: "from-emerald-500 to-teal-500", labelFallback: "AI Usage" },
-  { titleKey: "admin_dashboard.nav.audio", url: "/admin/dashboard/audio", icon: Volume2, gradient: "from-pink-500 to-rose-500", labelFallback: "Audio & Narration" },
-  { titleKey: "admin_dashboard.nav.videos", url: "/admin/dashboard/videos", icon: Video, gradient: "from-kids-blue to-accent", labelFallback: "Videos" },
-  { titleKey: "admin_dashboard.nav.blog", url: "/admin/dashboard/blog", icon: FileText, gradient: "from-kids-purple to-kids-pink", labelFallback: "Blog" },
-  { titleKey: "admin_dashboard.nav.products", url: "/admin/dashboard/products", icon: ShoppingBag, gradient: "from-amber-400 to-orange-500", labelFallback: "Products" },
-  { titleKey: "admin_dashboard.nav.orders", url: "/admin/dashboard/orders", icon: Package, gradient: "from-rose-500 to-orange-500", labelFallback: "Orders" },
-  { titleKey: "admin_dashboard.nav.payments", url: "/admin/dashboard/payments", icon: CreditCard, gradient: "from-emerald-500 to-teal-500", labelFallback: "Payments" },
-  { titleKey: "admin_dashboard.nav.subscriptions", url: "/admin/dashboard/subscriptions", icon: Activity, gradient: "from-teal-500 to-cyan-500", labelFallback: "Subscriptions Status" },
-  { titleKey: "admin_dashboard.nav.webhook_logs", url: "/admin/dashboard/webhook-logs", icon: Webhook, gradient: "from-indigo-500 to-violet-500", labelFallback: "Webhook Logs" },
-  { titleKey: "admin_dashboard.nav.payment_logs", url: "/admin/dashboard/payment-logs", icon: Receipt, gradient: "from-emerald-500 to-green-600", labelFallback: "Payment Logs" },
-  { titleKey: "admin_dashboard.nav.contact_inbox", url: "/admin/dashboard/contact-inbox", icon: Inbox, gradient: "from-rose-500 to-pink-500", labelFallback: "Contact Inbox" },
-  { titleKey: "admin_dashboard.nav.payment_settings", url: "/admin/dashboard/payment-settings", icon: Wallet, gradient: "from-amber-500 to-orange-500", labelFallback: "Payment Settings" },
-  { titleKey: "admin_dashboard.nav.plans", url: "/admin/dashboard/plans", icon: Crown, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Subscription Plans" },
-  { titleKey: "admin_dashboard.nav.languages", url: "/admin/dashboard/languages", icon: Languages, gradient: "from-kids-green to-kids-blue", labelFallback: "Languages" },
-  { titleKey: "admin_dashboard.nav.settings", url: "/admin/dashboard/settings", icon: Settings, gradient: "from-kids-orange to-kids-yellow", labelFallback: "Settings" },
-  { titleKey: "admin_dashboard.nav.ai_agents", url: "/admin/dashboard/ai/agents", icon: Bot, gradient: "from-violet-500 to-fuchsia-500", labelFallback: "AI Agents" },
-  { titleKey: "admin_dashboard.nav.ai_prompts", url: "/admin/dashboard/ai/prompts", icon: FileText, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Prompts" },
-  { titleKey: "admin_dashboard.nav.ai_features", url: "/admin/dashboard/ai/features", icon: ToggleRight, gradient: "from-emerald-500 to-cyan-500", labelFallback: "Feature Toggles" },
-  { titleKey: "admin_dashboard.nav.ai_limits", url: "/admin/dashboard/ai/limits", icon: Gauge, gradient: "from-amber-500 to-orange-500", labelFallback: "Usage Limits" },
-  { titleKey: "admin_dashboard.nav.ai_analytics", url: "/admin/dashboard/ai/analytics", icon: Activity, gradient: "from-sky-500 to-indigo-500", labelFallback: "AI Analytics" },
-  { titleKey: "admin_dashboard.nav.ai_pdf", url: "/admin/dashboard/ai/pdf-templates", icon: FileType2, gradient: "from-rose-500 to-red-500", labelFallback: "PDF Templates" },
-  { titleKey: "admin_dashboard.nav.ai_voices", url: "/admin/dashboard/ai/voices", icon: Volume2, gradient: "from-pink-500 to-rose-500", labelFallback: "Voice Profiles" },
-  { titleKey: "admin_dashboard.nav.ai_rbac", url: "/admin/dashboard/ai/rbac", icon: ShieldCheck, gradient: "from-teal-500 to-emerald-500", labelFallback: "RBAC" },
-  { titleKey: "admin_dashboard.nav.ai_audit", url: "/admin/dashboard/ai/audit", icon: ScrollText, gradient: "from-slate-500 to-zinc-600", labelFallback: "Audit Logs" },
+  { titleKey: "admin_dashboard.nav.stories", url: "/admin/dashboard/stories", icon: BookOpen, gradient: "from-kids-pink to-kids-purple", labelFallback: "Stories", permission: "manage_stories" },
+  { titleKey: "admin_dashboard.nav.story_engine", url: "/admin/dashboard/story-engine", icon: Sparkles, gradient: "from-fuchsia-500 to-violet-500", labelFallback: "Story Engine", permission: "manage_stories" },
+  { titleKey: "admin_dashboard.nav.ai_models", url: "/admin/dashboard/ai-models", icon: Bot, gradient: "from-violet-500 to-indigo-500", labelFallback: "AI Models", permission: "manage_ai_settings" },
+  { titleKey: "admin_dashboard.nav.illustration_analytics", url: "/admin/dashboard/illustration-analytics", icon: Activity, gradient: "from-sky-500 to-cyan-500", labelFallback: "Illustration Analytics", permission: "view_analytics" },
+  { titleKey: "admin_dashboard.nav.ai_usage", url: "/admin/dashboard/ai-usage", icon: Activity, gradient: "from-emerald-500 to-teal-500", labelFallback: "AI Usage", permission: "view_analytics" },
+  { titleKey: "admin_dashboard.nav.audio", url: "/admin/dashboard/audio", icon: Volume2, gradient: "from-pink-500 to-rose-500", labelFallback: "Audio & Narration", permission: "generate_audio" },
+  { titleKey: "admin_dashboard.nav.videos", url: "/admin/dashboard/videos", icon: Video, gradient: "from-kids-blue to-accent", labelFallback: "Videos", permission: "manage_videos" },
+  { titleKey: "admin_dashboard.nav.blog", url: "/admin/dashboard/blog", icon: FileText, gradient: "from-kids-purple to-kids-pink", labelFallback: "Blog", permission: "manage_blog" },
+  { titleKey: "admin_dashboard.nav.products", url: "/admin/dashboard/products", icon: ShoppingBag, gradient: "from-amber-400 to-orange-500", labelFallback: "Products", permission: "manage_products" },
+  { titleKey: "admin_dashboard.nav.orders", url: "/admin/dashboard/orders", icon: Package, gradient: "from-rose-500 to-orange-500", labelFallback: "Orders", permission: "manage_orders" },
+  { titleKey: "admin_dashboard.nav.payments", url: "/admin/dashboard/payments", icon: CreditCard, gradient: "from-emerald-500 to-teal-500", labelFallback: "Payments", permission: "manage_payments" },
+  { titleKey: "admin_dashboard.nav.subscriptions", url: "/admin/dashboard/subscriptions", icon: Activity, gradient: "from-teal-500 to-cyan-500", labelFallback: "Subscriptions Status", permission: "manage_payments" },
+  { titleKey: "admin_dashboard.nav.webhook_logs", url: "/admin/dashboard/webhook-logs", icon: Webhook, gradient: "from-indigo-500 to-violet-500", labelFallback: "Webhook Logs", permission: "view_audit_logs" },
+  { titleKey: "admin_dashboard.nav.payment_logs", url: "/admin/dashboard/payment-logs", icon: Receipt, gradient: "from-emerald-500 to-green-600", labelFallback: "Payment Logs", permission: "manage_payments" },
+  { titleKey: "admin_dashboard.nav.contact_inbox", url: "/admin/dashboard/contact-inbox", icon: Inbox, gradient: "from-rose-500 to-pink-500", labelFallback: "Contact Inbox", permission: "manage_settings" },
+  { titleKey: "admin_dashboard.nav.payment_settings", url: "/admin/dashboard/payment-settings", icon: Wallet, gradient: "from-amber-500 to-orange-500", labelFallback: "Payment Settings", permission: "manage_payments" },
+  { titleKey: "admin_dashboard.nav.plans", url: "/admin/dashboard/plans", icon: Crown, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Subscription Plans", permission: "manage_payments" },
+  { titleKey: "admin_dashboard.nav.languages", url: "/admin/dashboard/languages", icon: Languages, gradient: "from-kids-green to-kids-blue", labelFallback: "Languages", permission: "manage_settings" },
+  { titleKey: "admin_dashboard.nav.settings", url: "/admin/dashboard/settings", icon: Settings, gradient: "from-kids-orange to-kids-yellow", labelFallback: "Settings", permission: "manage_settings" },
+  { titleKey: "admin_dashboard.nav.ai_agents", url: "/admin/dashboard/ai/agents", icon: Bot, gradient: "from-violet-500 to-fuchsia-500", labelFallback: "AI Agents", permission: "manage_agents" },
+  { titleKey: "admin_dashboard.nav.ai_prompts", url: "/admin/dashboard/ai/prompts", icon: FileText, gradient: "from-fuchsia-500 to-pink-500", labelFallback: "Prompts", permission: "manage_prompts" },
+  { titleKey: "admin_dashboard.nav.ai_features", url: "/admin/dashboard/ai/features", icon: ToggleRight, gradient: "from-emerald-500 to-cyan-500", labelFallback: "Feature Toggles", permission: "manage_feature_toggles" },
+  { titleKey: "admin_dashboard.nav.ai_limits", url: "/admin/dashboard/ai/limits", icon: Gauge, gradient: "from-amber-500 to-orange-500", labelFallback: "Usage Limits", permission: "manage_usage_limits" },
+  { titleKey: "admin_dashboard.nav.ai_analytics", url: "/admin/dashboard/ai/analytics", icon: Activity, gradient: "from-sky-500 to-indigo-500", labelFallback: "AI Analytics", permission: "view_analytics" },
+  { titleKey: "admin_dashboard.nav.ai_pdf", url: "/admin/dashboard/ai/pdf-templates", icon: FileType2, gradient: "from-rose-500 to-red-500", labelFallback: "PDF Templates", permission: "manage_pdf_templates" },
+  { titleKey: "admin_dashboard.nav.ai_voices", url: "/admin/dashboard/ai/voices", icon: Volume2, gradient: "from-pink-500 to-rose-500", labelFallback: "Voice Profiles", permission: "manage_voices" },
+  { titleKey: "admin_dashboard.nav.ai_rbac", url: "/admin/dashboard/ai/rbac", icon: ShieldCheck, gradient: "from-teal-500 to-emerald-500", labelFallback: "RBAC", permission: "manage_rbac" },
+  { titleKey: "admin_dashboard.nav.ai_audit", url: "/admin/dashboard/ai/audit", icon: ScrollText, gradient: "from-slate-500 to-zinc-600", labelFallback: "Audit Logs", permission: "view_audit_logs" },
 ];
 
 const AdminSidebar = () => {
