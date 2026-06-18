@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import ResendConfirmation from "@/components/ResendConfirmation";
 import { describeAuthError } from "@/lib/authErrors";
+import { setAdminRemember, getAdminRemember } from "@/hooks/useAdminSession";
 
 const AdminAuth = () => {
   const { t } = useTranslation();
@@ -24,6 +26,7 @@ const AdminAuth = () => {
   const [displayName, setDisplayName] = useState("");
   const [masterKey, setMasterKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [remember, setRemember] = useState<boolean>(() => getAdminRemember());
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +39,7 @@ const AdminAuth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setAdminRemember(remember);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setSubmitting(false);
@@ -214,7 +218,14 @@ const AdminAuth = () => {
                   )}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                  <Checkbox
+                    checked={remember}
+                    onCheckedChange={(v) => setRemember(Boolean(v))}
+                  />
+                  <span>{t("admin_auth.remember_me", "Remember me for 7 days")}</span>
+                </label>
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">
                   {t("admin_auth.forgot_password", "Forgot password?")}
                 </Link>
