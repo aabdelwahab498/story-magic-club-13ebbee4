@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import Seo from "@/components/Seo";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
 import DownloadMenu from "@/components/story/DownloadMenu";
+import StoryPreviewDialog from "@/components/story/StoryPreviewDialog";
+import { downloadAudioMp3, safeFilename } from "@/lib/storyDownloads";
+import { toast } from "sonner";
 import type { AiStoryRow } from "@/lib/aiStoryApi";
 
 const splitTextIntoPages = (text: string): StoryVideoPage[] => {
@@ -93,9 +96,10 @@ const MyAiStoryDetail = () => {
           <ArrowLeft className="h-4 w-4" />
           {t("story_detail.back", { defaultValue: "Back" })}
         </Button>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <Badge variant="secondary">{story.language.toUpperCase()}</Badge>
           <span>{new Date(story.created_at).toLocaleDateString(i18n.language)}</span>
+          <StoryPreviewDialog title={story.title ?? "Story"} pages={pages} />
           <DownloadMenu
             storyId={story.id}
             title={story.title ?? "Story"}
