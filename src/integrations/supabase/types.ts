@@ -540,10 +540,12 @@ export type Database = {
         Row: {
           bundle_path: string | null
           bundle_url: string | null
+          cancel_requested: boolean
           child_id: string | null
           completed: number
           created_at: string
           error: string | null
+          failed_items: Json
           formats: string[]
           id: string
           status: string
@@ -554,10 +556,12 @@ export type Database = {
         Insert: {
           bundle_path?: string | null
           bundle_url?: string | null
+          cancel_requested?: boolean
           child_id?: string | null
           completed?: number
           created_at?: string
           error?: string | null
+          failed_items?: Json
           formats?: string[]
           id?: string
           status?: string
@@ -568,10 +572,12 @@ export type Database = {
         Update: {
           bundle_path?: string | null
           bundle_url?: string | null
+          cancel_requested?: boolean
           child_id?: string | null
           completed?: number
           created_at?: string
           error?: string | null
+          failed_items?: Json
           formats?: string[]
           id?: string
           status?: string
