@@ -14,6 +14,7 @@ import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AudioDebugPanel } from "@/components/AudioDebugPanel";
+import PermissionGuard from "@/components/admin/PermissionGuard";
 
 // Lazy-load every non-home route so the initial bundle stays small.
 // This is the single biggest win for first-paint performance.
@@ -154,15 +155,15 @@ const App = () => (
                       <Route path="illustration-analytics" element={<AdminIllustrationAnalyticsPage />} />
                       <Route path="ai-usage" element={<AdminAiUsagePage />} />
                       <Route path="audio" element={<AdminAudioPage />} />
-                      <Route path="ai/agents" element={<AdminAiAgentsPage />} />
-                      <Route path="ai/prompts" element={<AdminAiPromptsPage />} />
-                      <Route path="ai/features" element={<AdminAiFeatureTogglesPage />} />
-                      <Route path="ai/limits" element={<AdminAiUsageLimitsPage />} />
-                      <Route path="ai/analytics" element={<AdminAiAnalyticsPage />} />
-                      <Route path="ai/pdf-templates" element={<AdminPdfTemplatesPage />} />
-                      <Route path="ai/voices" element={<AdminAudioVoicesPage />} />
-                      <Route path="ai/rbac" element={<AdminRbacPage />} />
-                      <Route path="ai/audit" element={<AdminAuditLogsPage />} />
+                      <Route path="ai/agents" element={<PermissionGuard permission="manage_agents" sectionLabel="AI Agents"><AdminAiAgentsPage /></PermissionGuard>} />
+                      <Route path="ai/prompts" element={<PermissionGuard permission="manage_prompts" sectionLabel="Prompts"><AdminAiPromptsPage /></PermissionGuard>} />
+                      <Route path="ai/features" element={<PermissionGuard permission="manage_feature_toggles" sectionLabel="Feature Toggles"><AdminAiFeatureTogglesPage /></PermissionGuard>} />
+                      <Route path="ai/limits" element={<PermissionGuard permission="manage_usage_limits" sectionLabel="Usage Limits"><AdminAiUsageLimitsPage /></PermissionGuard>} />
+                      <Route path="ai/analytics" element={<PermissionGuard permission="view_analytics" sectionLabel="AI Analytics"><AdminAiAnalyticsPage /></PermissionGuard>} />
+                      <Route path="ai/pdf-templates" element={<PermissionGuard permission="manage_pdf_templates" sectionLabel="PDF Templates"><AdminPdfTemplatesPage /></PermissionGuard>} />
+                      <Route path="ai/voices" element={<PermissionGuard permission="manage_voices" sectionLabel="Voice Profiles"><AdminAudioVoicesPage /></PermissionGuard>} />
+                      <Route path="ai/rbac" element={<PermissionGuard adminOnly sectionLabel="RBAC"><AdminRbacPage /></PermissionGuard>} />
+                      <Route path="ai/audit" element={<PermissionGuard permission="view_audit_logs" sectionLabel="Audit Logs"><AdminAuditLogsPage /></PermissionGuard>} />
                       <Route path="videos" element={<AdminVideosPage />} />
                       <Route path="blog" element={<AdminBlogPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />

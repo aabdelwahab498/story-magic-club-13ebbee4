@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import ResendConfirmation from "@/components/ResendConfirmation";
 import { describeAuthError } from "@/lib/authErrors";
+import { setAdminRemember, getAdminRemember } from "@/hooks/useAdminSession";
 
 const AdminAuth = () => {
   const { t } = useTranslation();
@@ -24,18 +26,34 @@ const AdminAuth = () => {
   const [displayName, setDisplayName] = useState("");
   const [masterKey, setMasterKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [remember, setRemember] = useState<boolean>(() => getAdminRemember());
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    // Support `/admin/auth?signout=1` — force sign-out before showing the form.
+    const params = new URLSearchParams(location.search);
+    if (params.get("signout") === "1") {
+      void supabase.auth.signOut().finally(() => {
+        try {
+          localStorage.removeItem("admin-last-activity");
+          localStorage.removeItem("admin-remember");
+        } catch {
+          /* noop */
+        }
+        navigate("/admin/auth", { replace: true });
+      });
+      return;
+    }
     if (authLoading) return;
     if (session && isStaff) {
       navigate("/admin/dashboard", { replace: true });
     }
-  }, [authLoading, session, isStaff, navigate]);
+  }, [authLoading, session, isStaff, navigate, location.search]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setAdminRemember(remember);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setSubmitting(false);
@@ -214,7 +232,14 @@ const AdminAuth = () => {
                   )}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                  <Checkbox
+                    checked={remember}
+                    onCheckedChange={(v) => setRemember(Boolean(v))}
+                  />
+                  <span>{t("admin_auth.remember_me", "Remember me for 7 days")}</span>
+                </label>
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">
                   {t("admin_auth.forgot_password", "Forgot password?")}
                 </Link>
