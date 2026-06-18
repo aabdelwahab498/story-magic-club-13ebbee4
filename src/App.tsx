@@ -57,6 +57,15 @@ const AdminAiModelsPage = lazy(() => import("./pages/admin/AdminAiModelsPage"));
 const AdminIllustrationAnalyticsPage = lazy(() => import("./pages/admin/AdminIllustrationAnalyticsPage"));
 const AdminAiUsagePage = lazy(() => import("./pages/admin/AdminAiUsagePage"));
 const AdminAudioPage = lazy(() => import("./pages/admin/AdminAudioPage"));
+const AdminAiAgentsPage = lazy(() => import("./pages/admin/AdminAiAgentsPage"));
+const AdminAiPromptsPage = lazy(() => import("./pages/admin/AdminAiPromptsPage"));
+const AdminAiFeatureTogglesPage = lazy(() => import("./pages/admin/AdminAiFeatureTogglesPage"));
+const AdminAiUsageLimitsPage = lazy(() => import("./pages/admin/AdminAiUsageLimitsPage"));
+const AdminAiAnalyticsPage = lazy(() => import("./pages/admin/AdminAiAnalyticsPage"));
+const AdminPdfTemplatesPage = lazy(() => import("./pages/admin/AdminPdfTemplatesPage"));
+const AdminAudioVoicesPage = lazy(() => import("./pages/admin/AdminAudioVoicesPage"));
+const AdminRbacPage = lazy(() => import("./pages/admin/AdminRbacPage"));
+const AdminAuditLogsPage = lazy(() => import("./pages/admin/AdminAuditLogsPage"));
 const CheckoutManual = lazy(() => import("./pages/CheckoutManual"));
 const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
@@ -145,6 +154,15 @@ const App = () => (
                       <Route path="illustration-analytics" element={<AdminIllustrationAnalyticsPage />} />
                       <Route path="ai-usage" element={<AdminAiUsagePage />} />
                       <Route path="audio" element={<AdminAudioPage />} />
+                      <Route path="ai/agents" element={<AdminAiAgentsPage />} />
+                      <Route path="ai/prompts" element={<AdminAiPromptsPage />} />
+                      <Route path="ai/features" element={<AdminAiFeatureTogglesPage />} />
+                      <Route path="ai/limits" element={<AdminAiUsageLimitsPage />} />
+                      <Route path="ai/analytics" element={<AdminAiAnalyticsPage />} />
+                      <Route path="ai/pdf-templates" element={<AdminPdfTemplatesPage />} />
+                      <Route path="ai/voices" element={<AdminAudioVoicesPage />} />
+                      <Route path="ai/rbac" element={<AdminRbacPage />} />
+                      <Route path="ai/audit" element={<AdminAuditLogsPage />} />
                       <Route path="videos" element={<AdminVideosPage />} />
                       <Route path="blog" element={<AdminBlogPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />

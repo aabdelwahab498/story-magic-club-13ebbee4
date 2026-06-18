@@ -1,105 +1,82 @@
+# AI Agent Management System — Implementation Plan
 
-# ملخص مشروع NajmaH / Starry Tales
-
-## نظرة عامة
-منصة قصص أطفال تفاعلية بالذكاء الاصطناعي، متعددة اللغات (عربي/إنجليزي + 4 لغات أخرى)، مع توليد قصص مخصصة وصور وسرد صوتي ومسابقات رسم أسبوعية ومدوّنة وتعليم اجتماعي عاطفي (SEL).
-
-## التقنيات (Stack)
-- **Frontend**: React 18 + Vite 5 + TypeScript + Tailwind + shadcn/ui
-- **i18n**: i18next (ar, en, fr, es, de, it)
-- **State/Data**: TanStack Query + React Router v6 (lazy routes)
-- **Backend**: Lovable Cloud (Supabase) — Auth, DB, Storage, Edge Functions
-- **AI**: Lovable AI Gateway (Gemini/GPT) للقصص + ElevenLabs للسرد
-- **Payments**: Paddle
-- **PWA حالياً**: manifest فقط (بدون Service Worker)، مع أيقونات وmeta tags
-
-## الميزات الرئيسية
-1. **AI Storyteller** — توليد قصص مخصصة بسن/شخصيات/قيم (SEL)، مع صور وصوت
-2. **Story Library** — قصص جاهزة مع قارئ تفاعلي (ReadingMode, NarratorPicker, موسيقى خلفية)
-3. **My AI Stories** — حفظ القصص بحساب المستخدم + History مع pagination
-4. **Drawing Competition** — مسابقات أسبوعية، تصويت، Hall of Fame
-5. **Blog** — مقالات بنظام submission (المؤلف يرسل → الأدمن يراجع/يقبل/يرفض بسبب)
-6. **Store + Checkout** — منتجات، عربة، دفع Paddle/يدوي
-7. **Parent Dashboard** — متابعة الطفل + streaks
-8. **Subscription** — خطط مدفوعة + free trial + spin wheel
-9. **Admin Dashboard** — لوحة شاملة: قصص، Story Engine، AI Models، Illustration Analytics, AI Usage, Audio & Narration، فيديوهات، blog review، مدفوعات، اشتراكات، خطط، منتجات، طلبات، webhooks، لغات، إعدادات
-
-## بنية المجلدات الأساسية
-- `src/pages/` — صفحات عامة + `admin/` (20+ صفحة أدمن)
-- `src/components/` — UI + `admin/`, `story/`, `payment/`, `cart/`
-- `src/lib/` — APIs (aiStoryApi, blogAdminApi, subscriptionApi, ...)
-- `src/hooks/` — useAuth, useTheme, useSubscription, useStreak ...
-- `supabase/functions/` — 25+ Edge Function (generate-story, illustrate-story, narrate-story-full, paddle-webhook, ...)
-- `docs/CHILDRENS_LITERATURE_KNOWLEDGE_BASE.md` — قاعدة المعرفة المرجعية للقصص
-
-## الأمان
-- RLS على كل الجداول، أدوار في `user_roles` منفصلة، `has_role()` security definer
-- ProtectedRoute مع `requireAdmin` / `requireStaff`
-
-## الحالة الحالية للـ PWA
-- ✅ `manifest.webmanifest` كامل (أيقونات 192/512/maskable، theme color، standalone)
-- ✅ Meta tags في `index.html` (apple-touch-icon, theme-color, ...)
-- ❌ لا يوجد Service Worker
-- ❌ لا يوجد دعم Offline
-- ❌ لا يوجد install prompt مخصص
+This is a large, multi-module system. I'll build it in **5 phases**, each shippable independently. Confirm before I start, and tell me if you want to descope anything.
 
 ---
 
-# خطة تحويل المشروع إلى PWA كامل
+## Phase 1 — Database Foundation (1 migration)
 
-## تنبيه مهم قبل البدء
-حالياً المشروع **قابل للتثبيت بالفعل** من المتصفح (Add to Home Screen) بفضل الـ manifest الموجود. السؤال: هل تحتاج فعلاً Service Worker مع offline support؟
+New tables (all with RLS + GRANTs + admin-only policies via `has_role`):
 
-| الخيار | المزايا | العيوب |
-|--------|--------|--------|
-| **A. Manifest فقط (الحالي + تحسينات)** | بسيط، يعمل فوراً، لا مشاكل تخزين مؤقت، لا يكسر preview | بدون offline، بدون push notifications |
-| **B. PWA كامل بـ Service Worker** | offline، تحديثات في الخلفية، تجربة native أكثر | معقد، يكسر preview الـ Lovable، تخزين مؤقت قد يعرض نسخ قديمة |
+- `ai_agents` — personas: name, description, system_prompt, tone (enum), model, temperature, active, is_default
+- `ai_prompt_templates` — name, slug, category, body, variables (jsonb), active, current_version_id
+- `ai_prompt_versions` — template_id, version_no, body, changelog, created_by, published (for versioning + rollback)
+- `ai_feature_toggles` — feature_key (pdf, tts, downloads, image_gen, chat, summaries, translation, writing), enabled, config jsonb
+- `ai_capabilities` — agent_id, capability_key, enabled (per-agent capability map)
+- `ai_usage_limits` — scope (global/role/user), user_id?, daily_limit, monthly_limit, feature_key
+- `ai_usage_logs` — user_id, agent_id, feature_key, tokens_in, tokens_out, cost_usd, latency_ms, status, error
+- `ai_audit_logs` — actor_id, action, entity_type, entity_id, before jsonb, after jsonb, ip, ua
+- `pdf_templates` — name, layout jsonb, header_html, footer_html, branding_assets jsonb, active
+- `generated_pdfs` — user_id, template_id, story_id?, url, size_bytes, status
+- `audio_voice_profiles` — name, provider (openai/elevenlabs/gemini), voice_id, sample_url, language, active
+- `generated_audio_files` — user_id, voice_id, text_hash, url, duration_sec, status
+- Extend `app_role` enum: add `super_admin`, `editor`, `support` + a `permissions` table (role → permission_key) for fine-grained RBAC
 
-**توصيتي**: ابدأ بالخيار A، وانتقل لـ B فقط إذا احتجت offline فعلاً.
+Triggers: `updated_at` on all; audit trigger that snapshots changes to `ai_audit_logs` for agents/prompts/toggles.
 
-## الخيار A — تحسين التثبيت (موصى به، سريع)
-1. **زر تثبيت مخصص**: إنشاء `src/components/InstallPwaButton.tsx` يستمع لحدث `beforeinstallprompt` ويعرض زر "تثبيت التطبيق" في:
-   - Navigation (desktop)
-   - BottomNav أو AccountProfile (mobile)
-2. **صفحة `/install`**: شرح بصري لكيفية التثبيت على iOS (Share → Add to Home Screen) وAndroid (تلقائي).
-3. **iOS splash screens**: إضافة `apple-touch-startup-image` لأحجام شاشات iOS الشائعة في `index.html`.
-4. **تحسين الـ manifest**: إضافة `shortcuts` (مثل: "قصة جديدة"، "مكتبتي"، "مسابقة الرسم") و `share_target` إن لزم.
-5. **تحقق Lighthouse PWA score** بعد النشر.
+## Phase 2 — Admin UI Pages
 
-## الخيار B — PWA كامل بـ Service Worker (متقدم)
-> ⚠️ سيؤثر على preview داخل Lovable editor؛ يعمل فقط في النسخة المنشورة.
+New pages under `src/pages/admin/`:
 
-1. **تثبيت**: `vite-plugin-pwa` + `workbox-window`.
-2. **إعداد `vite.config.ts`**:
-   - `registerType: "autoUpdate"`
-   - `devOptions: { enabled: false }` ⚠️ ضروري
-   - `navigateFallbackDenylist: [/^\/~oauth/, /^\/admin/, /^\/api/]`
-   - استراتيجية `NetworkFirst` لـ HTML navigation
-   - استراتيجية `CacheFirst` للأصول الثابتة (صور قصص، fonts)
-   - استراتيجية `StaleWhileRevalidate` لـ API GET (story library، blog)
-3. **حماية التسجيل من iframe/preview** في `src/main.tsx`:
-   - عدم تسجيل SW إذا `window.self !== window.top` أو host يحتوي `lovableproject.com` / `id-preview--`
-   - تنظيف أي SW مسجل سابقاً في هذه السياقات
-4. **توعية المستخدم بالتحديثات**: استخدام `workbox-window` لإظهار toast "نسخة جديدة متاحة — تحديث" بدلاً من إعادة تحميل صامتة.
-5. **استبعاد المسارات الحساسة من الكاش**: `/auth`, `/checkout/*`, `/admin/*`, كل Supabase auth/storage endpoints.
-6. **تجنب كاش الصوت/الفيديو الكبير**: تحديد حد أقصى (مثلاً 50 MB) للـ cache مع LRU.
-7. **kill-switch SW جاهز** في `public/sw.js` احتياطياً (لو احتجنا إلغاء التسجيل لاحقاً للمستخدمين القدامى).
-8. **اختبار**:
-   - بناء production + معاينة محلية (`npm run build && npm run preview`)
-   - فحص Lighthouse PWA
-   - اختبار offline في الـ DevTools
-   - اختبار تدفق OAuth (يجب ألا يُكاش)
-   - اختبار checkout (يجب أن يكون شبكة دائماً)
+- `AdminAiAgentsPage.tsx` — list/create/edit personas, tone selector, system prompt editor, capability toggles, set default
+- `AdminAiPromptsPage.tsx` — CRUD templates, version timeline, diff view, rollback button, live preview pane (renders against selected agent)
+- `AdminAiFeatureTogglesPage.tsx` — switch grid for 8 features with per-feature config
+- `AdminAiUsageLimitsPage.tsx` — global + per-role + per-user quotas
+- `AdminAiAnalyticsPage.tsx` — KPI cards (requests, avg latency, failures, active users), feature usage bar chart, cost trend (recharts), top users table
+- `AdminPdfTemplatesPage.tsx` — template editor, branding upload (logo/colors/fonts), preview, generated-PDF log
+- `AdminAudioVoicesPage.tsx` — voice provider selector, voice list, sample playback, custom voice upload, usage stats
+- `AdminRbacPage.tsx` — roles × permissions matrix, assign roles to users, audit trail
+- `AdminAuditLogsPage.tsx` — filterable log viewer (actor, entity, date), export CSV
 
-## التفاصيل التقنية (للمراجعة)
-- لا تعديل على `src/integrations/supabase/*` ولا `.env`
-- لا حاجة لـ migration قاعدة بيانات
-- التغييرات frontend بالكامل: `vite.config.ts`, `index.html`, `src/main.tsx`, مكونات جديدة فقط
-- المحافظة على routes الـ OAuth والـ admin خارج الكاش
-- بعد النشر يحتاج المستخدمون فتح الموقع مرة في متصفح حديث ثم تثبيته
+Wire all routes into `AdminDashboardLayout` sidebar with search.
 
-## سؤال للمستخدم
-أي خيار تفضّل؟
-- **A** فقط (سريع، آمن، تثبيت بدون offline)
-- **B** كامل (offline، تجربة native، يحتاج اختبار أكثر بعد النشر)
-- **A ثم B** على مرحلتين
+## Phase 3 — Backend (Edge Functions + RPCs)
+
+- `ai-agent-invoke` — central dispatcher: loads active agent + system prompt + checks feature toggle + checks quota → calls Lovable AI Gateway → logs usage
+- `prompt-preview` — renders a prompt template with variables against an agent, returns sample output without persisting
+- `generate-pdf-from-template` — uses `pdf_templates` row to build PDF, uploads to storage, logs
+- `tts-generate` — uses selected voice profile, generates audio, caches, logs
+- RPCs: `check_ai_quota(user_id, feature)`, `log_ai_usage(...)`, `rollback_prompt_version(version_id)`, `has_permission(user_id, key)`
+
+All edge functions: CORS, JWT verify, quota enforcement, audit logging.
+
+## Phase 4 — Wire Existing Features
+
+Refactor existing functions (`generate-story`, `narrate-story`, `illustrate-story`, `export-story-pdf`, `ai-assistant`) to:
+1. Read active agent + system prompt from DB (not hardcoded)
+2. Check `ai_feature_toggles` before running
+3. Call `log_ai_usage` after
+4. Honor `ai_usage_limits`
+
+This is what makes the admin toggles actually control the live site.
+
+## Phase 5 — Polish
+
+- Real-time updates via Supabase Realtime on `ai_usage_logs` for analytics dashboard
+- CSV export for audit logs + usage logs
+- Dark/light mode already exists — verify new pages
+- Mobile responsive pass on all new admin pages
+- Seed default agent + default toggles (all on) + super_admin permissions
+
+---
+
+## Scope Confirmation
+
+This is roughly **1 large DB migration + ~10 admin pages + ~5 edge functions + refactors to ~5 existing functions**. Estimated 8–12 hours of build work spread across phases.
+
+**Suggested approach:** I build Phase 1 (DB) + Phase 2 (UI shells with mock data wired to real tables) in this first round, then Phases 3–5 in follow-ups so you can review and steer as we go.
+
+Reply with:
+- **"Go"** to start Phase 1+2 now
+- **"All at once"** to attempt everything in one large batch (higher risk of errors)
+- **"Descope X"** to remove modules you don't need (e.g. skip RBAC overhaul, skip PDF templates)
