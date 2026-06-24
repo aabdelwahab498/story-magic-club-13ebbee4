@@ -140,6 +140,7 @@ export default function DownloadMenu({
           audioUrl,
         });
       }
+      void logDownload({ storyId, storyTitle: title, format: fmt });
       toast.success(t("downloads.done", { defaultValue: "Download started" }));
     } catch (e) {
       const msg = (e as Error)?.message ?? "error";
