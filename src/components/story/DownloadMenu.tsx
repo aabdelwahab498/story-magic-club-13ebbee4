@@ -35,6 +35,7 @@ import {
   exportStoryEpub,
   safeFilename,
   signStorageUrl,
+  logDownload,
   type StoryPageLike,
 } from "@/lib/storyDownloads";
 
