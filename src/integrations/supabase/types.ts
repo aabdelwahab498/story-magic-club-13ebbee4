@@ -887,6 +887,51 @@ export type Database = {
         }
         Relationships: []
       }
+      download_settings: {
+        Row: {
+          created_at: string
+          daily_limit_per_user: number
+          enable_docx: boolean
+          enable_epub: boolean
+          enable_images: boolean
+          enable_mp3: boolean
+          enable_pack: boolean
+          enable_pdf: boolean
+          enable_txt: boolean
+          id: boolean
+          max_file_size_mb: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_limit_per_user?: number
+          enable_docx?: boolean
+          enable_epub?: boolean
+          enable_images?: boolean
+          enable_mp3?: boolean
+          enable_pack?: boolean
+          enable_pdf?: boolean
+          enable_txt?: boolean
+          id?: boolean
+          max_file_size_mb?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_limit_per_user?: number
+          enable_docx?: boolean
+          enable_epub?: boolean
+          enable_images?: boolean
+          enable_mp3?: boolean
+          enable_pack?: boolean
+          enable_pdf?: boolean
+          enable_txt?: boolean
+          id?: boolean
+          max_file_size_mb?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       drawing_entries: {
         Row: {
           approved: boolean
