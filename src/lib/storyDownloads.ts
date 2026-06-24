@@ -1,5 +1,14 @@
-// Client helpers for story download formats (PDF, MP3, TXT, EPUB) and batch ZIP.
+// Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
+import JSZip from "jszip";
+import {
+  Document as DocxDocument,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+} from "docx";
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
