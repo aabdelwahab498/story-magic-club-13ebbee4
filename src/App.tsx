@@ -143,6 +143,7 @@ const App = () => (
                       <Route path="my-stories" element={<MyAiStories />} />
                       <Route path="my-stories/:id" element={<MyAiStoryDetail />} />
                       <Route path="my-downloads" element={<MyDownloads />} />
+                      <Route path="my-backups" element={<MyBackups />} />
                       <Route path="account/api-keys" element={<ApiKeys />} />
                       <Route path="account/profile" element={<AccountProfile />} />
                     </Route>
