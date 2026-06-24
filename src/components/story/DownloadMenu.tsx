@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Download,
   FileText,
@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/hooks/useAuth";
 import {
   downloadFromUrl,
   downloadTxt,
@@ -36,6 +37,11 @@ import {
   safeFilename,
   signStorageUrl,
   logDownload,
+  fetchDownloadSettings,
+  getTodayDownloadCount,
+  isFormatEnabled,
+  DEFAULT_DOWNLOAD_SETTINGS,
+  type DownloadSettings,
   type StoryPageLike,
 } from "@/lib/storyDownloads";
 
