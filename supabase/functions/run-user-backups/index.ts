@@ -22,6 +22,33 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Optional body: { userId?: string } — restricts run to one user (retry).
+  // When called by an authenticated user, only allow them to retry their own.
+  let targetUserId: string | null = null;
+  try {
+    const body = (await req.json().catch(() => ({}))) as { userId?: string };
+    if (typeof body.userId === "string" && body.userId.length > 0) {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      if (authHeader) {
+        const userClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } },
+        );
+        const { data: u } = await userClient.auth.getUser();
+        const callerId = u?.user?.id;
+        // Allow self-retry; admins (no JWT here = service role from cron) bypass.
+        if (callerId && callerId !== body.userId) {
+          // Check admin role
+          const { data: isAdmin } = await admin
+            .from("user_roles").select("role").eq("user_id", callerId).eq("role", "admin").maybeSingle();
+          if (!isAdmin) return json({ error: "forbidden" }, 403);
+        }
+      }
+      targetUserId = body.userId;
+    }
+  } catch { /* no body */ }
+
   const today = new Date().toISOString().slice(0, 10);
 
   // Load settings
@@ -37,14 +64,20 @@ serve(async (req) => {
   const notifyFailure: boolean = settings.notify_on_failure ?? true;
   const notifySuccess: boolean = settings.notify_on_success ?? false;
 
-  // Find distinct users with stories
-  const { data: storyUsers, error: uErr } = await admin
-    .from("ai_story_history")
-    .select("user_id")
-    .not("user_id", "is", null)
-    .limit(10000);
-  if (uErr) return json({ error: uErr.message }, 500);
-  const userIds = Array.from(new Set((storyUsers ?? []).map((r: any) => r.user_id)));
+  let userIds: string[];
+  if (targetUserId) {
+    userIds = [targetUserId];
+  } else {
+    // Find distinct users with stories
+    const { data: storyUsers, error: uErr } = await admin
+      .from("ai_story_history")
+      .select("user_id")
+      .not("user_id", "is", null)
+      .limit(10000);
+    if (uErr) return json({ error: uErr.message }, 500);
+    userIds = Array.from(new Set((storyUsers ?? []).map((r: any) => r.user_id)));
+  }
+
 
   const results = { ok: 0, failed: 0, skipped: 0 };
 
