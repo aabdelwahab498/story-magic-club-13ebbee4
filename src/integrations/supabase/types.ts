@@ -857,6 +857,39 @@ export type Database = {
         }
         Relationships: []
       }
+      download_audit_log: {
+        Row: {
+          created_at: string
+          format: string
+          id: string
+          outcome: string
+          reason: string | null
+          story_id: string | null
+          story_title: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          format: string
+          id?: string
+          outcome: string
+          reason?: string | null
+          story_id?: string | null
+          story_title?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          format?: string
+          id?: string
+          outcome?: string
+          reason?: string | null
+          story_id?: string | null
+          story_title?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       download_history: {
         Row: {
           created_at: string
