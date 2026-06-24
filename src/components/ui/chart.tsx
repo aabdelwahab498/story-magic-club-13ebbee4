@@ -100,17 +100,22 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
-const ChartTooltipContent = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean
-      hideIndicator?: boolean
-      indicator?: "line" | "dot" | "dashed"
-      nameKey?: string
-      labelKey?: string
-    }
->(
+type ChartTooltipContentProps = React.ComponentProps<"div"> & {
+  active?: boolean
+  payload?: any
+  label?: any
+  labelFormatter?: (value: any, payload: any) => React.ReactNode
+  labelClassName?: string
+  formatter?: (value: any, name: any, item: any, index: number, payload: any) => React.ReactNode
+  color?: string
+  hideLabel?: boolean
+  hideIndicator?: boolean
+  indicator?: "line" | "dot" | "dashed"
+  nameKey?: string
+  labelKey?: string
+}
+
+const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContentProps>(
   (
     {
       active,
@@ -129,9 +134,9 @@ const ChartTooltipContent = React.forwardRef<
     },
     ref
   ) => {
-    // recharts v3 typings narrow payload generics; we accept anything safely here.
-    const payload = payloadProp as Array<Record<string, any>> | undefined
+    const payload = payloadProp as Array<any> | undefined
     const { config } = useChart()
+
 
 
     const tooltipLabel = React.useMemo(() => {
