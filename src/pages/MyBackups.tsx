@@ -195,6 +195,12 @@ export default function MyBackups() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {b.status === "failed" && (
+                      <Button size="sm" variant="default" disabled={busyId === b.id || retrying} onClick={() => handleRetry(b)}>
+                        {busyId === b.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RotateCcw className="h-4 w-4 mr-1" />}
+                        Retry
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" disabled={busyId === b.id || b.status !== "completed"} onClick={() => handleDownload(b)}>
                       <Download className="h-4 w-4 mr-1" /> Download
                     </Button>
@@ -205,6 +211,7 @@ export default function MyBackups() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+
                 </div>
               ))}
             </div>
