@@ -68,7 +68,17 @@ export default function DownloadMenu({
 }: DownloadMenuProps) {
   const { t } = useTranslation();
   const { canExportPdf, canAudio } = useSubscription();
+  const { user } = useAuth();
   const [busy, setBusy] = useState<Fmt | null>(null);
+  const [settings, setSettings] = useState<DownloadSettings>(DEFAULT_DOWNLOAD_SETTINGS);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDownloadSettings()
+      .then((s) => { if (!cancelled) setSettings(s); })
+      .catch(() => {/* keep defaults */});
+    return () => { cancelled = true; };
+  }, []);
 
   const allowed = canExportPdf; // master gate for PDF/DOCX/EPUB
   const premium = canAudio; // gate for MP3/Images/Pack
@@ -76,6 +86,28 @@ export default function DownloadMenu({
   const hasImages = pages.some((p) => !!p.image_url);
 
   const handle = async (fmt: Fmt) => {
+    if (!isFormatEnabled(settings, fmt)) {
+      toast.error(
+        t("downloads.format_disabled", {
+          defaultValue: "This download format is currently disabled by the admin.",
+        }),
+      );
+      return;
+    }
+    // Daily limit enforcement (admins/anon users skip)
+    if (user?.id) {
+      try {
+        const used = await getTodayDownloadCount(user.id);
+        if (used >= settings.daily_limit_per_user) {
+          toast.error(
+            t("downloads.daily_limit_reached", {
+              defaultValue: "Daily download limit reached. Try again tomorrow.",
+            }),
+          );
+          return;
+        }
+      } catch {/* non-blocking */}
+    }
     if (fmt !== "txt") {
       const needsPdfGate = fmt === "pdf" || fmt === "docx" || fmt === "epub";
       const needsPremium = fmt === "mp3" || fmt === "images" || fmt === "pack";
