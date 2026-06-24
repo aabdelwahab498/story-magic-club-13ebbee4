@@ -290,3 +290,56 @@ export async function downloadCompletePack(opts: PackOptions): Promise<void> {
   downloadBlob(out, `${base}-pack.zip`);
 }
 
+
+// ============================================================
+// Download history logging
+// ============================================================
+export type DownloadFormat = "pdf" | "mp3" | "txt" | "docx" | "epub" | "images" | "pack";
+
+export async function logDownload(args: {
+  storyId?: string | null;
+  storyTitle?: string | null;
+  format: DownloadFormat;
+  fileSizeBytes?: number | null;
+}): Promise<void> {
+  try {
+    const { data: u } = await supabase.auth.getUser();
+    const userId = u?.user?.id;
+    if (!userId) return;
+    await supabase.from("download_history" as never).insert({
+      user_id: userId,
+      story_id: args.storyId ?? null,
+      story_title: args.storyTitle ?? null,
+      format: args.format,
+      file_size_bytes: args.fileSizeBytes ?? null,
+    } as never);
+  } catch {
+    /* silent: history is best-effort */
+  }
+}
+
+export interface DownloadHistoryRow {
+  id: string;
+  user_id: string;
+  story_id: string | null;
+  story_title: string | null;
+  format: DownloadFormat;
+  file_size_bytes: number | null;
+  created_at: string;
+}
+
+export async function fetchDownloadHistory(userId: string): Promise<DownloadHistoryRow[]> {
+  const { data, error } = await supabase
+    .from("download_history" as never)
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data as unknown as DownloadHistoryRow[]) ?? [];
+}
+
+export async function deleteDownloadHistoryRow(id: string): Promise<void> {
+  const { error } = await supabase.from("download_history" as never).delete().eq("id", id);
+  if (error) throw error;
+}
