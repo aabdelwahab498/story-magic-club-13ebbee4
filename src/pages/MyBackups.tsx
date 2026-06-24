@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Download, RotateCcw, Trash2, Shield, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Download, RotateCcw, Trash2, Shield, Clock, AlertCircle, CheckCircle2, RefreshCw, Play } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -16,7 +16,10 @@ import {
   downloadBackupJson,
   restoreStoriesFromBackup,
   formatBytes,
+  fetchBackupJobsStatus,
+  retryBackupForUser,
   type UserBackup,
+  type BackupJobStatus,
 } from "@/lib/userBackups";
 
 
@@ -25,12 +28,16 @@ export default function MyBackups() {
   const [rows, setRows] = useState<UserBackup[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<Record<string, BackupJobStatus>>({});
+  const [retrying, setRetrying] = useState(false);
 
   const load = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      setRows(await fetchUserBackups(user.id));
+      const [b, j] = await Promise.all([fetchUserBackups(user.id), fetchBackupJobsStatus().catch(() => ({}))]);
+      setRows(b);
+      setJobs(j);
     } catch (e) {
       toast.error(`Failed to load backups: ${(e as Error).message}`);
     } finally {
@@ -43,6 +50,23 @@ export default function MyBackups() {
   const totalSize = useMemo(() => rows.reduce((a, r) => a + (r.size_bytes ?? 0), 0), [rows]);
   const completed = rows.filter((r) => r.status === "completed").length;
   const failed = rows.filter((r) => r.status === "failed").length;
+
+  const handleRetry = async (b?: UserBackup) => {
+    if (!user) return;
+    setRetrying(true);
+    if (b) setBusyId(b.id);
+    try {
+      const r = await retryBackupForUser(user.id);
+      toast.success(r.ok > 0 ? "Backup created successfully" : `Retry finished (${r.failed} failed)`);
+      await load();
+    } catch (e) {
+      toast.error(`Retry failed: ${(e as Error).message}`);
+    } finally {
+      setRetrying(false);
+      setBusyId(null);
+    }
+  };
+
 
   const handleDownload = async (b: UserBackup) => {
     setBusyId(b.id);
