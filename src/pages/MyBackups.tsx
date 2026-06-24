@@ -79,10 +79,8 @@ export default function MyBackups() {
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 pb-24 md:pb-8">
-      <ReactHelmet>
-        <title>My Backups — Najmah</title>
-        <meta name="description" content="Daily backups of your AI stories with restore and download options." />
-      </ReactHelmet>
+      <Seo title="My Backups — Najmah" description="Daily backups of your AI stories with restore and download options." />
+
 
       <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <div>
