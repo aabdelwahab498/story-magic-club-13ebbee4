@@ -1,5 +1,14 @@
-// Client helpers for story download formats (PDF, MP3, TXT, EPUB) and batch ZIP.
+// Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
+import JSZip from "jszip";
+import {
+  Document as DocxDocument,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+} from "docx";
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -135,3 +144,149 @@ export async function refreshBundleUrl(jobId: string): Promise<string> {
 
 // Backwards-compat name (kept so older callers still type-check).
 export const batchDownloadStories = startBatchDownload;
+
+// ============================================================
+// DOCX export (client-side)
+// ============================================================
+export async function buildDocxBlob(title: string, pages: StoryPageLike[]): Promise<Blob> {
+  const children: Paragraph[] = [
+    new Paragraph({
+      heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: title || "Story", bold: true, size: 48 })],
+    }),
+    new Paragraph({ children: [new TextRun({ text: "" })] }),
+  ];
+  pages.forEach((p, i) => {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        children: [new TextRun({ text: `Page ${i + 1}`, bold: true })],
+      }),
+    );
+    (p.text || "").split(/\n+/).forEach((line) => {
+      children.push(new Paragraph({ children: [new TextRun({ text: line, size: 24 })] }));
+    });
+    children.push(new Paragraph({ children: [new TextRun({ text: "" })] }));
+  });
+  const doc = new DocxDocument({ sections: [{ children }] });
+  const blob = await Packer.toBlob(doc);
+  return blob;
+}
+
+export async function downloadDocx(title: string, pages: StoryPageLike[]) {
+  const blob = await buildDocxBlob(title, pages);
+  downloadBlob(blob, `najmah-${safeFilename(title)}.docx`);
+}
+
+// ============================================================
+// Images ZIP — fetch all illustration urls and bundle as ZIP
+// ============================================================
+export async function buildImagesZip(
+  title: string,
+  pages: StoryPageLike[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<Blob | null> {
+  const withImg = pages.filter((p) => !!p.image_url);
+  if (withImg.length === 0) return null;
+  const zip = new JSZip();
+  const folder = zip.folder("Images")!;
+  let done = 0;
+  for (let i = 0; i < pages.length; i++) {
+    const url = pages[i].image_url;
+    if (!url) continue;
+    try {
+      const signed = await signStorageUrl(url, "story-images");
+      const blob = await fetchAsBlob(signed);
+      const ext = (blob.type.split("/")[1] || "png").split("+")[0];
+      folder.file(`page${i + 1}.${ext}`, blob);
+    } catch {
+      /* skip failed image */
+    }
+    done += 1;
+    onProgress?.(done, withImg.length);
+  }
+  return await zip.generateAsync({ type: "blob" });
+}
+
+export async function downloadImagesZip(
+  title: string,
+  pages: StoryPageLike[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<boolean> {
+  const blob = await buildImagesZip(title, pages, onProgress);
+  if (!blob) return false;
+  downloadBlob(blob, `najmah-${safeFilename(title)}-images.zip`);
+  return true;
+}
+
+// ============================================================
+// Complete Story Pack — PDF + MP3 + TXT + DOCX + Images
+// ============================================================
+export interface PackOptions {
+  storyId: string;
+  title: string;
+  pages: StoryPageLike[];
+  pdfUrl?: string | null;
+  audioUrl?: string | null;
+  onStep?: (label: string) => void;
+}
+
+export async function downloadCompletePack(opts: PackOptions): Promise<void> {
+  const { storyId, title, pages, pdfUrl, audioUrl, onStep } = opts;
+  const zip = new JSZip();
+  const base = `najmah-${safeFilename(title)}`;
+
+  // TXT
+  onStep?.("text");
+  zip.file(`${base}.txt`, buildTxt(title, pages));
+
+  // DOCX
+  onStep?.("docx");
+  try {
+    const docxBlob = await buildDocxBlob(title, pages);
+    zip.file(`${base}.docx`, docxBlob);
+  } catch {/* ignore */}
+
+  // PDF (generate via edge function if missing)
+  onStep?.("pdf");
+  try {
+    let url = pdfUrl;
+    if (!url) url = await exportStoryPdf(storyId);
+    if (url) {
+      const signed = await signStorageUrl(url, "story-pdfs");
+      const blob = await fetchAsBlob(signed);
+      zip.file(`${base}.pdf`, blob);
+    }
+  } catch {/* ignore */}
+
+  // MP3
+  if (audioUrl) {
+    onStep?.("audio");
+    try {
+      const signed = await signStorageUrl(audioUrl, "story-audio");
+      const blob = await fetchAsBlob(signed);
+      zip.file(`${base}.mp3`, blob);
+    } catch {/* ignore */}
+  }
+
+  // Images
+  onStep?.("images");
+  const folder = zip.folder("Images")!;
+  for (let i = 0; i < pages.length; i++) {
+    const url = pages[i].image_url;
+    if (!url) continue;
+    try {
+      const signed = await signStorageUrl(url, "story-images");
+      const blob = await fetchAsBlob(signed);
+      const ext = (blob.type.split("/")[1] || "png").split("+")[0];
+      folder.file(`page${i + 1}.${ext}`, blob);
+      if (i === 0) zip.file(`Cover.${ext}`, blob);
+    } catch {/* ignore */}
+  }
+
+  onStep?.("packaging");
+  const out = await zip.generateAsync({ type: "blob" });
+  downloadBlob(out, `${base}-pack.zip`);
+}
+
