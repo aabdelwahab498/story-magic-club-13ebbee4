@@ -263,6 +263,7 @@ const Navigation = () => {
             <InstallPwaButton variant="compact" className="hidden md:inline-flex" />
             <ThemeToggle />
             <LanguageSwitcher />
+            {user && <NotificationBell />}
             {user && isStaff && (
               <span className="hidden 2xl:inline-flex items-center gap-1 rounded-full bg-magic px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-soft">
                 <Shield className="h-3 w-3" />
