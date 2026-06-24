@@ -67,6 +67,7 @@ const AdminPdfTemplatesPage = lazy(() => import("./pages/admin/AdminPdfTemplates
 const AdminAudioVoicesPage = lazy(() => import("./pages/admin/AdminAudioVoicesPage"));
 const AdminRbacPage = lazy(() => import("./pages/admin/AdminRbacPage"));
 const AdminAuditLogsPage = lazy(() => import("./pages/admin/AdminAuditLogsPage"));
+const AdminDownloadsPage = lazy(() => import("./pages/admin/AdminDownloadsPage"));
 const CheckoutManual = lazy(() => import("./pages/CheckoutManual"));
 const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
@@ -166,7 +167,9 @@ const App = () => (
                       <Route path="ai/voices" element={<PermissionGuard permission="manage_voices" sectionLabel="Voice Profiles"><AdminAudioVoicesPage /></PermissionGuard>} />
                       <Route path="ai/rbac" element={<PermissionGuard adminOnly sectionLabel="RBAC"><AdminRbacPage /></PermissionGuard>} />
                       <Route path="ai/audit" element={<PermissionGuard permission="view_audit_logs" sectionLabel="Audit Logs"><AdminAuditLogsPage /></PermissionGuard>} />
+                      <Route path="downloads" element={<PermissionGuard adminOnly sectionLabel="Downloads"><AdminDownloadsPage /></PermissionGuard>} />
                       <Route path="videos" element={<AdminVideosPage />} />
+
                       <Route path="blog" element={<AdminBlogPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />
                       <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
