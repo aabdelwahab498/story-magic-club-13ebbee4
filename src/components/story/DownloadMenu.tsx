@@ -208,49 +208,50 @@ export default function DownloadMenu({
 
         <DropdownMenuItem
           onClick={() => handle("pack")}
-          disabled={busy !== null}
+          disabled={busy !== null || !settings.enable_pack}
           className="font-semibold"
         >
           <Package className="h-4 w-4 me-2 text-primary" />
           {t("downloads.pack", { defaultValue: "Complete Story Pack" })}
-          {!premium && <Lock className="h-3 w-3 ms-auto opacity-60" />}
+          {(!premium || !settings.enable_pack) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={() => handle("pdf")} disabled={busy !== null}>
+        <DropdownMenuItem onClick={() => handle("pdf")} disabled={busy !== null || !settings.enable_pdf}>
           <FileType className="h-4 w-4 me-2" />
           PDF
-          {!allowed && <Lock className="h-3 w-3 ms-auto opacity-60" />}
+          {(!allowed || !settings.enable_pdf) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handle("mp3")}
-          disabled={busy !== null || !audioUrl}
+          disabled={busy !== null || !audioUrl || !settings.enable_mp3}
         >
           <Headphones className="h-4 w-4 me-2" />
           MP3 {t("downloads.audio", { defaultValue: "Audio" })}
-          {(!premium || !audioUrl) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
+          {(!premium || !audioUrl || !settings.enable_mp3) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handle("docx")} disabled={busy !== null}>
+        <DropdownMenuItem onClick={() => handle("docx")} disabled={busy !== null || !settings.enable_docx}>
           <FileType2 className="h-4 w-4 me-2" />
           DOCX
-          {!allowed && <Lock className="h-3 w-3 ms-auto opacity-60" />}
+          {(!allowed || !settings.enable_docx) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handle("epub")} disabled={busy !== null}>
+        <DropdownMenuItem onClick={() => handle("epub")} disabled={busy !== null || !settings.enable_epub}>
           <BookOpen className="h-4 w-4 me-2" />
           EPUB
-          {!allowed && <Lock className="h-3 w-3 ms-auto opacity-60" />}
+          {(!allowed || !settings.enable_epub) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handle("txt")} disabled={busy !== null}>
+        <DropdownMenuItem onClick={() => handle("txt")} disabled={busy !== null || !settings.enable_txt}>
           <FileText className="h-4 w-4 me-2" />
           TXT
+          {!settings.enable_txt && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handle("images")}
-          disabled={busy !== null || !hasImages}
+          disabled={busy !== null || !hasImages || !settings.enable_images}
         >
           <Images className="h-4 w-4 me-2" />
           {t("downloads.images", { defaultValue: "Images (ZIP)" })}
-          {(!premium || !hasImages) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
+          {(!premium || !hasImages || !settings.enable_images) && <Lock className="h-3 w-3 ms-auto opacity-60" />}
         </DropdownMenuItem>
 
         {(!allowed || !premium) && (
