@@ -90,7 +90,7 @@ serve(async (req) => {
         .eq("user_id", userId)
         .eq("backup_date", today)
         .maybeSingle();
-      if (existing && existing.status === "completed") {
+      if (existing && existing.status === "completed" && !targetUserId) {
         results.skipped++;
         continue;
       }
