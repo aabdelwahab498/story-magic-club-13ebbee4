@@ -922,6 +922,9 @@ export type Database = {
       }
       download_settings: {
         Row: {
+          alert_email: string | null
+          alerts_email_enabled: boolean
+          alerts_slack_enabled: boolean
           created_at: string
           daily_limit_per_user: number
           enable_docx: boolean
@@ -932,10 +935,16 @@ export type Database = {
           enable_pdf: boolean
           enable_txt: boolean
           id: boolean
+          last_alert_sent_at: string | null
+          last_alert_signature: string | null
           max_file_size_mb: number
+          slack_channel_id: string | null
           updated_at: string
         }
         Insert: {
+          alert_email?: string | null
+          alerts_email_enabled?: boolean
+          alerts_slack_enabled?: boolean
           created_at?: string
           daily_limit_per_user?: number
           enable_docx?: boolean
@@ -946,10 +955,16 @@ export type Database = {
           enable_pdf?: boolean
           enable_txt?: boolean
           id?: boolean
+          last_alert_sent_at?: string | null
+          last_alert_signature?: string | null
           max_file_size_mb?: number
+          slack_channel_id?: string | null
           updated_at?: string
         }
         Update: {
+          alert_email?: string | null
+          alerts_email_enabled?: boolean
+          alerts_slack_enabled?: boolean
           created_at?: string
           daily_limit_per_user?: number
           enable_docx?: boolean
@@ -960,7 +975,10 @@ export type Database = {
           enable_pdf?: boolean
           enable_txt?: boolean
           id?: boolean
+          last_alert_sent_at?: string | null
+          last_alert_signature?: string | null
           max_file_size_mb?: number
+          slack_channel_id?: string | null
           updated_at?: string
         }
         Relationships: []
