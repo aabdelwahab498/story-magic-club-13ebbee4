@@ -857,6 +857,36 @@ export type Database = {
         }
         Relationships: []
       }
+      download_history: {
+        Row: {
+          created_at: string
+          file_size_bytes: number | null
+          format: string
+          id: string
+          story_id: string | null
+          story_title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_size_bytes?: number | null
+          format: string
+          id?: string
+          story_id?: string | null
+          story_title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_size_bytes?: number | null
+          format?: string
+          id?: string
+          story_id?: string | null
+          story_title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       drawing_entries: {
         Row: {
           approved: boolean

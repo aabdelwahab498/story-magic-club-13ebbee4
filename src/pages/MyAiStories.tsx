@@ -70,6 +70,11 @@ const MyAiStories = () => {
         <div className="flex items-center gap-2 flex-wrap">
           {stories.length > 0 && <BatchDownloadDialog />}
           <Button asChild variant="outline">
+            <Link to="/my-downloads">
+              {t("my_stories.my_downloads", { defaultValue: "My downloads" })}
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/ai-storyteller">
               <Sparkles className="h-4 w-4 me-2" />
               {t("my_stories.create_new", { defaultValue: "Create new" })}
