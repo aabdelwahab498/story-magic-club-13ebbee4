@@ -142,3 +142,29 @@ export function formatBytes(n: number): string {
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), u.length - 1);
   return `${(n / Math.pow(1024, i)).toFixed(1)} ${u[i]}`;
 }
+
+// ----- Retry & job status -----
+export interface BackupJobStatus {
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  detail?: string;
+}
+
+export async function fetchBackupJobsStatus(): Promise<Record<string, BackupJobStatus>> {
+  const { data, error } = await supabase.functions.invoke("backup-jobs-status", { body: {} });
+  if (error) throw error;
+  return ((data as { jobs?: Record<string, BackupJobStatus> })?.jobs) ?? {};
+}
+
+/**
+ * Retry the daily backup for the current user. Calls run-user-backups with
+ * the user's own ID; the edge function verifies caller ownership.
+ */
+export async function retryBackupForUser(userId: string): Promise<{ ok: number; failed: number }> {
+  const { data, error } = await supabase.functions.invoke("run-user-backups", {
+    body: { userId },
+  });
+  if (error) throw error;
+  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+  return { ok: (data as { ok: number }).ok ?? 0, failed: (data as { failed: number }).failed ?? 0 };
+}
