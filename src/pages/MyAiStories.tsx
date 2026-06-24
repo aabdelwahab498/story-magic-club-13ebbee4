@@ -75,6 +75,9 @@ const MyAiStories = () => {
             </Link>
           </Button>
           <Button asChild variant="outline">
+            <Link to="/my-backups">My backups</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/ai-storyteller">
               <Sparkles className="h-4 w-4 me-2" />
               {t("my_stories.create_new", { defaultValue: "Create new" })}
