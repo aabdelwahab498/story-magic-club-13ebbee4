@@ -114,7 +114,7 @@ const ChartTooltipContent = React.forwardRef<
   (
     {
       active,
-      payload,
+      payload: payloadProp,
       className,
       indicator = "dot",
       hideLabel = false,
@@ -129,7 +129,10 @@ const ChartTooltipContent = React.forwardRef<
     },
     ref
   ) => {
+    // recharts v3 typings narrow payload generics; we accept anything safely here.
+    const payload = payloadProp as Array<Record<string, any>> | undefined
     const { config } = useChart()
+
 
     const tooltipLabel = React.useMemo(() => {
       if (hideLabel || !payload?.length) {
