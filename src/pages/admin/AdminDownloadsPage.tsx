@@ -182,6 +182,54 @@ function SettingsTab() {
         </div>
       </section>
 
+      <section className="bg-card border rounded-2xl p-5 shadow-sm space-y-4">
+        <div>
+          <h2 className="text-lg font-bold">Alert delivery</h2>
+          <p className="text-xs text-muted-foreground">
+            Email & Slack channels for threshold breaches.
+          </p>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold">Send alerts by email</p>
+            <p className="text-xs text-muted-foreground">Requires a verified email domain.</p>
+          </div>
+          <Switch
+            checked={settings.alerts_email_enabled}
+            onCheckedChange={(v) => update("alerts_email_enabled", v)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="alert_email">Admin email</Label>
+          <Input
+            id="alert_email"
+            type="email"
+            placeholder="admin@example.com"
+            value={settings.alert_email ?? ""}
+            onChange={(e) => update("alert_email", e.target.value || null)}
+          />
+        </div>
+        <div className="flex items-center justify-between pt-2">
+          <div>
+            <p className="font-semibold">Send alerts to Slack</p>
+            <p className="text-xs text-muted-foreground">Requires a connected Slack workspace.</p>
+          </div>
+          <Switch
+            checked={settings.alerts_slack_enabled}
+            onCheckedChange={(v) => update("alerts_slack_enabled", v)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="slack_channel_id">Slack channel ID</Label>
+          <Input
+            id="slack_channel_id"
+            placeholder="C0123456789"
+            value={settings.slack_channel_id ?? ""}
+            onChange={(e) => update("slack_channel_id", e.target.value || null)}
+          />
+        </div>
+      </section>
+
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving} className="gap-2 rounded-full">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

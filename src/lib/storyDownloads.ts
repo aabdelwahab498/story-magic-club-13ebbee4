@@ -357,6 +357,10 @@ export interface DownloadSettings {
   enable_pack: boolean;
   daily_limit_per_user: number;
   max_file_size_mb: number;
+  alerts_email_enabled: boolean;
+  alerts_slack_enabled: boolean;
+  alert_email: string | null;
+  slack_channel_id: string | null;
 }
 
 export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
@@ -369,6 +373,10 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   enable_pack: true,
   daily_limit_per_user: 50,
   max_file_size_mb: 100,
+  alerts_email_enabled: false,
+  alerts_slack_enabled: false,
+  alert_email: null,
+  slack_channel_id: null,
 };
 
 export async function fetchDownloadSettings(): Promise<DownloadSettings> {
