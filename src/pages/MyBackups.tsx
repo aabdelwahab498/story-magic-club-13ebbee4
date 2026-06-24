@@ -1,7 +1,7 @@
 // /my-backups — user-facing page listing daily backups (last 30d retention)
 // with download (5-minute signed URL) and restore-stories actions.
 import { useEffect, useMemo, useState } from "react";
-import { Helmet } from "react-helmet-async";
+import Seo from "@/components/Seo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Download, RotateCcw, Trash2, Shield, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { Helmet as ReactHelmet } from "react-helmet-async";
 import {
   fetchUserBackups,
   deleteUserBackup,
@@ -19,6 +18,7 @@ import {
   formatBytes,
   type UserBackup,
 } from "@/lib/userBackups";
+
 
 export default function MyBackups() {
   const { user } = useAuth();
