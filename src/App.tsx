@@ -75,6 +75,7 @@ const AccountSubscription = lazy(() => import("./pages/AccountSubscription"));
 const MyAiStories = lazy(() => import("./pages/MyAiStories"));
 const MyAiStoryDetail = lazy(() => import("./pages/MyAiStoryDetail"));
 const MyDownloads = lazy(() => import("./pages/MyDownloads"));
+const MyBackups = lazy(() => import("./pages/MyBackups"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
