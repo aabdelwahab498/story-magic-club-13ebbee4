@@ -1,0 +1,160 @@
+// /my-backups — user-facing page listing daily backups (last 30d retention)
+// with download (5-minute signed URL) and restore-stories actions.
+import { useEffect, useMemo, useState } from "react";
+import Seo from "@/components/Seo";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, Download, RotateCcw, Trash2, Shield, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  fetchUserBackups,
+  deleteUserBackup,
+  downloadBackupJson,
+  restoreStoriesFromBackup,
+  formatBytes,
+  type UserBackup,
+} from "@/lib/userBackups";
+
+
+export default function MyBackups() {
+  const { user } = useAuth();
+  const [rows, setRows] = useState<UserBackup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      setRows(await fetchUserBackups(user.id));
+    } catch (e) {
+      toast.error(`Failed to load backups: ${(e as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [user?.id]);
+
+  const totalSize = useMemo(() => rows.reduce((a, r) => a + (r.size_bytes ?? 0), 0), [rows]);
+  const completed = rows.filter((r) => r.status === "completed").length;
+  const failed = rows.filter((r) => r.status === "failed").length;
+
+  const handleDownload = async (b: UserBackup) => {
+    setBusyId(b.id);
+    try {
+      await downloadBackupJson(b);
+      toast.success("Backup download started");
+    } catch (e) {
+      toast.error(`Download failed: ${(e as Error).message}`);
+    } finally { setBusyId(null); }
+  };
+
+  const handleRestore = async (b: UserBackup) => {
+    if (!confirm("Restore stories from this backup? Existing stories with the same ID will be kept.")) return;
+    setBusyId(b.id);
+    try {
+      const r = await restoreStoriesFromBackup(b);
+      toast.success(`Restored ${r.restored} of ${r.total} stories (${r.skipped} already present)`);
+    } catch (e) {
+      toast.error(`Restore failed: ${(e as Error).message}`);
+    } finally { setBusyId(null); }
+  };
+
+  const handleDelete = async (b: UserBackup) => {
+    if (!confirm("Delete this backup permanently?")) return;
+    setBusyId(b.id);
+    try {
+      await deleteUserBackup(b.id);
+      setRows((cur) => cur.filter((r) => r.id !== b.id));
+      toast.success("Backup deleted");
+    } catch (e) {
+      toast.error(`Delete failed: ${(e as Error).message}`);
+    } finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="container mx-auto max-w-5xl px-4 py-8 pb-24 md:pb-8">
+      <Seo title="My Backups — Najmah" description="Daily backups of your AI stories with restore and download options." />
+
+
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" /> My Backups
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Daily snapshots of your stories. Kept for 30 days. Download or restore at any time.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Total backups</div><div className="text-2xl font-bold">{rows.length}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Completed</div><div className="text-2xl font-bold text-emerald-600">{completed}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Failed</div><div className="text-2xl font-bold text-destructive">{failed}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Storage used</div><div className="text-2xl font-bold">{formatBytes(totalSize)}</div></CardContent></Card>
+      </div>
+
+      <Alert className="mb-4">
+        <Clock className="h-4 w-4" />
+        <AlertTitle>Retention policy</AlertTitle>
+        <AlertDescription>
+          Backups are automatically deleted 30 days after creation. Per-user storage cap: 500 MB.
+          Download links are signed and expire after 5 minutes.
+        </AlertDescription>
+      </Alert>
+
+      <Card>
+        <CardHeader><CardTitle>Available backups</CardTitle></CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+          ) : rows.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              No backups yet. Your first daily backup will appear within 24 hours.
+            </div>
+          ) : (
+            <div className="divide-y">
+              {rows.map((b) => (
+                <div key={b.id} className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="font-medium flex items-center gap-2">
+                      {b.status === "completed" ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-destructive" />}
+                      {b.backup_date}
+                      <Badge variant={b.status === "completed" ? "secondary" : "destructive"}>{b.status}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {b.story_count} stories · {formatBytes(b.size_bytes)} · expires {new Date(b.expires_at).toLocaleDateString()}
+                    </div>
+                    {b.error_message && (
+                      <div className="text-xs text-destructive mt-1">Error: {b.error_message}</div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={busyId === b.id || b.status !== "completed"} onClick={() => handleDownload(b)}>
+                      <Download className="h-4 w-4 mr-1" /> Download
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={busyId === b.id || b.status !== "completed"} onClick={() => handleRestore(b)}>
+                      <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={busyId === b.id} onClick={() => handleDelete(b)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

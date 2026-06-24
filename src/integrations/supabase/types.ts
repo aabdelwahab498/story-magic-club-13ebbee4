@@ -2562,6 +2562,111 @@ export type Database = {
         }
         Relationships: []
       }
+      user_backup_settings: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          max_size_mb_per_user: number
+          notify_on_failure: boolean
+          notify_on_success: boolean
+          retention_days: number
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          max_size_mb_per_user?: number
+          notify_on_failure?: boolean
+          notify_on_success?: boolean
+          retention_days?: number
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          max_size_mb_per_user?: number
+          notify_on_failure?: boolean
+          notify_on_success?: boolean
+          retention_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_backups: {
+        Row: {
+          backup_date: string
+          created_at: string
+          error_message: string | null
+          expires_at: string
+          id: string
+          size_bytes: number
+          status: string
+          storage_path: string
+          story_count: number
+          user_id: string
+        }
+        Insert: {
+          backup_date: string
+          created_at?: string
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          size_bytes?: number
+          status?: string
+          storage_path: string
+          story_count?: number
+          user_id: string
+        }
+        Update: {
+          backup_date?: string
+          created_at?: string
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          story_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message: string | null
+          metadata: Json | null
+          read_at: string | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          message?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          severity?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          severity?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

@@ -30,6 +30,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useState } from "react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -263,6 +264,7 @@ const Navigation = () => {
             <InstallPwaButton variant="compact" className="hidden md:inline-flex" />
             <ThemeToggle />
             <LanguageSwitcher />
+            {user && <NotificationBell />}
             {user && isStaff && (
               <span className="hidden 2xl:inline-flex items-center gap-1 rounded-full bg-magic px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-soft">
                 <Shield className="h-3 w-3" />
