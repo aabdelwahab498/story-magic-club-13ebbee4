@@ -343,3 +343,73 @@ export async function deleteDownloadHistoryRow(id: string): Promise<void> {
   const { error } = await supabase.from("download_history" as never).delete().eq("id", id);
   if (error) throw error;
 }
+
+// ============================================================
+// Admin Download Settings + per-user daily quota
+// ============================================================
+export interface DownloadSettings {
+  enable_pdf: boolean;
+  enable_mp3: boolean;
+  enable_txt: boolean;
+  enable_docx: boolean;
+  enable_epub: boolean;
+  enable_images: boolean;
+  enable_pack: boolean;
+  daily_limit_per_user: number;
+  max_file_size_mb: number;
+}
+
+export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
+  enable_pdf: true,
+  enable_mp3: true,
+  enable_txt: true,
+  enable_docx: true,
+  enable_epub: true,
+  enable_images: true,
+  enable_pack: true,
+  daily_limit_per_user: 50,
+  max_file_size_mb: 100,
+};
+
+export async function fetchDownloadSettings(): Promise<DownloadSettings> {
+  const { data } = await supabase
+    .from("download_settings" as never)
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+  if (!data) return DEFAULT_DOWNLOAD_SETTINGS;
+  return { ...DEFAULT_DOWNLOAD_SETTINGS, ...(data as Partial<DownloadSettings>) };
+}
+
+export async function updateDownloadSettings(
+  patch: Partial<DownloadSettings>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("download_settings" as never)
+    .update(patch as never)
+    .eq("id", true);
+  if (error) throw error;
+}
+
+export async function getTodayDownloadCount(userId: string): Promise<number> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("download_history" as never)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", start.toISOString());
+  return count ?? 0;
+}
+
+export function isFormatEnabled(s: DownloadSettings, fmt: DownloadFormat): boolean {
+  switch (fmt) {
+    case "pdf": return s.enable_pdf;
+    case "mp3": return s.enable_mp3;
+    case "txt": return s.enable_txt;
+    case "docx": return s.enable_docx;
+    case "epub": return s.enable_epub;
+    case "images": return s.enable_images;
+    case "pack": return s.enable_pack;
+  }
+}
