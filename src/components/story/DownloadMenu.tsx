@@ -37,6 +37,7 @@ import {
   safeFilename,
   signStorageUrl,
   logDownload,
+  logDownloadAudit,
   fetchDownloadSettings,
   getTodayDownloadCount,
   isFormatEnabled,
@@ -86,12 +87,16 @@ export default function DownloadMenu({
   const hasImages = pages.some((p) => !!p.image_url);
 
   const handle = async (fmt: Fmt) => {
+    const audit = (outcome: "success" | "rejected" | "error", reason?: string) =>
+      void logDownloadAudit({ storyId, storyTitle: title, format: fmt, outcome, reason });
+
     if (!isFormatEnabled(settings, fmt)) {
       toast.error(
         t("downloads.format_disabled", {
           defaultValue: "This download format is currently disabled by the admin.",
         }),
       );
+      audit("rejected", "format_disabled");
       return;
     }
     // Daily limit enforcement (admins/anon users skip)
@@ -104,6 +109,7 @@ export default function DownloadMenu({
               defaultValue: "Daily download limit reached. Try again tomorrow.",
             }),
           );
+          audit("rejected", "daily_limit_reached");
           return;
         }
       } catch {/* non-blocking */}
@@ -113,6 +119,7 @@ export default function DownloadMenu({
       const needsPremium = fmt === "mp3" || fmt === "images" || fmt === "pack";
       if (needsPdfGate && !allowed) {
         toast.error(t("downloads.paywall", { defaultValue: "Upgrade to download stories." }));
+        audit("rejected", "subscription_required_pdf");
         return;
       }
       if (needsPremium && !premium) {
@@ -121,6 +128,7 @@ export default function DownloadMenu({
             defaultValue: "Premium plan required for this download.",
           }),
         );
+        audit("rejected", "subscription_required_premium");
         return;
       }
     }
@@ -137,6 +145,7 @@ export default function DownloadMenu({
       } else if (fmt === "mp3") {
         if (!audioUrl) {
           toast.error(t("downloads.no_audio", { defaultValue: "Generate narration first." }));
+          audit("rejected", "no_audio");
           return;
         }
         await downloadAudioMp3(audioUrl, `najmah-${filename}.mp3`);
@@ -154,6 +163,7 @@ export default function DownloadMenu({
           toast.error(
             t("downloads.no_images", { defaultValue: "No illustrations available." }),
           );
+          audit("rejected", "no_images");
           return;
         }
         toast.message(
@@ -162,6 +172,7 @@ export default function DownloadMenu({
         const ok = await downloadImagesZip(title, pages);
         if (!ok) {
           toast.error(t("downloads.no_images", { defaultValue: "No illustrations available." }));
+          audit("rejected", "no_images");
           return;
         }
       } else if (fmt === "pack") {
@@ -179,9 +190,11 @@ export default function DownloadMenu({
         });
       }
       void logDownload({ storyId, storyTitle: title, format: fmt });
+      audit("success");
       toast.success(t("downloads.done", { defaultValue: "Download started" }));
     } catch (e) {
       const msg = (e as Error)?.message ?? "error";
+      audit("error", msg.slice(0, 200));
       if (msg.includes("subscription_required")) {
         toast.error(t("downloads.paywall", { defaultValue: "Upgrade to download stories." }));
       } else {
