@@ -115,10 +115,41 @@ export default function MyBackups() {
             Daily snapshots of your stories. Kept for 30 days. Download or restore at any time.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="default" size="sm" onClick={() => handleRetry()} disabled={retrying || loading}>
+            {retrying ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+            Run backup now
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
+
+      {/* Job status */}
+      <Card className="mb-4">
+        <CardHeader className="pb-3"><CardTitle className="text-base">Backup jobs</CardTitle></CardHeader>
+        <CardContent className="grid sm:grid-cols-2 gap-3 text-sm">
+          {(["run-user-backups", "cleanup-old-backups"] as const).map((name) => {
+            const j = jobs[name];
+            return (
+              <div key={name} className="rounded-lg border p-3">
+                <div className="font-medium">{name === "run-user-backups" ? "Daily backup creation" : "Old backup cleanup"}</div>
+                <div className="text-xs text-muted-foreground mt-1">Scheduled: {name === "run-user-backups" ? "03:00 UTC daily" : "04:00 UTC daily"}</div>
+                <div className="text-xs mt-1">
+                  Last run: <span className="font-mono">{j?.lastRunAt ? new Date(j.lastRunAt).toLocaleString() : "—"}</span>
+                </div>
+                {j?.lastStatus && (
+                  <Badge variant={j.lastStatus === "completed" ? "secondary" : j.lastStatus === "failed" ? "destructive" : "outline"} className="mt-2">
+                    {j.lastStatus}
+                  </Badge>
+                )}
+                {j?.detail && <div className="text-xs text-muted-foreground mt-1 truncate">{j.detail}</div>}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Total backups</div><div className="text-2xl font-bold">{rows.length}</div></CardContent></Card>
@@ -135,6 +166,7 @@ export default function MyBackups() {
           Download links are signed and expire after 5 minutes.
         </AlertDescription>
       </Alert>
+
 
       <Card>
         <CardHeader><CardTitle>Available backups</CardTitle></CardHeader>
