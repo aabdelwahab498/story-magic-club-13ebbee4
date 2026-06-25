@@ -268,14 +268,14 @@
     "rewards": {
       "discount_10": "10% off your next subscription",
       "free_story": "1 free AI story",
-      "free_month": "1 free month of Premium",
+      "free_blog_article": "Write a free blog article (premium feature unlocked)",
       "custom_story": "1 custom personalized story",
       "try_again": "Better luck next time"
     },
     "short": {
       "discount_10": "10% OFF",
       "free_story": "Free Story",
-      "free_month": "Free Month",
+      "free_blog_article": "Free Article",
       "custom_story": "Custom Story",
       "try_again": "Try Again"
     },
