@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Gift, RotateCw, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Gift, RotateCw, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ const SLICE_ANGLE = 360 / SLICES.length;
 
 const SpinWheelModal = ({ open, onOpenChange }: SpinWheelModalProps) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { freeSpins, consumeFreeSpin } = useStreak();
   const [angle, setAngle] = useState(0);
   const [spinning, setSpinning] = useState(false);
@@ -188,14 +190,26 @@ const SpinWheelModal = ({ open, onOpenChange }: SpinWheelModalProps) => {
         </div>
 
         {result && !spinning ? (
-          <div className="text-center bg-white/90 dark:bg-card/80 rounded-2xl p-4 border-2 border-sunset shadow-soft">
-            <Sparkles className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+          <div className="text-center bg-white/90 dark:bg-card/80 rounded-2xl p-4 border-2 border-sunset shadow-soft space-y-3">
+            <Sparkles className="h-8 w-8 text-amber-500 mx-auto" />
             <p className="font-bold text-lg text-foreground">
               {result === "try_again" ? t("wheel.try_again_title") : t("wheel.you_won")}
             </p>
             <p className="text-primary font-bold text-xl">
               {t(`wheel.rewards.${result}`)}
             </p>
+            {result !== "try_again" && (
+              <button
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate("/pricing");
+                }}
+                className="w-full px-6 py-3 bg-sunset text-white rounded-full font-bold text-base hover-pop shadow-soft inline-flex items-center justify-center gap-2"
+              >
+                {t("wheel.subscribe_to_claim", "Subscribe now to claim")}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
           </div>
         ) : null}
 
