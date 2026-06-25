@@ -269,14 +269,14 @@
     "rewards": {
       "discount_10": "خصم ١٠٪ على اشتراكك القادم",
       "free_story": "قصة مجانية بالذكاء الاصطناعي",
-      "free_month": "شهر مجاني من Premium",
+      "free_blog_article": "اكتب مقال مجاني في المدونة (ميزة مدفوعة مفتوحة لك)",
       "custom_story": "قصة مخصصة كاملة",
       "try_again": "حظ أوفر المرة القادمة"
     },
     "short": {
       "discount_10": "خصم ١٠٪",
       "free_story": "قصة مجانية",
-      "free_month": "شهر مجاني",
+      "free_blog_article": "مقال مجاني",
       "custom_story": "قصة مخصصة",
       "try_again": "حاول ثانية"
     },
