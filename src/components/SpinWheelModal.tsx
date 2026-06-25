@@ -22,13 +22,13 @@ const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h
 
 const SLICES = [
   { key: "discount_10", color: "hsl(var(--primary))" },
-  { key: "free_story", color: "hsl(45 95% 60%)" },
+  { key: "try_again", color: "hsl(45 95% 60%)" },
   { key: "try_again", color: "hsl(var(--muted))" },
   { key: "free_blog_article", color: "hsl(280 70% 65%)" },
   { key: "discount_10", color: "hsl(var(--primary) / 0.7)" },
   { key: "custom_story", color: "hsl(195 80% 60%)" },
   { key: "try_again", color: "hsl(var(--muted-foreground) / 0.4)" },
-  { key: "free_story", color: "hsl(15 90% 65%)" },
+  { key: "try_again", color: "hsl(15 90% 65%)" },
 ] as const;
 
 const SLICE_ANGLE = 360 / SLICES.length;
