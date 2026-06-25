@@ -280,7 +280,8 @@
       "try_again": "Try Again"
     },
     "free_spin_available": "You have {{count}} free streak spin!",
-    "use_free_spin": "Use free streak spin 🔥"
+    "use_free_spin": "Use free streak spin 🔥",
+    "subscribe_to_claim": "Subscribe now to claim"
   },
   "streak": {
     "title": "Daily Streak",
