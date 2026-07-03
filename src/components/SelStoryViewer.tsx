@@ -451,37 +451,39 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
       <div className="rounded-xl overflow-hidden border border-foreground/10 dark:border-white/15 bg-kids-softYellow/30 dark:bg-white/5">
         {page.imageUrl ? (
-          <img src={page.imageUrl} alt={page.illustrationPrompt} className="w-full max-h-[420px] object-cover" />
+          <div className="relative group">
+            <img src={page.imageUrl} alt={page.illustrationPrompt} className="w-full max-h-[420px] object-cover" />
+            <a
+              href={page.imageUrl}
+              download={`story-page-${page.index}.png`}
+              className="absolute top-2 end-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-bold shadow backdrop-blur-sm"
+              title={t("sel.download_image", "Download image")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t("sel.download_image_short", "Save")}
+            </a>
+          </div>
         ) : pageStatus[page.index] === "pending" ? (
           <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-primary text-sm font-semibold">
             <Loader2 className="h-6 w-6 animate-spin" />
-            Generating illustration…
-          </div>
-        ) : pageStatus[page.index] === "failed" ? (
-          <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-destructive text-sm font-semibold p-4 text-center">
-            <ImageIcon className="h-5 w-5" />
-            <span>Illustration failed{pageError[page.index] ? ` (${pageError[page.index]})` : ""}</span>
-            <button
-              onClick={handleRetryPage}
-              disabled={illustrating}
-              className="mt-1 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1 disabled:opacity-60"
-            >
-              <Loader2 className={`h-3 w-3 ${illustrating ? "animate-spin" : "hidden"}`} />
-              Retry
-            </button>
+            {t("sel.generating_illustration", "Generating illustration…")}
           </div>
         ) : (
+          // Neutral placeholder — used both when no illustration has been
+          // requested yet AND when a previous attempt failed. Failures are
+          // handled silently (no red error card, no scary toast); the user
+          // simply taps the button again to try once more.
           <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-muted-foreground dark:text-white/70 text-sm font-semibold p-4 text-center">
             <ImageIcon className="h-6 w-6 opacity-70" />
-            <span>{canIllustrate ? "Tap “Illustrate” to draw this scene" : "Illustrations unlock with a subscription"}</span>
+            <span>{canIllustrate ? t("sel.tap_to_draw", "Tap “Illustrate” to draw this scene") : t("sel.illustrations_locked", "Illustrations unlock with a subscription")}</span>
             {canIllustrate && (
               <button
-                onClick={handleIllustrate}
+                onClick={pageStatus[page.index] === "failed" ? handleRetryPage : handleIllustrate}
                 disabled={illustrating}
                 className="mt-1 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1 disabled:opacity-60"
               >
                 {illustrating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                Illustrate
+                {t("sel.illustrate", "Illustrate")}
               </button>
             )}
           </div>
