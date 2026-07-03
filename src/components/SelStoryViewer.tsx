@@ -435,16 +435,19 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-200 text-xs font-bold">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            SEL {story.quality.total}/25
-          </span>
+          {story.quality.total > 0 && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-200 text-xs font-bold">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              SEL {story.quality.total}/25
+            </span>
+          )}
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold">
             <Sparkles className="h-3.5 w-3.5" />
             {story.sel_outcome.skill}
           </span>
         </div>
       </div>
+
 
       <div className="rounded-xl overflow-hidden border border-foreground/10 dark:border-white/15 bg-kids-softYellow/30 dark:bg-white/5">
         {page.imageUrl ? (
@@ -618,8 +621,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
               const failedPagesNow = pages
                 .filter((p) => pageStatus[p.index] === "failed")
                 .map((p) => p.index);
+              // Only show the retry control when there are actually failed
+              // pages to retry — otherwise the idle "Retry failed" label was
+              // confusing (users thought the batch had already failed).
+              if (failedPagesNow.length === 0) return null;
               const someFailedRetrying = failedPagesNow.some((i) => retryingFailedPages.has(i));
-              const disabled = failedCount === 0 || someFailedRetrying || illustrating;
+              const disabled = someFailedRetrying || illustrating;
               return (
                 <button
                   data-testid="illustration-retry-failed"
@@ -629,20 +636,17 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                   aria-label={
                     someFailedRetrying
                       ? t("sel.retry_in_progress", "Retrying failed pages")
-                      : failedCount > 0
-                      ? t("sel.retry_failed", `Retry ${failedCount} failed`)
-                      : t("sel.retry_failed_idle", "Retry failed")
+                      : t("sel.retry_failed", `Retry ${failedCount} failed`)
                   }
                   className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {someFailedRetrying
                     ? t("sel.retry_in_progress", "Retrying…")
-                    : failedCount > 0
-                    ? t("sel.retry_failed", `Retry ${failedCount} failed`)
-                    : t("sel.retry_failed_idle", "Retry failed")}
+                    : t("sel.retry_failed", `Retry ${failedCount} failed`)}
                 </button>
               );
             })()}
+
 
             {pendingCount > 0 && (
               <span className="text-[11px] text-muted-foreground dark:text-white/60">
