@@ -152,20 +152,33 @@ serve(async (req) => {
     if (pages.length === 0) return jsonResp({ error: "missing_pages" }, 400, corsHeaders);
 
     const pdf = await PDFDocument.create();
+    pdf.registerFontkit(fontkit);
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+    // Load Unicode fallback fonts once (Arabic / emoji / non-Latin).
+    const { reg: uniBytes, bold: uniBoldBytes } = await loadUnicodeFonts();
+    const uniFont = uniBytes ? await pdf.embedFont(uniBytes, { subset: true }) : null;
+    const uniBold = uniBoldBytes ? await pdf.embedFont(uniBoldBytes, { subset: true }) : uniFont;
+
+    // Pick the right font for a given string. Falls back to Helvetica when the
+    // text is plain Latin, or when the Unicode font failed to load.
+    const pickFont = (text: string, bold = false) => {
+      if (needsUnicode(text) && uniFont) return bold ? (uniBold ?? uniFont) : uniFont;
+      return bold ? fontBold : font;
+    };
 
     // Cover
     const cover = pdf.addPage([595, 842]);
     cover.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.06, 0.08, 0.18) });
     drawWrapped(cover, title, {
       x: 60, y: 600, width: 475,
-      font: fontBold, size: 34, color: rgb(1, 1, 1),
+      font: pickFont(title, true), size: 34, color: rgb(1, 1, 1),
     });
     if (raw.selStatement) {
       drawWrapped(cover, raw.selStatement.slice(0, 300), {
         x: 60, y: 460, width: 475,
-        font, size: 14, color: rgb(0.85, 0.88, 1),
+        font: pickFont(raw.selStatement), size: 14, color: rgb(0.85, 0.88, 1),
       });
     }
     cover.drawText("Najmah — Starry Tales", {
@@ -200,16 +213,18 @@ serve(async (req) => {
         }
       }
 
-      drawWrapped(page, p.text ?? "", {
+      const bodyText = p.text ?? "";
+      drawWrapped(page, bodyText, {
         x: 60, y: textY, width: 475,
-        font, size: 14, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
+        font: pickFont(bodyText), size: 14, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
       });
 
       page.drawText(`Page ${p.index}`, { x: 60, y: 40, size: 10, font, color: rgb(0.4, 0.4, 0.5) });
       if (p.emotionTag) {
         const tag = p.emotionTag.toUpperCase().slice(0, 20);
-        const tw = fontBold.widthOfTextAtSize(tag, 10);
-        page.drawText(tag, { x: 595 - 60 - tw, y: 40, size: 10, font: fontBold, color: rgb(0.4, 0.3, 0.7) });
+        const tagFont = pickFont(tag, true);
+        const tw = tagFont.widthOfTextAtSize(tag, 10);
+        page.drawText(tag, { x: 595 - 60 - tw, y: 40, size: 10, font: tagFont, color: rgb(0.4, 0.3, 0.7) });
       }
     }
 
