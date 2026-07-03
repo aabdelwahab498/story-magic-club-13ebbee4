@@ -13,11 +13,11 @@ import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
 
 // Unicode font (covers Arabic + Latin) fetched once per cold start.
-// Try multiple CDNs so Deno edge egress works reliably.
+// Noto Sans Arabic has simpler OpenType tables that pdf-lib fontkit can parse
+// without crashing on the anchor/positioning lookups that Amiri triggers.
 const UNICODE_FONT_URLS = [
-  "https://raw.githubusercontent.com/aliftype/amiri/1.000/fonts/ttf/Amiri-Regular.ttf",
-  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Regular.ttf",
-  "https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUpvrIw74NL.ttf",
+  "https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ_sS6tlqHHFlhQ5l3sQWIHPqzCfyG2vu3CBFQLaig.ttf",
+  "https://fonts.gstatic.com/s/notonaskharabic/v33/RrQ5bpV-9Dd1b1OAGA6M9PkyDuVBePeKNaxcsss0Y7bwvc5krK0z9_Mnuw.ttf",
 ];
 
 let unicodeFontBytes: Uint8Array | null = null;
