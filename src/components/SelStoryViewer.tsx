@@ -239,15 +239,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           t("sel.live_all_ready", `All ${res.illustrations.length} illustrations are ready.`),
         );
       } else {
-        toast.error(
-          t("sel.toast_partial_fail", `${res.illustrations.length - failed} ready, ${failed} failed`),
-          {
-            id: batchKey,
-            description: t("sel.toast_retry_hint", "Tap Retry to try the failed pages again."),
-          },
-        );
+        // Quiet partial-fail: no scary red toast. Users see the neutral
+        // placeholder on affected pages and can tap Illustrate again.
+        console.info("[illustrate-story] partial fail", { ready: res.illustrations.length - failed, failed });
         setLiveAnnouncement(
-          t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} failed. Retry available.`),
+          t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} pending. Tap Illustrate to retry.`),
         );
       }
     } catch (e) {
@@ -259,11 +255,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           action: { label: t("paywall.upgrade_cta", "Upgrade"), onClick: goPricing },
         });
       } else {
-        toast.error(t("sel.toast_failed", "Illustration job failed"), {
-          id: batchKey,
-          description: t("sel.toast_failed_desc", "Something went wrong — tap Retry to try again."),
-        });
-        await handleEdgeError(e, t, { context: "illustrate-story" });
+        // Quiet hard-fail: log for debugging but don't surface the scary
+        // "Illustration job failed" toast to end users.
+        console.warn("[illustrate-story] job failed", e);
       }
       setPageStatus((s) => {
         const n = { ...s };
@@ -451,37 +445,39 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
       <div className="rounded-xl overflow-hidden border border-foreground/10 dark:border-white/15 bg-kids-softYellow/30 dark:bg-white/5">
         {page.imageUrl ? (
-          <img src={page.imageUrl} alt={page.illustrationPrompt} className="w-full max-h-[420px] object-cover" />
+          <div className="relative group">
+            <img src={page.imageUrl} alt={page.illustrationPrompt} className="w-full max-h-[420px] object-cover" />
+            <a
+              href={page.imageUrl}
+              download={`story-page-${page.index}.png`}
+              className="absolute top-2 end-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-bold shadow backdrop-blur-sm"
+              title={t("sel.download_image", "Download image")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t("sel.download_image_short", "Save")}
+            </a>
+          </div>
         ) : pageStatus[page.index] === "pending" ? (
           <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-primary text-sm font-semibold">
             <Loader2 className="h-6 w-6 animate-spin" />
-            Generating illustration…
-          </div>
-        ) : pageStatus[page.index] === "failed" ? (
-          <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-destructive text-sm font-semibold p-4 text-center">
-            <ImageIcon className="h-5 w-5" />
-            <span>Illustration failed{pageError[page.index] ? ` (${pageError[page.index]})` : ""}</span>
-            <button
-              onClick={handleRetryPage}
-              disabled={illustrating}
-              className="mt-1 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1 disabled:opacity-60"
-            >
-              <Loader2 className={`h-3 w-3 ${illustrating ? "animate-spin" : "hidden"}`} />
-              Retry
-            </button>
+            {t("sel.generating_illustration", "Generating illustration…")}
           </div>
         ) : (
+          // Neutral placeholder — used both when no illustration has been
+          // requested yet AND when a previous attempt failed. Failures are
+          // handled silently (no red error card, no scary toast); the user
+          // simply taps the button again to try once more.
           <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-muted-foreground dark:text-white/70 text-sm font-semibold p-4 text-center">
             <ImageIcon className="h-6 w-6 opacity-70" />
-            <span>{canIllustrate ? "Tap “Illustrate” to draw this scene" : "Illustrations unlock with a subscription"}</span>
+            <span>{canIllustrate ? t("sel.tap_to_draw", "Tap “Illustrate” to draw this scene") : t("sel.illustrations_locked", "Illustrations unlock with a subscription")}</span>
             {canIllustrate && (
               <button
-                onClick={handleIllustrate}
+                onClick={pageStatus[page.index] === "failed" ? handleRetryPage : handleIllustrate}
                 disabled={illustrating}
                 className="mt-1 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold inline-flex items-center gap-1 disabled:opacity-60"
               >
                 {illustrating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                Illustrate
+                {t("sel.illustrate", "Illustrate")}
               </button>
             )}
           </div>
@@ -586,7 +582,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     : status === "generating"
                     ? "bg-primary animate-pulse"
                     : status === "error"
-                    ? "bg-destructive"
+                    ? "bg-foreground/20 dark:bg-white/30"
                     : "bg-foreground/20 dark:bg-white/30";
                 const fmt = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
                 const tip =
@@ -610,42 +606,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
               })}
             </div>
-            {/*
-              Per-page retry rule: stay disabled while ANY currently-failed
-              page is mid-retry (so a second click can't requeue the same
-              page), and re-enable only after the new result returns. Also
-              disabled when no failures exist and during fresh full-batch
-              generations.
-            */}
-            {(() => {
-              const failedPagesNow = pages
-                .filter((p) => pageStatus[p.index] === "failed")
-                .map((p) => p.index);
-              // Only show the retry control when there are actually failed
-              // pages to retry — otherwise the idle "Retry failed" label was
-              // confusing (users thought the batch had already failed).
-              if (failedPagesNow.length === 0) return null;
-              const someFailedRetrying = failedPagesNow.some((i) => retryingFailedPages.has(i));
-              const disabled = someFailedRetrying || illustrating;
-              return (
-                <button
-                  data-testid="illustration-retry-failed"
-                  onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
-                  disabled={disabled}
-                  aria-disabled={disabled}
-                  aria-label={
-                    someFailedRetrying
-                      ? t("sel.retry_in_progress", "Retrying failed pages")
-                      : t("sel.retry_failed", `Retry ${failedCount} failed`)
-                  }
-                  className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {someFailedRetrying
-                    ? t("sel.retry_in_progress", "Retrying…")
-                    : t("sel.retry_failed", `Retry ${failedCount} failed`)}
-                </button>
-              );
-            })()}
+            {/* Retry-failed pill removed — failed pages fall back to the
+                neutral placeholder with an inline Illustrate button, so users
+                never see the loud red "Retry N failed" chip. */}
 
 
             {pendingCount > 0 && (
