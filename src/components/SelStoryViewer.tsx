@@ -255,11 +255,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           action: { label: t("paywall.upgrade_cta", "Upgrade"), onClick: goPricing },
         });
       } else {
-        toast.error(t("sel.toast_failed", "Illustration job failed"), {
-          id: batchKey,
-          description: t("sel.toast_failed_desc", "Something went wrong — tap Retry to try again."),
-        });
-        await handleEdgeError(e, t, { context: "illustrate-story" });
+        // Quiet hard-fail: log for debugging but don't surface the scary
+        // "Illustration job failed" toast to end users.
+        console.warn("[illustrate-story] job failed", e);
       }
       setPageStatus((s) => {
         const n = { ...s };
