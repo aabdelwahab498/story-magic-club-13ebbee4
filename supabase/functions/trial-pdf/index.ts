@@ -10,6 +10,41 @@ import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
+
+// Unicode font (covers Arabic + Latin) fetched once per cold start.
+// Amiri = SIL OFL, ~500KB regular. Cached in module scope.
+const UNICODE_FONT_URL =
+  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Regular.ttf";
+const UNICODE_FONT_BOLD_URL =
+  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Bold.ttf";
+
+let unicodeFontBytes: Uint8Array | null = null;
+let unicodeFontBoldBytes: Uint8Array | null = null;
+async function loadUnicodeFonts(): Promise<{ reg: Uint8Array | null; bold: Uint8Array | null }> {
+  try {
+    if (!unicodeFontBytes) {
+      const r = await fetch(UNICODE_FONT_URL);
+      if (r.ok) unicodeFontBytes = new Uint8Array(await r.arrayBuffer());
+    }
+    if (!unicodeFontBoldBytes) {
+      const r = await fetch(UNICODE_FONT_BOLD_URL);
+      if (r.ok) unicodeFontBoldBytes = new Uint8Array(await r.arrayBuffer());
+    }
+  } catch (e) {
+    console.warn("[trial-pdf] unicode font load failed", e);
+  }
+  return { reg: unicodeFontBytes, bold: unicodeFontBoldBytes };
+}
+
+// pdf-lib's built-in Helvetica is WinAnsi only — any non-Latin glyph (Arabic,
+// emoji, curly quotes outside Win-1252) throws. Detect non-WinAnsi content so
+// we can pick the embedded Unicode font instead of crashing the whole render.
+function needsUnicode(text: string): boolean {
+  if (!text) return false;
+  // Anything outside the printable WinAnsi range needs Unicode.
+  return /[^\x00-\xff]/.test(text) || /[\u0600-\u06FF]/.test(text);
+}
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 interface PageIn {
@@ -117,20 +152,33 @@ serve(async (req) => {
     if (pages.length === 0) return jsonResp({ error: "missing_pages" }, 400, corsHeaders);
 
     const pdf = await PDFDocument.create();
+    pdf.registerFontkit(fontkit);
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+    // Load Unicode fallback fonts once (Arabic / emoji / non-Latin).
+    const { reg: uniBytes, bold: uniBoldBytes } = await loadUnicodeFonts();
+    const uniFont = uniBytes ? await pdf.embedFont(uniBytes, { subset: true }) : null;
+    const uniBold = uniBoldBytes ? await pdf.embedFont(uniBoldBytes, { subset: true }) : uniFont;
+
+    // Pick the right font for a given string. Falls back to Helvetica when the
+    // text is plain Latin, or when the Unicode font failed to load.
+    const pickFont = (text: string, bold = false) => {
+      if (needsUnicode(text) && uniFont) return bold ? (uniBold ?? uniFont) : uniFont;
+      return bold ? fontBold : font;
+    };
 
     // Cover
     const cover = pdf.addPage([595, 842]);
     cover.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.06, 0.08, 0.18) });
     drawWrapped(cover, title, {
       x: 60, y: 600, width: 475,
-      font: fontBold, size: 34, color: rgb(1, 1, 1),
+      font: pickFont(title, true), size: 34, color: rgb(1, 1, 1),
     });
     if (raw.selStatement) {
       drawWrapped(cover, raw.selStatement.slice(0, 300), {
         x: 60, y: 460, width: 475,
-        font, size: 14, color: rgb(0.85, 0.88, 1),
+        font: pickFont(raw.selStatement), size: 14, color: rgb(0.85, 0.88, 1),
       });
     }
     cover.drawText("Najmah — Starry Tales", {
@@ -165,16 +213,18 @@ serve(async (req) => {
         }
       }
 
-      drawWrapped(page, p.text ?? "", {
+      const bodyText = p.text ?? "";
+      drawWrapped(page, bodyText, {
         x: 60, y: textY, width: 475,
-        font, size: 14, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
+        font: pickFont(bodyText), size: 14, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
       });
 
       page.drawText(`Page ${p.index}`, { x: 60, y: 40, size: 10, font, color: rgb(0.4, 0.4, 0.5) });
       if (p.emotionTag) {
         const tag = p.emotionTag.toUpperCase().slice(0, 20);
-        const tw = fontBold.widthOfTextAtSize(tag, 10);
-        page.drawText(tag, { x: 595 - 60 - tw, y: 40, size: 10, font: fontBold, color: rgb(0.4, 0.3, 0.7) });
+        const tagFont = pickFont(tag, true);
+        const tw = tagFont.widthOfTextAtSize(tag, 10);
+        page.drawText(tag, { x: 595 - 60 - tw, y: 40, size: 10, font: tagFont, color: rgb(0.4, 0.3, 0.7) });
       }
     }
 
