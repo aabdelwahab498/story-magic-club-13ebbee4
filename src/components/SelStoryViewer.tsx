@@ -239,15 +239,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           t("sel.live_all_ready", `All ${res.illustrations.length} illustrations are ready.`),
         );
       } else {
-        toast.error(
-          t("sel.toast_partial_fail", `${res.illustrations.length - failed} ready, ${failed} failed`),
-          {
-            id: batchKey,
-            description: t("sel.toast_retry_hint", "Tap Retry to try the failed pages again."),
-          },
-        );
+        // Quiet partial-fail: no scary red toast. Users see the neutral
+        // placeholder on affected pages and can tap Illustrate again.
+        console.info("[illustrate-story] partial fail", { ready: res.illustrations.length - failed, failed });
         setLiveAnnouncement(
-          t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} failed. Retry available.`),
+          t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} pending. Tap Illustrate to retry.`),
         );
       }
     } catch (e) {
