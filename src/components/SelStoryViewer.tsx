@@ -582,7 +582,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     : status === "generating"
                     ? "bg-primary animate-pulse"
                     : status === "error"
-                    ? "bg-destructive"
+                    ? "bg-foreground/20 dark:bg-white/30"
                     : "bg-foreground/20 dark:bg-white/30";
                 const fmt = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
                 const tip =
