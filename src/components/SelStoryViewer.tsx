@@ -435,16 +435,19 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-200 text-xs font-bold">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            SEL {story.quality.total}/25
-          </span>
+          {story.quality.total > 0 && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-200 text-xs font-bold">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              SEL {story.quality.total}/25
+            </span>
+          )}
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold">
             <Sparkles className="h-3.5 w-3.5" />
             {story.sel_outcome.skill}
           </span>
         </div>
       </div>
+
 
       <div className="rounded-xl overflow-hidden border border-foreground/10 dark:border-white/15 bg-kids-softYellow/30 dark:bg-white/5">
         {page.imageUrl ? (
