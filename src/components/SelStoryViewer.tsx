@@ -621,8 +621,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
               const failedPagesNow = pages
                 .filter((p) => pageStatus[p.index] === "failed")
                 .map((p) => p.index);
+              // Only show the retry control when there are actually failed
+              // pages to retry — otherwise the idle "Retry failed" label was
+              // confusing (users thought the batch had already failed).
+              if (failedPagesNow.length === 0) return null;
               const someFailedRetrying = failedPagesNow.some((i) => retryingFailedPages.has(i));
-              const disabled = failedCount === 0 || someFailedRetrying || illustrating;
+              const disabled = someFailedRetrying || illustrating;
               return (
                 <button
                   data-testid="illustration-retry-failed"
@@ -632,20 +636,17 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                   aria-label={
                     someFailedRetrying
                       ? t("sel.retry_in_progress", "Retrying failed pages")
-                      : failedCount > 0
-                      ? t("sel.retry_failed", `Retry ${failedCount} failed`)
-                      : t("sel.retry_failed_idle", "Retry failed")
+                      : t("sel.retry_failed", `Retry ${failedCount} failed`)
                   }
                   className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {someFailedRetrying
                     ? t("sel.retry_in_progress", "Retrying…")
-                    : failedCount > 0
-                    ? t("sel.retry_failed", `Retry ${failedCount} failed`)
-                    : t("sel.retry_failed_idle", "Retry failed")}
+                    : t("sel.retry_failed", `Retry ${failedCount} failed`)}
                 </button>
               );
             })()}
+
 
             {pendingCount > 0 && (
               <span className="text-[11px] text-muted-foreground dark:text-white/60">
