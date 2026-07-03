@@ -243,13 +243,19 @@ const AIStoryteller = () => {
       const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
       const childName = activeChild?.name ?? (t("page_ai_storyteller.hero", "Hero"));
       const themeLabel = t(`ai.themes.${themeId}`);
+      const trimmedPrompt = customPrompt.trim();
+      // Auto-detect Arabic input so the story is written in the user's language,
+      // not the current UI locale.
+      const effectiveLang = /[\u0600-\u06FF]/.test(trimmedPrompt) ? "ar" : lang;
 
-      // ── Step 1: Story text
+      // ── Step 1: Story text — pass the user's custom brief so the story
+      // reflects their actual input instead of a generic demo.
       const res = await generateTrialStory({
         childName,
         age: ageNum,
         theme: themeLabel,
-        language: lang,
+        language: effectiveLang,
+        customPrompt: trimmedPrompt || undefined,
       });
       stopProgressTimeline("done");
       const text = res.pages.map((p) => p.text).join("\n\n");
