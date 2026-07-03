@@ -606,42 +606,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
               })}
             </div>
-            {/*
-              Per-page retry rule: stay disabled while ANY currently-failed
-              page is mid-retry (so a second click can't requeue the same
-              page), and re-enable only after the new result returns. Also
-              disabled when no failures exist and during fresh full-batch
-              generations.
-            */}
-            {(() => {
-              const failedPagesNow = pages
-                .filter((p) => pageStatus[p.index] === "failed")
-                .map((p) => p.index);
-              // Only show the retry control when there are actually failed
-              // pages to retry — otherwise the idle "Retry failed" label was
-              // confusing (users thought the batch had already failed).
-              if (failedPagesNow.length === 0) return null;
-              const someFailedRetrying = failedPagesNow.some((i) => retryingFailedPages.has(i));
-              const disabled = someFailedRetrying || illustrating;
-              return (
-                <button
-                  data-testid="illustration-retry-failed"
-                  onClick={() => runIllustrate(pages.filter((p) => pageStatus[p.index] === "failed"))}
-                  disabled={disabled}
-                  aria-disabled={disabled}
-                  aria-label={
-                    someFailedRetrying
-                      ? t("sel.retry_in_progress", "Retrying failed pages")
-                      : t("sel.retry_failed", `Retry ${failedCount} failed`)
-                  }
-                  className="mt-1 px-3 py-1 rounded-full bg-destructive/15 text-destructive text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {someFailedRetrying
-                    ? t("sel.retry_in_progress", "Retrying…")
-                    : t("sel.retry_failed", `Retry ${failedCount} failed`)}
-                </button>
-              );
-            })()}
+            {/* Retry-failed pill removed — failed pages fall back to the
+                neutral placeholder with an inline Illustrate button, so users
+                never see the loud red "Retry N failed" chip. */}
 
 
             {pendingCount > 0 && (
