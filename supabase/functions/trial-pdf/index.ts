@@ -13,28 +13,32 @@ import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
 
 // Unicode font (covers Arabic + Latin) fetched once per cold start.
-// Amiri = SIL OFL, ~500KB regular. Cached in module scope.
-const UNICODE_FONT_URL =
-  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Regular.ttf";
-const UNICODE_FONT_BOLD_URL =
-  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Bold.ttf";
+// Noto Sans Arabic has simpler OpenType tables that pdf-lib fontkit can parse
+// without crashing on the anchor/positioning lookups that Amiri triggers.
+const UNICODE_FONT_URLS = [
+  "https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ_sS6tlqHHFlhQ5l3sQWIHPqzCfyG2vu3CBFQLaig.ttf",
+  "https://fonts.gstatic.com/s/notonaskharabic/v33/RrQ5bpV-9Dd1b1OAGA6M9PkyDuVBePeKNaxcsss0Y7bwvc5krK0z9_Mnuw.ttf",
+];
 
 let unicodeFontBytes: Uint8Array | null = null;
-let unicodeFontBoldBytes: Uint8Array | null = null;
 async function loadUnicodeFonts(): Promise<{ reg: Uint8Array | null; bold: Uint8Array | null }> {
-  try {
-    if (!unicodeFontBytes) {
-      const r = await fetch(UNICODE_FONT_URL);
-      if (r.ok) unicodeFontBytes = new Uint8Array(await r.arrayBuffer());
+  if (unicodeFontBytes) return { reg: unicodeFontBytes, bold: unicodeFontBytes };
+  for (const url of UNICODE_FONT_URLS) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) {
+        unicodeFontBytes = new Uint8Array(await r.arrayBuffer());
+        console.log(`[trial-pdf] unicode font loaded from ${url} bytes=${unicodeFontBytes.length}`);
+        break;
+      } else {
+        console.warn(`[trial-pdf] font fetch ${url} status=${r.status}`);
+      }
+    } catch (e) {
+      console.warn(`[trial-pdf] font fetch ${url} failed`, e instanceof Error ? e.message : e);
     }
-    if (!unicodeFontBoldBytes) {
-      const r = await fetch(UNICODE_FONT_BOLD_URL);
-      if (r.ok) unicodeFontBoldBytes = new Uint8Array(await r.arrayBuffer());
-    }
-  } catch (e) {
-    console.warn("[trial-pdf] unicode font load failed", e);
   }
-  return { reg: unicodeFontBytes, bold: unicodeFontBoldBytes };
+  if (!unicodeFontBytes) console.error("[trial-pdf] ALL font sources failed");
+  return { reg: unicodeFontBytes, bold: unicodeFontBytes };
 }
 
 // pdf-lib's built-in Helvetica is WinAnsi only — any non-Latin glyph (Arabic,
