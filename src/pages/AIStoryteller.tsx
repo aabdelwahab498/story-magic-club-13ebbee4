@@ -157,16 +157,29 @@ const AIStoryteller = () => {
     const focus = activeChild?.emotional_focus && Array.isArray(activeChild.emotional_focus)
       ? (activeChild.emotional_focus as string[])
       : [];
+    // Auto-detect language from the custom prompt: if the user writes in
+    // Arabic (or another supported script) we override the UI locale so the
+    // story is produced in that language instead of the interface language.
+    const trimmedPrompt = customPrompt.trim();
+    const detectPromptLang = (text: string): string | null => {
+      if (!text) return null;
+      if (/[\u0600-\u06FF]/.test(text)) return "ar";
+      // Latin-only heuristics for the other supported languages are unreliable
+      // for short prompts, so we only auto-switch on non-Latin scripts.
+      return null;
+    };
+    const effectiveLang = detectPromptLang(trimmedPrompt) ?? lang;
     return {
       childProfileId: activeChild?.id ?? null,
       childName: activeChild?.name ?? "the child",
       age: activeChild?.age ?? ageNum,
       theme: t(`ai.themes.${themeId}`),
       emotionalFocus: focus,
-      language: lang,
-      customPrompt: customPrompt.trim() || undefined,
+      language: effectiveLang,
+      customPrompt: trimmedPrompt || undefined,
     };
   };
+
 
   // Heuristic: classify an edge error as a personal-API-key failure when the
   // user is generating via BYOK and the provider returned an auth/quota error.
