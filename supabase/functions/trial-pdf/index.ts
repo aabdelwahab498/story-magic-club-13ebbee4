@@ -10,6 +10,41 @@ import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
+
+// Unicode font (covers Arabic + Latin) fetched once per cold start.
+// Amiri = SIL OFL, ~500KB regular. Cached in module scope.
+const UNICODE_FONT_URL =
+  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Regular.ttf";
+const UNICODE_FONT_BOLD_URL =
+  "https://cdn.jsdelivr.net/gh/aliftype/amiri@1.000/fonts/ttf/Amiri-Bold.ttf";
+
+let unicodeFontBytes: Uint8Array | null = null;
+let unicodeFontBoldBytes: Uint8Array | null = null;
+async function loadUnicodeFonts(): Promise<{ reg: Uint8Array | null; bold: Uint8Array | null }> {
+  try {
+    if (!unicodeFontBytes) {
+      const r = await fetch(UNICODE_FONT_URL);
+      if (r.ok) unicodeFontBytes = new Uint8Array(await r.arrayBuffer());
+    }
+    if (!unicodeFontBoldBytes) {
+      const r = await fetch(UNICODE_FONT_BOLD_URL);
+      if (r.ok) unicodeFontBoldBytes = new Uint8Array(await r.arrayBuffer());
+    }
+  } catch (e) {
+    console.warn("[trial-pdf] unicode font load failed", e);
+  }
+  return { reg: unicodeFontBytes, bold: unicodeFontBoldBytes };
+}
+
+// pdf-lib's built-in Helvetica is WinAnsi only — any non-Latin glyph (Arabic,
+// emoji, curly quotes outside Win-1252) throws. Detect non-WinAnsi content so
+// we can pick the embedded Unicode font instead of crashing the whole render.
+function needsUnicode(text: string): boolean {
+  if (!text) return false;
+  // Anything outside the printable WinAnsi range needs Unicode.
+  return /[^\x00-\xff]/.test(text) || /[\u0600-\u06FF]/.test(text);
+}
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 interface PageIn {
