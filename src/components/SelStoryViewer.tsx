@@ -447,15 +447,33 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         {page.imageUrl ? (
           <div className="relative group">
             <img src={page.imageUrl} alt={page.illustrationPrompt} className="w-full max-h-[420px] object-cover" />
-            <a
-              href={page.imageUrl}
-              download={`story-page-${page.index}.png`}
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.preventDefault();
+                try {
+                  const res = await fetch(page.imageUrl!, { mode: "cors" });
+                  const blob = await res.blob();
+                  const ext = (blob.type.split("/")[1] || "png").split("+")[0];
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `story-page-${page.index}.${ext}`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  setTimeout(() => URL.revokeObjectURL(url), 4000);
+                } catch (err) {
+                  console.warn("[sel] image download failed", err);
+                  toast.error(t("sel.download_image_failed", "Could not save the image."));
+                }
+              }}
               className="absolute top-2 end-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-bold shadow backdrop-blur-sm"
               title={t("sel.download_image", "Download image")}
             >
               <Download className="h-3.5 w-3.5" />
               {t("sel.download_image_short", "Save")}
-            </a>
+            </button>
           </div>
         ) : pageStatus[page.index] === "pending" ? (
           <div className="w-full h-44 sm:h-56 flex flex-col items-center justify-center gap-2 text-primary text-sm font-semibold">
