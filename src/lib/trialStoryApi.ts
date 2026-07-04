@@ -205,10 +205,35 @@ export function downloadTrialPdf(pdfBase64: string, filename = "my-story.pdf") {
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const blob = new Blob([bytes], { type: "application/pdf" });
+
+  // Safari on iOS ignores the `download` attribute on blob URLs — the PDF
+  // just opens inline and nothing is saved. Detect and use a data URL so the
+  // browser's share sheet / save action becomes available.
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
+
+  if (isIOS) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      const w = window.open();
+      if (w) {
+        w.document.title = filename;
+        w.document.body.style.margin = "0";
+        w.document.body.innerHTML = `<iframe src="${dataUrl}" style="border:0;width:100vw;height:100vh"></iframe>`;
+      } else {
+        window.location.href = dataUrl;
+      }
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

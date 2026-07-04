@@ -311,7 +311,9 @@ const AIStoryteller = () => {
         childName: activeChild?.name,
         selStatement: guestTrial.sel_outcome?.statement,
       });
-      const safeTitle = (guestTrial.title || "my-story").replace(/[^a-z0-9-]+/gi, "-").slice(0, 60);
+      const rawTitle = (guestTrial.title || "").trim();
+      const cleaned = rawTitle.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60);
+      const safeTitle = cleaned || "my-story";
       downloadTrialPdf(pdf.pdfBase64, `${safeTitle}.pdf`);
       toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
     } catch (e) {
