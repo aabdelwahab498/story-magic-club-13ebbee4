@@ -455,15 +455,34 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                   const res = await fetch(page.imageUrl!, { mode: "cors" });
                   const blob = await res.blob();
                   const ext = (blob.type.split("/")[1] || "png").split("+")[0];
+                  const filename = `story-page-${page.index}.${ext}`;
+                  const ua = navigator.userAgent;
+                  const isIOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
+
+                  // iOS Safari ignores <a download> on blob URLs (opens inline
+                  // instead of saving). Use the native share sheet with a File
+                  // so the user gets "Save Image" / "Save to Files" directly,
+                  // with no extra browser tab.
+                  if (isIOS && "canShare" in navigator) {
+                    const file = new File([blob], filename, { type: blob.type });
+                    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+                    if (nav.canShare?.({ files: [file] })) {
+                      await navigator.share({ files: [file], title: filename });
+                      return;
+                    }
+                  }
+
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `story-page-${page.index}.${ext}`;
+                  a.download = filename;
+                  a.rel = "noopener";
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
                   setTimeout(() => URL.revokeObjectURL(url), 4000);
                 } catch (err) {
+                  if ((err as { name?: string })?.name === "AbortError") return;
                   console.warn("[sel] image download failed", err);
                   toast.error(t("sel.download_image_failed", "Could not save the image."));
                 }
