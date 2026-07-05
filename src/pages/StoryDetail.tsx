@@ -128,13 +128,26 @@ const StoryDetail = () => {
       window.speechSynthesis.cancel();
     }
     setIsPlaying(false);
+    setIsPaused(false);
     setNarrating(false);
   };
 
   const playChapter = async () => {
     if (!story) return;
-    if (isPlaying) {
-      stopNarration();
+    // If currently playing, pause (do NOT cancel — keep the queue so resume works)
+    if (isPlaying && !isPaused) {
+      if (ttsRef.current) {
+        ttsRef.current.pause();
+        setIsPaused(true);
+        setIsPlaying(false);
+      }
+      return;
+    }
+    // If paused, resume from where we left off
+    if (isPaused && ttsRef.current) {
+      ttsRef.current.resume();
+      setIsPaused(false);
+      setIsPlaying(true);
       return;
     }
     const text = currentText || getLocalized(story.description, storyLang) || currentTitle;
@@ -155,13 +168,15 @@ const StoryDetail = () => {
         onEnd: () => {
           ttsRef.current = null;
           setIsPlaying(false);
+          setIsPaused(false);
           // Signal that it's a safe moment to apply any deferred SW update.
           try { window.dispatchEvent(new Event("story:ended")); } catch { /* noop */ }
         },
-        onError: () => { ttsRef.current = null; setIsPlaying(false); },
+        onError: () => { ttsRef.current = null; setIsPlaying(false); setIsPaused(false); },
       });
       ttsRef.current = handle;
       setIsPlaying(true);
+      setIsPaused(false);
     } catch (e) {
       console.error(e);
       toast.error(t("ai.errors.generic"));
