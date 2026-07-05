@@ -57,6 +57,7 @@ const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAdmin, isStaff, signOut } = useAuth();
+  const { profile } = useProfile();
   const [open, setOpen] = useState(false);
   const sfx = useSoundEffects();
 
