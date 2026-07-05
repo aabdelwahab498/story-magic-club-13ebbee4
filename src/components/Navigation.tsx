@@ -275,9 +275,14 @@ const Navigation = () => {
             )}
             {user ? (() => {
               const displayName =
+                profile?.display_name ||
                 (user.user_metadata as { display_name?: string } | undefined)?.display_name ||
                 user.email?.split("@")[0] ||
                 "";
+              const avatarUrl =
+                profile?.avatar_url ||
+                (user.user_metadata as { avatar_url?: string } | undefined)?.avatar_url ||
+                null;
               const initial = (displayName || user.email || "?").charAt(0).toUpperCase();
               return (
               <DropdownMenu>
@@ -287,6 +292,7 @@ const Navigation = () => {
                   title={user.email ?? ""}
                 >
                   <Avatar className="h-8 w-8 ring-2 ring-primary/40">
+                    {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
                     <AvatarFallback className="bg-magic text-primary-foreground text-sm font-bold">
                       {initial}
                     </AvatarFallback>
