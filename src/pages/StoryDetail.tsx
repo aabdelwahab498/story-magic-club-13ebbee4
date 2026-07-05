@@ -315,12 +315,14 @@ const StoryDetail = () => {
                 onClick={playChapter}
                 disabled={narrating || chapterCount === 0}
                 className={`px-6 py-3 rounded-full inline-flex items-center justify-center gap-2 text-white transition-all ${
-                  isPlaying ? "bg-kids-orange" : "bg-primary"
+                  isPlaying ? "bg-kids-orange" : isPaused ? "bg-kids-softPurple" : "bg-primary"
                 } ${narrating ? "opacity-70" : ""} disabled:opacity-50`}
               >
                 {narrating ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying ? <Pause className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                 {isPlaying
                   ? t("stories.pause_story", "Pause")
+                  : isPaused
+                  ? t("stories.resume_story", "Resume")
                   : `${t("stories.play_chapter", "Play chapter")} ${safeIdx + 1}`}
               </button>
               <button
