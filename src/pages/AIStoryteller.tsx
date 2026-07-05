@@ -129,6 +129,7 @@ const AIStoryteller = () => {
   const [guestTrial, setGuestTrial] = useState<TrialStoryResponse | null>(null);
   const [guestIllustrating, setGuestIllustrating] = useState(false);
   const [guestPdfLoading, setGuestPdfLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Drive the visual progress bar with timed step transitions while the
   // edge function runs server-side (it is not streamable). Cleared on result.
