@@ -63,9 +63,11 @@ const AGE_GUIDE: Record<string, string> = {
     "romance or anything frightening — keep it wholesome and bedtime-appropriate.",
 };
 
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-if (!OPENROUTER_API_KEY) {
-  console.error("[generate-story] CRITICAL: OPENROUTER_API_KEY is not configured in environment variables.");
+import { aiChat, AIGatewayError } from "../_shared/sel/gateway.ts";
+
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+if (!GEMINI_API_KEY) {
+  console.error("[generate-story] CRITICAL: GEMINI_API_KEY is not configured in environment variables.");
 }
 
 const ALLOWED_LANGS = new Set(Object.keys(LANGUAGE_NAMES));
@@ -191,142 +193,46 @@ ${ageGuide}
 
 Write the story now in ${langName}, fully respecting both the theme direction and the age-appropriate style.`;
 
-    const FREE_MODELS = [
-      "openai/gpt-oss-120b:free",
-      "deepseek/deepseek-v4-flash:free",
-      "qwen/qwen3-next-80b-a3b-instruct:free",
-      "z-ai/glm-4.5-air:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
-      "meta-llama/llama-3.3-70b-instruct:free",
-    ];
-
-    if (!OPENROUTER_API_KEY) {
-      console.error("[generate-story] CRITICAL: OPENROUTER_API_KEY is not configured. AI call aborted.");
+    if (!GEMINI_API_KEY) {
+      console.error("[generate-story] CRITICAL: GEMINI_API_KEY is not configured. AI call aborted.");
       return new Response(
-        JSON.stringify({ error: "ai_config_missing", detail: "OPENROUTER_API_KEY is not configured" }),
+        JSON.stringify({ error: "ai_config_missing", detail: "GEMINI_API_KEY is not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let resp: Response | null = null;
-    let lastStatus = 500;
-    let lastTxt = "";
-    let usedProvider: "openrouter" | "lovable" | null = null;
-    let usedModel = "";
-    for (const model of FREE_MODELS) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 30_000);
-      let r: Response;
-      try {
-        r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          signal: ctrl.signal,
-          headers: {
-            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://lovable.dev",
-            "X-Title": "Starry Tales",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-          }),
-        });
-      } catch (err) {
-        clearTimeout(timer);
-        lastStatus = 504;
-        lastTxt = (err as Error).message || "timeout";
-        console.error(`[generate-story] openrouter ${model} -> aborted: ${lastTxt}`);
-        continue;
-      }
-      clearTimeout(timer);
-      if (r.ok) { resp = r; usedProvider = "openrouter"; usedModel = model; break; }
-      lastStatus = r.status;
-      lastTxt = await r.text().catch(() => "");
-      console.error(`[generate-story] openrouter ${model} -> ${r.status}: ${lastTxt.slice(0, 200)}`);
-      // 402 from OpenRouter means provider out of credits -> try next model briefly, then fall to Lovable
-      if (![429, 402, 404, 500, 502, 503, 504].includes(r.status)) break;
-    }
-
-    // Fallback: Lovable AI Gateway (LOVABLE_API_KEY is auto-provisioned)
-    if (!resp) {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (LOVABLE_API_KEY) {
-        const LOVABLE_MODELS = [
-          "google/gemini-3-flash-preview",
-          "google/gemini-2.5-flash",
-          "google/gemini-2.5-flash-lite",
-        ];
-        for (const model of LOVABLE_MODELS) {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 30_000);
-          let r: Response;
-          try {
-            r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              signal: ctrl.signal,
-              headers: {
-                "Lovable-API-Key": LOVABLE_API_KEY,
-                "Content-Type": "application/json",
-                "X-Lovable-AIG-SDK": "edge-function",
-              },
-              body: JSON.stringify({
-                model,
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: userPrompt },
-                ],
-              }),
-            });
-          } catch (err) {
-            clearTimeout(timer);
-            lastStatus = 504;
-            lastTxt = (err as Error).message || "timeout";
-            console.error(`[generate-story] lovable ${model} -> aborted: ${lastTxt}`);
-            continue;
-          }
-          clearTimeout(timer);
-          if (r.ok) { resp = r; usedProvider = "lovable"; usedModel = model; break; }
-          lastStatus = r.status;
-          lastTxt = await r.text().catch(() => "");
-          console.error(`[generate-story] lovable ${model} -> ${r.status}: ${lastTxt.slice(0, 200)}`);
-          if (![429, 402, 404, 500, 502, 503, 504].includes(r.status)) break;
-        }
-      } else {
-        console.warn("[generate-story] LOVABLE_API_KEY not set — fallback unavailable");
-      }
-    }
-
-    if (!resp) {
-      if (lastStatus === 429) {
-        return new Response(JSON.stringify({ error: "rate_limited" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (lastStatus === 402) {
-        // Provider out of credits — not a user-facing credit error. Surface as upstream issue.
-        return new Response(
-          JSON.stringify({
-            error: "ai_provider_unavailable",
-            reason: "upstream_capacity",
-            message: "The AI provider is temporarily unavailable. Please try again shortly.",
-          }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      return new Response(JSON.stringify({ error: "ai_error", detail: lastTxt.slice(0, 200) }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let story = "";
+    try {
+      story = await aiChat({
+        system: systemPrompt,
+        user: userPrompt,
+        maxTokens: 3000,
       });
+      console.info(`[generate-story] succeeded via Gemini`);
+    } catch (e) {
+      if (e instanceof AIGatewayError) {
+        console.error(`[generate-story] gemini failed: ${e.status} ${e.message}`);
+        if (e.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (e.status === 402) {
+          return new Response(
+            JSON.stringify({
+              error: "ai_provider_unavailable",
+              reason: "upstream_capacity",
+              message: "The AI provider is temporarily unavailable. Please try again shortly.",
+            }),
+            { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "ai_error", detail: e.message.slice(0, 200) }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw e;
     }
-
-    console.info(`[generate-story] succeeded via ${usedProvider}/${usedModel}`);
-
-
-    const data = await resp.json();
-    const story = data.choices?.[0]?.message?.content || "";
 
     return new Response(JSON.stringify({ story, language }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
