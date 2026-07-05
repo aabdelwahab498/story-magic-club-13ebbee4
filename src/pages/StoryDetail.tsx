@@ -69,6 +69,7 @@ const StoryDetail = () => {
   const [chapterIdx, setChapterIdx] = useState(0);
   const [narrating, setNarrating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [readingOpen, setReadingOpen] = useState(false);
   const ttsRef = useRef<BrowserTtsHandle | null>(null);
 
