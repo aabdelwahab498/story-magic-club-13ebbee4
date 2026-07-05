@@ -327,6 +327,35 @@ const AIStoryteller = () => {
     }
   };
 
+  // Authenticated users — build a PDF from the current AI story + any illustrations.
+  const handleDownloadPdf = async () => {
+    if (!story) return;
+    setPdfLoading(true);
+    try {
+      const scenes = splitIntoScenes(story, 6);
+      const title = `${t(`ai.themes.${themeId}`)} • ${t(`ai.characters.${characterId}`)}`;
+      const pdf = await generateTrialPdf({
+        title,
+        pages: scenes.map((text, i) => ({
+          index: i,
+          text,
+          imageUrl: illustrations[i]?.imageUrl ?? null,
+        })),
+        childName: activeChild?.name,
+      });
+      const cleaned = title.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60);
+      downloadTrialPdf(pdf.pdfBase64, `${cleaned || "story"}.pdf`);
+      toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
+    } catch (e) {
+      console.error("[pdf] failed", e);
+      toast.error(
+        t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."),
+      );
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   // Phase 1: plan only. Shows the blueprint in a modal so the user can approve before
   // the full 10–15 page write. When customPrompt is empty we skip preview and go straight to full.
   const handleGenerateSel = async () => {
