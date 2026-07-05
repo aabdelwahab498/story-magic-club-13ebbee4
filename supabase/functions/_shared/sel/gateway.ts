@@ -1,18 +1,18 @@
-// AI gateway for SEL agents.
+// AI text gateway — Google AI Studio (Gemini) direct.
+//
 // Priority order:
-//   1) User-supplied API keys (loaded into AsyncLocalStorage by edge function).
-//   2) Lovable AI Gateway (LOVABLE_API_KEY, free included usage).
-//   3) OpenRouter free models (only if Lovable key is missing or returns 5xx).
+//   1) User-supplied API keys (BYOK, loaded via AsyncLocalStorage).
+//   2) Google AI Studio using GEMINI_API_KEY.
+//        - primary: gemini-2.5-flash
+//        - fallback: gemini-1.5-flash
+//
+// Uses Google's OpenAI-compatible endpoint so the rest of the codebase
+// keeps the same chat/completions shape.
 
 import { getUserContext } from "../userKeys.ts";
 
-const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
-const OPENROUTER_KEY = Deno.env.get("OPENROUTER_API_KEY");
-
-const LOVABLE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const REFERER = Deno.env.get("OPENROUTER_REFERER") ?? "https://lovable.dev";
-const TITLE = Deno.env.get("OPENROUTER_TITLE") ?? "Starry Tales";
+const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 export interface AIChatOpts {
   model?: string;
@@ -29,19 +29,8 @@ export class AIGatewayError extends Error {
   }
 }
 
-// Lovable AI Gateway models (preferred — free included usage).
-const LOVABLE_MODELS = [
-  "google/gemini-3-flash-preview",
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
-];
-
-// OpenRouter free-tier fallback chain (used only if Lovable unavailable).
-const OPENROUTER_FREE_MODELS = [
-  "openai/gpt-oss-120b:free",
-  "z-ai/glm-4.5-air:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-];
+// Gemini models used when no explicit override is passed.
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash"];
 
 interface Provider {
   name: string;
@@ -51,10 +40,15 @@ interface Provider {
   extraHeaders?: Record<string, string>;
 }
 
+function normalizeModel(m: string): string {
+  // Strip vendor prefix (e.g. "google/gemini-2.5-flash") — Gemini API expects bare model id.
+  return m.replace(/^google\//, "");
+}
+
 function providers(modelOverride?: string): Provider[] {
   const list: Provider[] = [];
 
-  // 1) User-supplied API keys take priority — generation runs on user's own account.
+  // 1) BYOK — user-supplied keys take priority.
   const ctx = getUserContext();
   if (ctx && ctx.textProviders.length > 0) {
     for (const up of ctx.textProviders) {
@@ -68,26 +62,11 @@ function providers(modelOverride?: string): Provider[] {
     }
   }
 
-  if (LOVABLE_KEY) {
-    list.push({
-      name: "lovable",
-      url: LOVABLE_URL,
-      key: LOVABLE_KEY,
-      models: modelOverride && modelOverride.startsWith("google/")
-        ? [modelOverride, ...LOVABLE_MODELS]
-        : LOVABLE_MODELS,
-    });
-  }
-  if (OPENROUTER_KEY) {
-    list.push({
-      name: "openrouter",
-      url: OPENROUTER_URL,
-      key: OPENROUTER_KEY,
-      models: modelOverride && !modelOverride.startsWith("google/")
-        ? [modelOverride, ...OPENROUTER_FREE_MODELS]
-        : OPENROUTER_FREE_MODELS,
-      extraHeaders: { "HTTP-Referer": REFERER, "X-Title": TITLE },
-    });
+  if (GEMINI_KEY) {
+    const models = modelOverride
+      ? [normalizeModel(modelOverride), ...GEMINI_MODELS.filter((m) => m !== normalizeModel(modelOverride))]
+      : GEMINI_MODELS;
+    list.push({ name: "gemini", url: GEMINI_URL, key: GEMINI_KEY, models });
   }
   return list;
 }
@@ -128,7 +107,7 @@ export async function aiChat(opts: AIChatOpts): Promise<string> {
 
   const provs = providers(opts.model);
   if (provs.length === 0) {
-    throw new AIGatewayError(500, "No AI provider configured (LOVABLE_API_KEY/OPENROUTER_API_KEY missing)");
+    throw new AIGatewayError(500, "No AI provider configured (GEMINI_API_KEY missing)");
   }
 
   let lastStatus = 500;
@@ -174,7 +153,7 @@ export async function aiJson<T = unknown>(opts: AIChatOpts): Promise<T> {
 
   const provs = providers(opts.model);
   if (provs.length === 0) {
-    throw new AIGatewayError(500, "No AI provider configured (LOVABLE_API_KEY/OPENROUTER_API_KEY missing)");
+    throw new AIGatewayError(500, "No AI provider configured (GEMINI_API_KEY missing)");
   }
 
   let lastStatus = 500;

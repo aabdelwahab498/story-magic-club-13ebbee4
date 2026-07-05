@@ -131,39 +131,33 @@ Deno.serve(async (req: Request) => {
     const langInstruction = language && LANG_NAMES[language]
       ? `\n\nIMPORTANT: The user has selected ${LANG_NAMES[language]} as the reply language. Always respond in ${LANG_NAMES[language]} regardless of the language the user types in.`
       : "";
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      console.error("[ai-assistant] CRITICAL: OPENROUTER_API_KEY is not configured. Add it as a secret in Supabase.");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("[ai-assistant] CRITICAL: GEMINI_API_KEY is not configured.");
       return new Response(
-        JSON.stringify({ error: "ai_config_missing", detail: "OPENROUTER_API_KEY is not configured on the server" }),
+        JSON.stringify({ error: "ai_config_missing", detail: "GEMINI_API_KEY is not configured on the server" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const FREE_MODELS = [
-      "openai/gpt-oss-120b:free",
-      "deepseek/deepseek-v4-flash:free",
-      "qwen/qwen3-next-80b-a3b-instruct:free",
-      "z-ai/glm-4.5-air:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
-      "meta-llama/llama-3.3-70b-instruct:free",
-    ];
+    // Gemini primary → 1.5-flash fallback (via Google's OpenAI-compatible endpoint).
+    const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+
     const systemContent = BASE_SYSTEM_PROMPT + langInstruction + (await buildProductsContext());
     let response: Response | null = null;
     let lastStatus = 500;
     let lastTxt = "";
-    console.log(`[ai-assistant] starting AI call, ${FREE_MODELS.length} models in fallback chain`);
-    for (const model of FREE_MODELS) {
+    console.log(`[ai-assistant] starting AI call, ${GEMINI_MODELS.length} models in fallback chain`);
+    for (const model of GEMINI_MODELS) {
       console.log(`[ai-assistant] trying model: ${model}`);
       let r: Response;
       try {
-        r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        r = await fetch(GEMINI_URL, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            Authorization: `Bearer ${GEMINI_API_KEY}`,
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://lovable.dev",
-            "X-Title": "Starry Tales",
           },
           body: JSON.stringify({
             model,
@@ -184,15 +178,15 @@ Deno.serve(async (req: Request) => {
       }
       lastStatus = r.status;
       lastTxt = await r.text().catch(() => "");
-      console.error(`[ai-assistant] AI gateway ${model} -> ${r.status}: ${lastTxt.slice(0, 300)}`);
+      console.error(`[ai-assistant] Gemini ${model} -> ${r.status}: ${lastTxt.slice(0, 300)}`);
       if (r.status === 401 || r.status === 403) {
-        console.error(`[ai-assistant] CRITICAL: OpenRouter rejected the API key (${r.status}). Check OPENROUTER_API_KEY validity.`);
+        console.error(`[ai-assistant] CRITICAL: Google rejected the API key (${r.status}). Check GEMINI_API_KEY validity.`);
         break;
       }
       if (![429, 404, 500, 502, 503, 504].includes(r.status)) break;
     }
     if (!response) {
-      console.error(`[ai-assistant] All ${FREE_MODELS.length} models failed. lastStatus=${lastStatus} lastTxt=${lastTxt.slice(0, 200)}`);
+      console.error(`[ai-assistant] All ${GEMINI_MODELS.length} models failed. lastStatus=${lastStatus} lastTxt=${lastTxt.slice(0, 200)}`);
     }
 
     if (!response) {
