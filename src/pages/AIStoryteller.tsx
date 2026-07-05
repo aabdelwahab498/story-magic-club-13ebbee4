@@ -1585,6 +1585,19 @@ const AIStoryteller = () => {
               <PremiumBadge featureKey="illustrations" size="lg" />
             )}
 
+            {!guestMode && story && sub.canExportPdf && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                {pdfLoading
+                  ? t("page_ai_storyteller.building_pdf", "Building PDF...")
+                  : t("page_ai_storyteller.download_story_pdf", "Download story PDF")}
+              </button>
+            )}
+
 
             <button
               onClick={() => {
