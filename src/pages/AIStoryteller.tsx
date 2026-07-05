@@ -129,6 +129,7 @@ const AIStoryteller = () => {
   const [guestTrial, setGuestTrial] = useState<TrialStoryResponse | null>(null);
   const [guestIllustrating, setGuestIllustrating] = useState(false);
   const [guestPdfLoading, setGuestPdfLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Drive the visual progress bar with timed step transitions while the
   // edge function runs server-side (it is not streamable). Cleared on result.
@@ -323,6 +324,35 @@ const AIStoryteller = () => {
       );
     } finally {
       setGuestPdfLoading(false);
+    }
+  };
+
+  // Authenticated users — build a PDF from the current AI story + any illustrations.
+  const handleDownloadPdf = async () => {
+    if (!story) return;
+    setPdfLoading(true);
+    try {
+      const scenes = splitIntoScenes(story, 6);
+      const title = `${t(`ai.themes.${themeId}`)} • ${t(`ai.characters.${characterId}`)}`;
+      const pdf = await generateTrialPdf({
+        title,
+        pages: scenes.map((text, i) => ({
+          index: i,
+          text,
+          imageUrl: illustrations[i]?.imageUrl ?? null,
+        })),
+        childName: activeChild?.name,
+      });
+      const cleaned = title.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60);
+      downloadTrialPdf(pdf.pdfBase64, `${cleaned || "story"}.pdf`);
+      toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
+    } catch (e) {
+      console.error("[pdf] failed", e);
+      toast.error(
+        t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."),
+      );
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -1553,6 +1583,19 @@ const AIStoryteller = () => {
               />
             ) : (
               <PremiumBadge featureKey="illustrations" size="lg" />
+            )}
+
+            {!guestMode && story && sub.canExportPdf && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                {pdfLoading
+                  ? t("page_ai_storyteller.building_pdf", "Building PDF...")
+                  : t("page_ai_storyteller.download_story_pdf", "Download story PDF")}
+              </button>
             )}
 
 
