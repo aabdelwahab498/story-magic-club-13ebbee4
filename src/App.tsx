@@ -76,6 +76,7 @@ const MyAiStories = lazy(() => import("./pages/MyAiStories"));
 const MyAiStoryDetail = lazy(() => import("./pages/MyAiStoryDetail"));
 const MyDownloads = lazy(() => import("./pages/MyDownloads"));
 const MyBackups = lazy(() => import("./pages/MyBackups"));
+const DownloadTest = lazy(() => import("./pages/DownloadTest"));
 const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
@@ -132,6 +133,7 @@ const App = () => (
                     <Route path="about" element={<About />} />
                     <Route path="install" element={<Install />} />
                     <Route path="offline" element={<Offline />} />
+                    <Route path="download-test" element={<DownloadTest />} />
                     <Route path="privacy" element={<Privacy />} />
                     <Route path="terms" element={<Terms />} />
                     <Route element={<ProtectedRoute />}>
