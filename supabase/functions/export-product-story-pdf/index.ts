@@ -240,13 +240,34 @@ serve(async (req) => {
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
     const path = `products/${sku}-${language}-illustrated-v3.pdf`;
 
-    // Reuse cache
+    // Purge any older/legacy PDF variants for this product+language so we
+    // never serve a cached text-only version.
+    const legacyPaths = [
+      `products/${sku}-${language}.pdf`,
+      `products/${sku}-${language}-illustrated.pdf`,
+      `products/${sku}-${language}-illustrated-v1.pdf`,
+      `products/${sku}-${language}-illustrated-v2.pdf`,
+    ];
+    try { await admin.storage.from("story-pdfs").remove(legacyPaths); } catch { /* ignore */ }
+
+    // Reuse cache only if the current-version file actually exists AND is
+    // large enough to plausibly contain illustrations (>150KB). Otherwise
+    // regenerate to guarantee the illustrated version.
     if (!force) {
       const { data: pub } = admin.storage.from("story-pdfs").getPublicUrl(path);
       try {
-        const head = await fetch(pub.publicUrl, { method: "HEAD" });
-        if (head.ok) return json({ pdfUrl: pub.publicUrl, reused: true }, 200);
+        const head = await fetch(pub.publicUrl, { method: "HEAD", cache: "no-store" });
+        const size = Number(head.headers.get("content-length") || "0");
+        if (head.ok && size > 150_000) {
+          return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, reused: true }, 200);
+        }
+        if (head.ok) {
+          // Small/text-only cached file — remove it so we regenerate cleanly.
+          try { await admin.storage.from("story-pdfs").remove([path]); } catch { /* ignore */ }
+        }
       } catch { /* ignore, will regenerate */ }
+    } else {
+      try { await admin.storage.from("story-pdfs").remove([path]); } catch { /* ignore */ }
     }
 
     const localize = (v: unknown): string => {
