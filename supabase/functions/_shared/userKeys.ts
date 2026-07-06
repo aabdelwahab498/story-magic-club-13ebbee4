@@ -3,7 +3,7 @@
 // usable by sel/gateway.ts, and exposes an AsyncLocalStorage context so calls
 // deep in the pipeline (planner/writer/quality) can transparently pick them up.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { decryptApiKey } from "./byokCrypto.ts";
 
@@ -72,7 +72,7 @@ const TEXT_DEFAULTS: Record<string, { url: string; model: string; headers?: Reco
 };
 
 async function userIsByokEligible(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<any, "public", any>,
   userId: string,
 ): Promise<boolean> {
   const { data, error } = await admin
