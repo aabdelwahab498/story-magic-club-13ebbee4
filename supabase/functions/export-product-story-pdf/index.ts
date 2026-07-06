@@ -14,6 +14,62 @@ interface ReqBody { productId: string; language?: string; force?: boolean }
 
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const IMAGE_MODELS = [
+  "google/gemini-3.1-flash-image-preview",
+  "google/gemini-2.5-flash-image",
+];
+
+async function generateIllustration(prompt: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  if (!LOVABLE_API_KEY) return null;
+  for (const model of IMAGE_MODELS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60_000);
+    try {
+      const r = await fetch(LOVABLE_IMAGE_URL, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          modalities: ["image", "text"],
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      clearTimeout(timer);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const url: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!url || !url.startsWith("data:image/")) continue;
+      const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
+      if (!m) continue;
+      const mime = m[1];
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return { bytes, mime };
+    } catch {
+      clearTimeout(timer);
+    }
+  }
+  return null;
+}
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let idx = 0;
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (true) {
+      const i = idx++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 function decodeJwt(token: string): { sub?: string; exp?: number; email?: string } | null {
   try {
     const [, payload] = token.split(".");
@@ -154,47 +210,88 @@ serve(async (req) => {
       en: "English", ar: "Arabic", de: "German", fr: "French", it: "Italian", es: "Spanish",
     };
 
-    const system = `You are Najmah, an award-winning children's author. Write warm, imaginative, age-appropriate stories with clear moral/SEL value. Output STRICT JSON only.`;
+    const system = `You are Najmah, an award-winning children's picture-book author and art director. Output STRICT JSON only.`;
     const user = `Write a complete children's picture-book story in ${langNames[language]}.
 Title: "${title}"
 Premise / description: ${description || "(none provided; invent a wonderful story that matches the title)"}
 Target age range: ${ageRange}
 
-Requirements:
-- 10 pages, each 3–5 short sentences (~55–90 words per page).
+Story requirements:
+- 8 pages, each 3–5 short sentences (~50–80 words per page).
 - Gentle emotional arc: setup → challenge → turning point → resolution → warm ending.
 - Rich sensory details, kind and hopeful tone, no violence or scary content.
 - Use the given title as-is.
 
-Return STRICT JSON, no prose, no markdown fences:
+For EACH page also produce an English illustration prompt (~35–55 words) even if
+the story is in another language. The illustration prompt MUST:
+- describe a single storybook scene from that page
+- be a warm, whimsical children's book illustration, soft watercolor + gouache
+- keep the same main character(s) consistent across every page (same age, hair,
+  outfit, colors) — restate their look each time
+- include no text, letters, logos, or borders in the image
+
+Also produce ONE global "characterSheet" line (~25–40 words) describing the
+main character's look so every page stays visually consistent.
+
+Return STRICT JSON only, no prose, no markdown fences:
 {
   "title": string,
-  "subtitle": string,      // one warm sentence, <120 chars
-  "pages": [ { "index": number, "text": string } ]  // 10 items, index 1..10
+  "subtitle": string,          // one warm sentence, <120 chars
+  "characterSheet": string,    // reusable visual description of the main character
+  "pages": [ { "index": number, "text": string, "illustrationPrompt": string } ]  // 8 items, index 1..8
 }`;
 
-    let storyJson: { title?: string; subtitle?: string; pages?: Array<{ index: number; text: string }> };
+    let storyJson: {
+      title?: string;
+      subtitle?: string;
+      characterSheet?: string;
+      pages?: Array<{ index: number; text: string; illustrationPrompt?: string }>;
+    };
     try {
       storyJson = await aiJson({
         system,
         user,
         temperature: 0.85,
-        maxTokens: 3200,
+        maxTokens: 3600,
         responseFormat: "json_object",
       });
+      log("story text generated", { pages: storyJson?.pages?.length });
     } catch (e) {
       const status = e instanceof AIGatewayError ? e.status : 500;
-      console.error("[product-pdf] ai_failed", e);
+      errLog("ai_failed", { err: String(e) });
       return json({ error: "ai_generation_failed", detail: String(e), status }, 502);
     }
 
     const pages = Array.isArray(storyJson?.pages)
       ? storyJson.pages
           .filter((p) => p && typeof p.text === "string")
-          .map((p, i) => ({ index: Number(p.index) || i + 1, text: String(p.text) }))
+          .map((p, i) => ({
+            index: Number(p.index) || i + 1,
+            text: String(p.text),
+            illustrationPrompt: typeof p.illustrationPrompt === "string" ? p.illustrationPrompt : "",
+          }))
           .sort((a, b) => a.index - b.index)
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
+
+    // Generate one illustration per page in parallel (concurrency 4).
+    const characterSheet = storyJson?.characterSheet ?? "";
+    log("illustrations begin", { count: pages.length });
+    const illT0 = Date.now();
+    const illustrations = await mapLimit(pages, 4, async (p) => {
+      const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
+      const prompt = `Children's picture-book illustration. Soft watercolor and gouache, warm palette, magical and cozy. No text or letters.
+Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
+Scene for page ${p.index}: ${scene}
+Full-bleed square composition suitable for a children's storybook.`;
+      const img = await generateIllustration(prompt);
+      return img;
+    });
+    log("illustrations done", {
+      ms: Date.now() - illT0,
+      ok: illustrations.filter(Boolean).length,
+      failed: illustrations.filter((x) => !x).length,
+    });
 
     const isRtl = language === "ar";
 
@@ -233,14 +330,38 @@ Return STRICT JSON, no prose, no markdown fences:
     }
     cover.drawText("Najmah", { x: 60, y: 60, size: 12, font, color: rgb(0.7, 0.75, 0.95) });
 
-    // Story pages
-    for (const p of pages) {
+    // Story pages — illustration on top half, text below.
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
-      // Latin fonts cannot render Arabic glyphs — for RTL we still render but note
-      // this is a first pass; a bundled Arabic font would be needed for perfect glyphs.
+
+      const ill = illustrations[i];
+      let textTop = 760;
+      if (ill) {
+        try {
+          const img = ill.mime.includes("png")
+            ? await pdf.embedPng(ill.bytes)
+            : await pdf.embedJpg(ill.bytes);
+          const maxW = 475, maxH = 400;
+          const ratio = Math.min(maxW / img.width, maxH / img.height);
+          const w = img.width * ratio, h = img.height * ratio;
+          const x = (595 - w) / 2;
+          const y = 842 - 50 - h;
+          // Soft rounded card behind the illustration
+          page.drawRectangle({
+            x: x - 8, y: y - 8, width: w + 16, height: h + 16,
+            color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1,
+          });
+          page.drawImage(img, { x, y, width: w, height: h });
+          textTop = y - 20;
+        } catch (e) {
+          errLog("embed image failed", { page: p.index, err: String(e) });
+        }
+      }
+
       drawWrapped(page, p.text ?? "", {
-        x: 60, y: 760, width: 475, font, size: 14, color: rgb(0.1, 0.1, 0.15), lineHeight: 22,
+        x: 60, y: textTop, width: 475, font, size: 13, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
         align: isRtl ? "right" : "left",
       });
       page.drawText(`${p.index}`, { x: 297, y: 30, size: 10, font, color: rgb(0.5, 0.5, 0.6) });
