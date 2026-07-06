@@ -133,7 +133,7 @@ export default function DownloadMenu({
         return;
       }
     }
-    let downloadTarget: ReturnType<typeof prepareDownloadTarget>;
+    let downloadTarget: ReturnType<typeof prepareDownloadTarget> = null;
     try {
       downloadTarget = prepareDownloadTarget();
       setBusy(fmt);
