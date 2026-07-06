@@ -210,47 +210,88 @@ serve(async (req) => {
       en: "English", ar: "Arabic", de: "German", fr: "French", it: "Italian", es: "Spanish",
     };
 
-    const system = `You are Najmah, an award-winning children's author. Write warm, imaginative, age-appropriate stories with clear moral/SEL value. Output STRICT JSON only.`;
+    const system = `You are Najmah, an award-winning children's picture-book author and art director. Output STRICT JSON only.`;
     const user = `Write a complete children's picture-book story in ${langNames[language]}.
 Title: "${title}"
 Premise / description: ${description || "(none provided; invent a wonderful story that matches the title)"}
 Target age range: ${ageRange}
 
-Requirements:
-- 10 pages, each 3–5 short sentences (~55–90 words per page).
+Story requirements:
+- 8 pages, each 3–5 short sentences (~50–80 words per page).
 - Gentle emotional arc: setup → challenge → turning point → resolution → warm ending.
 - Rich sensory details, kind and hopeful tone, no violence or scary content.
 - Use the given title as-is.
 
-Return STRICT JSON, no prose, no markdown fences:
+For EACH page also produce an English illustration prompt (~35–55 words) even if
+the story is in another language. The illustration prompt MUST:
+- describe a single storybook scene from that page
+- be a warm, whimsical children's book illustration, soft watercolor + gouache
+- keep the same main character(s) consistent across every page (same age, hair,
+  outfit, colors) — restate their look each time
+- include no text, letters, logos, or borders in the image
+
+Also produce ONE global "characterSheet" line (~25–40 words) describing the
+main character's look so every page stays visually consistent.
+
+Return STRICT JSON only, no prose, no markdown fences:
 {
   "title": string,
-  "subtitle": string,      // one warm sentence, <120 chars
-  "pages": [ { "index": number, "text": string } ]  // 10 items, index 1..10
+  "subtitle": string,          // one warm sentence, <120 chars
+  "characterSheet": string,    // reusable visual description of the main character
+  "pages": [ { "index": number, "text": string, "illustrationPrompt": string } ]  // 8 items, index 1..8
 }`;
 
-    let storyJson: { title?: string; subtitle?: string; pages?: Array<{ index: number; text: string }> };
+    let storyJson: {
+      title?: string;
+      subtitle?: string;
+      characterSheet?: string;
+      pages?: Array<{ index: number; text: string; illustrationPrompt?: string }>;
+    };
     try {
       storyJson = await aiJson({
         system,
         user,
         temperature: 0.85,
-        maxTokens: 3200,
+        maxTokens: 3600,
         responseFormat: "json_object",
       });
+      log("story text generated", { pages: storyJson?.pages?.length });
     } catch (e) {
       const status = e instanceof AIGatewayError ? e.status : 500;
-      console.error("[product-pdf] ai_failed", e);
+      errLog("ai_failed", { err: String(e) });
       return json({ error: "ai_generation_failed", detail: String(e), status }, 502);
     }
 
     const pages = Array.isArray(storyJson?.pages)
       ? storyJson.pages
           .filter((p) => p && typeof p.text === "string")
-          .map((p, i) => ({ index: Number(p.index) || i + 1, text: String(p.text) }))
+          .map((p, i) => ({
+            index: Number(p.index) || i + 1,
+            text: String(p.text),
+            illustrationPrompt: typeof p.illustrationPrompt === "string" ? p.illustrationPrompt : "",
+          }))
           .sort((a, b) => a.index - b.index)
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
+
+    // Generate one illustration per page in parallel (concurrency 4).
+    const characterSheet = storyJson?.characterSheet ?? "";
+    log("illustrations begin", { count: pages.length });
+    const illT0 = Date.now();
+    const illustrations = await mapLimit(pages, 4, async (p) => {
+      const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
+      const prompt = `Children's picture-book illustration. Soft watercolor and gouache, warm palette, magical and cozy. No text or letters.
+Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
+Scene for page ${p.index}: ${scene}
+Full-bleed square composition suitable for a children's storybook.`;
+      const img = await generateIllustration(prompt);
+      return img;
+    });
+    log("illustrations done", {
+      ms: Date.now() - illT0,
+      ok: illustrations.filter(Boolean).length,
+      failed: illustrations.filter((x) => !x).length,
+    });
 
     const isRtl = language === "ar";
 
