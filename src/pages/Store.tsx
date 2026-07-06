@@ -276,6 +276,22 @@ const Store = () => {
         return;
       }
       if (error) throw error;
+      if (data?.error === "illustrations_failed") {
+        toast.dismiss(loadingToast);
+        toast.error(
+          data?.hint ||
+            t("downloads.illustrations_failed", {
+              defaultValue: "Illustrations were not generated. Please retry to get the illustrated PDF.",
+            }),
+          {
+            action: {
+              label: t("downloads.retry", { defaultValue: "Retry" }),
+              onClick: () => handleDownloadStoryPdf(p),
+            },
+          },
+        );
+        return;
+      }
       if (data?.blocked) {
         toast.dismiss(loadingToast);
         toast.info(
