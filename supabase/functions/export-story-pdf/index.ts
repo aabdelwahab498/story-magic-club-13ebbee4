@@ -192,8 +192,3 @@ function drawWrapped(page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage, text
   }
 }
 
-function json(obj: unknown, status: number): Response {
-  return new Response(JSON.stringify(obj), {
-    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
