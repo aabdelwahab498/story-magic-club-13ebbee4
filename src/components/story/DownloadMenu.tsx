@@ -133,8 +133,9 @@ export default function DownloadMenu({
         return;
       }
     }
+    let downloadTarget: ReturnType<typeof prepareDownloadTarget>;
     try {
-      const downloadTarget = prepareDownloadTarget();
+      downloadTarget = prepareDownloadTarget();
       setBusy(fmt);
       if (fmt === "pdf") {
         let url = pdfUrl || null;
@@ -196,6 +197,7 @@ export default function DownloadMenu({
       audit("success");
       toast.success(t("downloads.done", { defaultValue: "Download started" }));
     } catch (e) {
+      try { downloadTarget?.close(); } catch { /* ignore */ }
       const msg = (e as Error)?.message ?? "error";
       audit("error", msg.slice(0, 200));
       if (msg.includes("subscription_required")) {
