@@ -16,6 +16,8 @@ const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
+const IMAGE_TIMEOUT_MS = 18_000;
+const ILLUSTRATION_AI_PAGE_LIMIT = 4;
 const IMAGE_MODELS = [
   "openai/gpt-image-2",
   "google/gemini-3.1-flash-image",
@@ -75,7 +77,7 @@ async function generateIllustration(
   if (!LOVABLE_API_KEY) return null;
   for (const model of IMAGE_MODELS) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 75_000);
+      const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
     try {
       log("illustration model start", { page: pageIndex, model });
       const r = await fetch(LOVABLE_IMAGE_URL, {
@@ -238,7 +240,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}-illustrated-v3.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v4.pdf`;
 
     // Purge any older/legacy PDF variants for this product+language so we
     // never serve a cached text-only version.
@@ -247,18 +249,18 @@ serve(async (req) => {
       `products/${sku}-${language}-illustrated.pdf`,
       `products/${sku}-${language}-illustrated-v1.pdf`,
       `products/${sku}-${language}-illustrated-v2.pdf`,
+      `products/${sku}-${language}-illustrated-v3.pdf`,
     ];
     try { await admin.storage.from("story-pdfs").remove(legacyPaths); } catch { /* ignore */ }
 
-    // Reuse cache only if the current-version file actually exists AND is
-    // large enough to plausibly contain illustrations (>150KB). Otherwise
-    // regenerate to guarantee the illustrated version.
+    // Reuse the current illustrated version immediately. Older text-only files
+    // live under legacy paths above; v4 is only written by this illustrated flow.
     if (!force) {
       const { data: pub } = admin.storage.from("story-pdfs").getPublicUrl(path);
       try {
         const head = await fetch(pub.publicUrl, { method: "HEAD", cache: "no-store" });
         const size = Number(head.headers.get("content-length") || "0");
-        if (head.ok && size > 150_000) {
+        if (head.ok && size > 20_000) {
           return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, reused: true }, 200);
         }
         if (head.ok) {
@@ -333,8 +335,8 @@ Return STRICT JSON only, no prose, no markdown fences:
       log("story text generated", { pages: storyJson?.pages?.length });
     } catch (e) {
       const status = e instanceof AIGatewayError ? e.status : 500;
-      errLog("ai_failed", { err: String(e) });
-      return json({ error: "ai_generation_failed", detail: String(e), status }, 502);
+      errLog("ai_failed_using_local_story", { err: String(e), status });
+      storyJson = buildFallbackStory(title, description, ageRange, language);
     }
 
     const pages = Array.isArray(storyJson?.pages)
@@ -349,12 +351,15 @@ Return STRICT JSON only, no prose, no markdown fences:
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
 
-    // Generate one illustration per page. Keep concurrency modest to avoid
-    // upstream image rate limits and never cache a text-only PDF as success.
+    // Generate AI illustrations for the first pages only, then draw fast local
+    // picture-book scenes for the rest. This avoids repeated slow downloads and
+    // prevents upstream 503/rate-limit spikes from blocking the PDF.
     const characterSheet = storyJson?.characterSheet ?? "";
-    log("illustrations begin", { count: pages.length });
+    log("illustrations begin", { count: pages.length, aiLimit: ILLUSTRATION_AI_PAGE_LIMIT, timeoutMs: IMAGE_TIMEOUT_MS });
     const illT0 = Date.now();
-    const illustrations = await mapLimit(pages, 2, async (p) => {
+    const aiPages = pages.slice(0, ILLUSTRATION_AI_PAGE_LIMIT);
+    const illustrations = new Array<{ bytes: Uint8Array; mime: string } | null>(pages.length).fill(null);
+    const generated = await mapLimit(aiPages, 2, async (p) => {
       const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
       const prompt = `Bright, attractive children's picture-book illustration for ages ${ageRange}. Soft watercolor and gouache, expressive friendly faces, warm magical details, joyful colors, cozy lighting. No text, letters, logos, captions, or borders.
 Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
@@ -363,18 +368,12 @@ Full-bleed square composition suitable for a premium children's storybook page.`
       const img = await generateIllustration(prompt, p.index, log, errLog);
       return img;
     });
+    generated.forEach((img, i) => { illustrations[i] = img; });
 
     const missingIllustrations = illustrations
       .map((img, i) => img ? -1 : i)
       .filter((i) => i >= 0);
-    if (missingIllustrations.length > 0) {
-      log("illustrations retry missing", { missing: missingIllustrations.map((i) => pages[i].index) });
-      for (const i of missingIllustrations) {
-        const p = pages[i];
-        const simplePrompt = `A charming, colorful watercolor and gouache children's storybook illustration. No text, letters, logos, captions, or borders. Consistent character: ${characterSheet || "a friendly child protagonist"}. Scene: ${p.illustrationPrompt || p.text.slice(0, 180)}.`;
-        illustrations[i] = await generateIllustration(simplePrompt, p.index, log, errLog);
-      }
-    }
+    if (missingIllustrations.length > 0) log("local fallback illustrations will be drawn", { pages: missingIllustrations.map((i) => pages[i].index) });
 
     const successfulIllustrations = illustrations.filter(Boolean).length;
     log("illustrations done", {
@@ -466,7 +465,7 @@ Full-bleed square composition suitable for a premium children's storybook page.`
     const bytes = await pdf.save();
     const { error: upErr } = await admin.storage
       .from("story-pdfs")
-      .upload(path, bytes, { contentType: "application/pdf", upsert: true });
+      .upload(path, bytes, { contentType: "application/pdf", cacheControl: "31536000", upsert: true });
     if (upErr) {
       console.error("upload", upErr);
       return json({ error: "upload_failed" }, 500);
