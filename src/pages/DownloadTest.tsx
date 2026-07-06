@@ -85,9 +85,53 @@ const DownloadTest = () => {
           </div>
         )}
 
-        <div className="rounded-lg bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground space-y-1">
+        <div className="rounded-lg bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground space-y-2">
           <p><strong>الرابط المباشر:</strong> <code className="ltr">{PDF_URL}</code></p>
           <p>لو الزر الأول لم ينزّل الملف مباشرة (بسبب المعاينة داخل إطار مضمّن أو iOS)، سيفتحه في تبويب جديد لتحفظه من هناك.</p>
+        </div>
+
+        {/* دليل المستخدم */}
+        <div className="rounded-xl border p-5 space-y-4">
+          <h2 className="text-lg font-semibold">📖 دليل التنزيل حسب الجهاز</h2>
+
+          <div className="space-y-3 text-sm">
+            <div className="flex items-start gap-3">
+              <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <p className="font-medium">iPhone / iPad</p>
+                <p className="text-muted-foreground">
+                  اضغط <strong>"فتح في تبويب جديد"</strong> ← سيفتح ملف PDF داخل المتصفح ← اضغط <Share2 className="inline h-3.5 w-3.5 mx-1" /> <strong>Share</strong> ← اختر <strong>Save to Files</strong> (أو "حفظ في الملفات") لتحفظه على الجهاز.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <p className="font-medium">Android</p>
+                <p className="text-muted-foreground">
+                  اضغط <strong>"تنزيل ملف الاختبار"</strong> ← سيبدأ التنزيل تلقائيًا ← ستجده في تطبيق <strong>Downloads</strong> أو <strong>الملفات</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Monitor className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <p className="font-medium">كمبيوتر (Chrome / Edge / Firefox)</p>
+                <p className="text-muted-foreground">
+                  اضغط <strong>"تنزيل ملف الاختبار"</strong> ← ينزل الملف مباشرة في مجلد <strong>Downloads</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-sm flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-amber-800 dark:text-amber-200">
+              <strong>ملاحظة:</strong> لو التنزيل نجح هنا، نفس الطريقة هتشتغل لملفات القصص الحقيقية. ✅
+            </p>
+          </div>
         </div>
       </Card>
     </div>
