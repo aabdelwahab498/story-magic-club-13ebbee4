@@ -162,17 +162,38 @@ const Store = () => {
     });
 
   const triggerBrowserDownload = async (pdfUrl: string, title: string) => {
-    const res = await fetch(pdfUrl);
-    if (!res.ok) throw new Error(`fetch_pdf_${res.status}`);
-    const blob = await res.blob();
-    const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objUrl;
-    a.download = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+    const filename = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+    const isInAppBrowser = /(FBAN|FBAV|Instagram|Line|WhatsApp|TikTok)/i.test(ua);
+
+    // In-app browsers, iOS, and desktop Safari struggle with blob downloads.
+    // Open the hosted PDF directly — the browser/PDF viewer handles saving.
+    if (isIOS || isSafari || isInAppBrowser) {
+      const w = window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      if (!w) window.location.href = pdfUrl;
+      return;
+    }
+
+    try {
+      const res = await fetch(pdfUrl, { mode: "cors", credentials: "omit" });
+      if (!res.ok) throw new Error(`fetch_pdf_${res.status}`);
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+    } catch {
+      // Fallback for any browser that blocks blob downloads (e.g. Android WebView).
+      const w = window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      if (!w) window.location.href = pdfUrl;
+    }
   };
 
   const handleDownloadStoryPdf = async (p: { id: string; name: unknown }) => {
