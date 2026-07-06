@@ -156,6 +156,40 @@ const Store = () => {
     addToCart.mutate({ userId: user.id, productId });
   };
 
+  const handleDownloadStoryPdf = async (p: {
+    id: string;
+    name: unknown;
+    description?: unknown;
+    image?: string | null;
+  }) => {
+    if (!user) {
+      toast.info(t("downloads.login_required", { defaultValue: "Please sign in to download the story." }));
+      navigate("/auth?redirect=/store");
+      return;
+    }
+    if (!canExportPdf) {
+      toast.info(t("downloads.paywall", { defaultValue: "Upgrade to download stories." }));
+      navigate("/pricing");
+      return;
+    }
+    const title = getLocalized(p.name as never, i18n.language) || "Story";
+    const description = getLocalized(p.description as never, i18n.language) || "";
+    setPdfBusy(p.id);
+    try {
+      await downloadProductStoryPdf(
+        { title, description, imageUrl: p.image ?? null },
+        `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`,
+      );
+      toast.success(t("downloads.done", { defaultValue: "Download started" }));
+    } catch {
+      toast.error(t("downloads.failed", { defaultValue: "Download failed" }));
+    } finally {
+      setPdfBusy(null);
+    }
+  };
+
+
+
 
   return (
     <div className="py-4 sm:py-6 lg:py-8">
