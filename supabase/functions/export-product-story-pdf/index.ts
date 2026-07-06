@@ -1,5 +1,5 @@
 // export-product-story-pdf — Generates a full children's story PDF for a Store
-// product on-demand using the AI gateway, then uploads it to `story-pdfs`
+// product on-demand, then uploads it to `story-pdfs`
 // under `products/<sku>-<lang>.pdf` so repeated downloads reuse the file.
 
 import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
@@ -231,35 +231,8 @@ serve(async (req) => {
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
 
-      const ill = illustrations[i];
-      let textTop = 760;
-      let drewIllustration = false;
-      if (ill) {
-        try {
-          const img = ill.mime.includes("png")
-            ? await pdf.embedPng(ill.bytes)
-            : await pdf.embedJpg(ill.bytes);
-          const maxW = 475, maxH = 400;
-          const ratio = Math.min(maxW / img.width, maxH / img.height);
-          const w = img.width * ratio, h = img.height * ratio;
-          const x = (595 - w) / 2;
-          const y = 842 - 50 - h;
-          // Soft rounded card behind the illustration
-          page.drawRectangle({
-            x: x - 8, y: y - 8, width: w + 16, height: h + 16,
-            color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1,
-          });
-          page.drawImage(img, { x, y, width: w, height: h });
-          textTop = y - 20;
-          drewIllustration = true;
-        } catch (e) {
-          errLog("embed image failed", { page: p.index, err: String(e) });
-        }
-      }
-      if (!drewIllustration) {
-        drawFallbackIllustration(page, p.index);
-        textTop = 370;
-      }
+      drawFallbackIllustration(page, p.index);
+      const textTop = 370;
 
       drawWrapped(page, p.text ?? "", {
         x: 60, y: textTop, width: 475, font, size: 13, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
