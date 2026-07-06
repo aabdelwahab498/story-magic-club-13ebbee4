@@ -23,8 +23,11 @@ import {
 const Store = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { canExportPdf } = useSubscription();
   const navigate = useNavigate();
   const { data: products, isLoading } = useProducts();
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+
   const { data: cartItems = [] } = useCart(user?.id);
   const addToCart = useAddToCart();
   const [payOpen, setPayOpen] = useState(false);
