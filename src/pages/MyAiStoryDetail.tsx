@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import Seo from "@/components/Seo";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
 import DownloadMenu from "@/components/story/DownloadMenu";
+import DownloadNowButton from "@/components/story/DownloadNowButton";
 import StoryPreviewDialog from "@/components/story/StoryPreviewDialog";
 import { downloadAudioMp3, safeFilename } from "@/lib/storyDownloads";
 import { toast } from "sonner";
@@ -100,6 +101,11 @@ const MyAiStoryDetail = () => {
           <Badge variant="secondary">{story.language.toUpperCase()}</Badge>
           <span>{new Date(story.created_at).toLocaleDateString(i18n.language)}</span>
           <StoryPreviewDialog title={story.title ?? "Story"} pages={pages} />
+          <DownloadNowButton
+            storyId={story.id}
+            title={story.title ?? "Story"}
+            pdfUrl={(story as unknown as { pdf_url?: string | null }).pdf_url ?? null}
+          />
           <DownloadMenu
             storyId={story.id}
             title={story.title ?? "Story"}
@@ -107,6 +113,7 @@ const MyAiStoryDetail = () => {
             pdfUrl={(story as unknown as { pdf_url?: string | null }).pdf_url ?? null}
             audioUrl={story.audio_url ?? null}
           />
+
         </div>
       </header>
 

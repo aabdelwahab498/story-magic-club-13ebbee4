@@ -7,6 +7,7 @@ import { useMyAiStories, type AiStoryRow } from "@/lib/aiStoryApi";
 import { useGenerateFullNarration } from "@/lib/storyTtsApi";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
 import BatchDownloadDialog from "@/components/story/BatchDownloadDialog";
+import DownloadNowButton from "@/components/story/DownloadNowButton";
 import Seo from "@/components/Seo";
 
 const MyAiStories = () => {
@@ -123,6 +124,11 @@ const MyAiStories = () => {
                     {t("my_stories.open", { defaultValue: "Open" })}
                   </Link>
                 </Button>
+                <DownloadNowButton
+                  storyId={s.id}
+                  title={s.title ?? "Story"}
+                  pdfUrl={(s as unknown as { pdf_url?: string | null }).pdf_url ?? null}
+                />
                 {s.audio_url ? (
                   <Button
                     size="sm"
