@@ -12,7 +12,7 @@ import { useAddToCart, useCart } from "@/lib/cartApi";
 import { usePaddle } from "@/hooks/usePaddle";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { downloadProductStoryPdf } from "@/lib/productStoryPdf";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Collapsible,
   CollapsibleContent,
@@ -159,8 +159,6 @@ const Store = () => {
   const handleDownloadStoryPdf = async (p: {
     id: string;
     name: unknown;
-    description?: unknown;
-    image?: string | null;
   }) => {
     if (!user) {
       toast.info(t("downloads.login_required", { defaultValue: "Please sign in to download the story." }));
@@ -173,16 +171,39 @@ const Store = () => {
       return;
     }
     const title = getLocalized(p.name as never, i18n.language) || "Story";
-    const description = getLocalized(p.description as never, i18n.language) || "";
     setPdfBusy(p.id);
+    const loadingToast = toast.loading(
+      t("downloads.generating", { defaultValue: "Preparing your full story PDF…" }),
+    );
     try {
-      await downloadProductStoryPdf(
-        { title, description, imageUrl: p.image ?? null },
-        `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`,
-      );
+      const { data, error } = await supabase.functions.invoke("export-product-story-pdf", {
+        body: { productId: p.id, language: i18n.language },
+      });
+      if (error) throw error;
+      if (data?.blocked) {
+        toast.dismiss(loadingToast);
+        toast.info(t("downloads.paywall", { defaultValue: "Upgrade to download stories." }));
+        navigate("/pricing");
+        return;
+      }
+      const pdfUrl = data?.pdfUrl as string | undefined;
+      if (!pdfUrl) throw new Error(data?.error || "no_url");
+      // Trigger download
+      const res = await fetch(pdfUrl);
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+      toast.dismiss(loadingToast);
       toast.success(t("downloads.done", { defaultValue: "Download started" }));
-    } catch {
-      toast.error(t("downloads.failed", { defaultValue: "Download failed" }));
+    } catch (e: any) {
+      toast.dismiss(loadingToast);
+      toast.error(e?.message || t("downloads.failed", { defaultValue: "Download failed" }));
     } finally {
       setPdfBusy(null);
     }
