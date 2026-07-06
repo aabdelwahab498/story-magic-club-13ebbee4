@@ -171,61 +171,8 @@ serve(async (req) => {
     const description = localize(product.description) || "";
     const ageRange = product.age_range || "6-9";
 
-    const langNames: Record<string, string> = {
-      en: "English", ar: "Arabic", de: "German", fr: "French", it: "Italian", es: "Spanish",
-    };
-
-    const system = `You are Najmah, an award-winning children's picture-book author and art director. Output STRICT JSON only.`;
-    const user = `Write a complete children's picture-book story in ${langNames[language]}.
-Title: "${title}"
-Premise / description: ${description || "(none provided; invent a wonderful story that matches the title)"}
-Target age range: ${ageRange}
-
-Story requirements:
-- 8 pages, each 3–5 short sentences (~50–80 words per page).
-- Gentle emotional arc: setup → challenge → turning point → resolution → warm ending.
-- Rich sensory details, kind and hopeful tone, no violence or scary content.
-- Use the given title as-is.
-
-For EACH page also produce an English illustration prompt (~35–55 words) even if
-the story is in another language. The illustration prompt MUST:
-- describe a single storybook scene from that page
-- be a warm, whimsical children's book illustration, soft watercolor + gouache
-- keep the same main character(s) consistent across every page (same age, hair,
-  outfit, colors) — restate their look each time
-- include no text, letters, logos, or borders in the image
-
-Also produce ONE global "characterSheet" line (~25–40 words) describing the
-main character's look so every page stays visually consistent.
-
-Return STRICT JSON only, no prose, no markdown fences:
-{
-  "title": string,
-  "subtitle": string,          // one warm sentence, <120 chars
-  "characterSheet": string,    // reusable visual description of the main character
-  "pages": [ { "index": number, "text": string, "illustrationPrompt": string } ]  // 8 items, index 1..8
-}`;
-
-    let storyJson: {
-      title?: string;
-      subtitle?: string;
-      characterSheet?: string;
-      pages?: Array<{ index: number; text: string; illustrationPrompt?: string }>;
-    };
-    try {
-      storyJson = await aiJson({
-        system,
-        user,
-        temperature: 0.85,
-        maxTokens: 3600,
-        responseFormat: "json_object",
-      });
-      log("story text generated", { pages: storyJson?.pages?.length });
-    } catch (e) {
-      const status = e instanceof AIGatewayError ? e.status : 500;
-      errLog("ai_failed_using_local_story", { err: String(e), status });
-      storyJson = buildFallbackStory(title, description, ageRange, language);
-    }
+    const storyJson = buildFallbackStory(title, description, ageRange, language);
+    log("local story generated", { pages: storyJson.pages.length });
 
     const pages = Array.isArray(storyJson?.pages)
       ? storyJson.pages
@@ -239,36 +186,7 @@ Return STRICT JSON only, no prose, no markdown fences:
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
 
-    // Generate AI illustrations for the first pages only, then draw fast local
-    // picture-book scenes for the rest. This avoids repeated slow downloads and
-    // prevents upstream 503/rate-limit spikes from blocking the PDF.
-    const characterSheet = storyJson?.characterSheet ?? "";
-    log("illustrations begin", { count: pages.length, aiLimit: ILLUSTRATION_AI_PAGE_LIMIT, timeoutMs: IMAGE_TIMEOUT_MS });
-    const illT0 = Date.now();
-    const aiPages = pages.slice(0, ILLUSTRATION_AI_PAGE_LIMIT);
-    const illustrations = new Array<{ bytes: Uint8Array; mime: string } | null>(pages.length).fill(null);
-    const generated = await mapLimit(aiPages, 2, async (p) => {
-      const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
-      const prompt = `Bright, attractive children's picture-book illustration for ages ${ageRange}. Soft watercolor and gouache, expressive friendly faces, warm magical details, joyful colors, cozy lighting. No text, letters, logos, captions, or borders.
-Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
-Scene for page ${p.index}: ${scene}
-Full-bleed square composition suitable for a premium children's storybook page.`;
-      const img = await generateIllustration(prompt, p.index, log, errLog);
-      return img;
-    });
-    generated.forEach((img, i) => { illustrations[i] = img; });
-
-    const missingIllustrations = illustrations
-      .map((img, i) => img ? -1 : i)
-      .filter((i) => i >= 0);
-    if (missingIllustrations.length > 0) log("local fallback illustrations will be drawn", { pages: missingIllustrations.map((i) => pages[i].index) });
-
-    const successfulIllustrations = illustrations.filter(Boolean).length;
-    log("illustrations done", {
-      ms: Date.now() - illT0,
-      ok: successfulIllustrations,
-      failed: illustrations.filter((x) => !x).length,
-    });
+    log("local illustrations ready", { count: pages.length });
 
     const isRtl = language === "ar";
 
