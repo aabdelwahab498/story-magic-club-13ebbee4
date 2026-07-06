@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import Seo from "@/components/Seo";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
 import DownloadMenu from "@/components/story/DownloadMenu";
+import DownloadNowButton from "@/components/story/DownloadNowButton";
 import StoryPreviewDialog from "@/components/story/StoryPreviewDialog";
 import { downloadAudioMp3, safeFilename } from "@/lib/storyDownloads";
 import { toast } from "sonner";
