@@ -156,10 +156,26 @@ const Store = () => {
     addToCart.mutate({ userId: user.id, productId });
   };
 
-  const handleDownloadStoryPdf = async (p: {
-    id: string;
-    name: unknown;
-  }) => {
+  const invokeExport = async (productId: string) =>
+    supabase.functions.invoke("export-product-story-pdf", {
+      body: { productId, language: i18n.language },
+    });
+
+  const triggerBrowserDownload = async (pdfUrl: string, title: string) => {
+    const res = await fetch(pdfUrl);
+    if (!res.ok) throw new Error(`fetch_pdf_${res.status}`);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+  };
+
+  const handleDownloadStoryPdf = async (p: { id: string; name: unknown }) => {
     if (!user) {
       toast.info(t("downloads.login_required", { defaultValue: "Please sign in to download the story." }));
       navigate("/auth?redirect=/store");
@@ -175,47 +191,82 @@ const Store = () => {
     const loadingToast = toast.loading(
       t("downloads.generating", { defaultValue: "Preparing your full story PDF…" }),
     );
+
+    const showSessionExpired = () => {
+      toast.dismiss(loadingToast);
+      toast.error(
+        t("downloads.session_expired", { defaultValue: "Session expired. Please sign in again to download." }),
+        {
+          duration: 8000,
+          action: {
+            label: t("downloads.signin_retry", { defaultValue: "Sign in" }),
+            onClick: async () => {
+              await supabase.auth.signOut();
+              navigate("/auth?redirect=/store");
+            },
+          },
+        },
+      );
+    };
+
+    const isAuthResponse = (r: { data: any; error: any }) =>
+      (r.error && ((r.error as any)?.context?.status === 401)) ||
+      r.data?.error === "unauthorized";
+
     try {
-      // Force refresh the session before invoking to avoid stale session_not_found
-      await supabase.auth.refreshSession();
-      const { data, error } = await supabase.functions.invoke("export-product-story-pdf", {
-        body: { productId: p.id, language: i18n.language },
-      });
-      const isAuthErr =
-        (error && (error as any)?.context?.status === 401) ||
-        data?.error === "unauthorized";
-      if (isAuthErr) {
-        toast.dismiss(loadingToast);
-        toast.info(t("downloads.session_expired", { defaultValue: "Session expired. Please sign in again." }));
-        await supabase.auth.signOut();
-        navigate("/auth?redirect=/store");
+      // Proactively refresh the session so a stale JWT doesn't hit the function.
+      await supabase.auth.refreshSession().catch(() => undefined);
+
+      let result = await invokeExport(p.id);
+      // If we still get 401, refresh once more and retry — covers the race where
+      // the stored session_id was rotated between refresh and invoke.
+      if (isAuthResponse(result)) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) {
+          result = await invokeExport(p.id);
+        }
+      }
+      if (isAuthResponse(result)) {
+        showSessionExpired();
         return;
       }
+
+      const { data, error } = result;
       if (error) throw error;
       if (data?.blocked) {
         toast.dismiss(loadingToast);
-        toast.info(t("downloads.paywall", { defaultValue: "Upgrade to download stories." }));
+        toast.info(
+          data?.hint ||
+            t("downloads.paywall", { defaultValue: "Upgrade to download stories." }),
+        );
         navigate("/pricing");
         return;
       }
       const pdfUrl = data?.pdfUrl as string | undefined;
       if (!pdfUrl) throw new Error(data?.error || "no_url");
-      // Trigger download
-      const res = await fetch(pdfUrl);
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objUrl;
-      a.download = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+      await triggerBrowserDownload(pdfUrl, title);
       toast.dismiss(loadingToast);
-      toast.success(t("downloads.done", { defaultValue: "Download started" }));
+      toast.success(
+        t("downloads.done", { defaultValue: "Your PDF is downloading" }),
+        {
+          action: {
+            label: t("downloads.open", { defaultValue: "Open" }),
+            onClick: () => window.open(pdfUrl, "_blank", "noopener"),
+          },
+        },
+      );
     } catch (e: any) {
       toast.dismiss(loadingToast);
-      toast.error(e?.message || t("downloads.failed", { defaultValue: "Download failed" }));
+      toast.error(
+        (e?.message as string) ||
+          t("downloads.failed", { defaultValue: "Download failed" }),
+        {
+          action: {
+            label: t("downloads.retry", { defaultValue: "Retry" }),
+            onClick: () => handleDownloadStoryPdf(p),
+          },
+        },
+      );
     } finally {
       setPdfBusy(null);
     }
