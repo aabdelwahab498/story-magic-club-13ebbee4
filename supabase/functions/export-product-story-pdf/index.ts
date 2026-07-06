@@ -3,128 +3,16 @@
 // under `products/<sku>-<lang>.pdf` so repeated downloads reuse the file.
 
 import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
-import { aiJson, AIGatewayError } from "../_shared/sel/gateway.ts";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 interface ReqBody { productId: string; language?: string; force?: boolean }
 
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
-const IMAGE_TIMEOUT_MS = 12_000;
-const ILLUSTRATION_AI_PAGE_LIMIT = 2;
-const IMAGE_MODELS = [
-  "openai/gpt-image-2",
-  "google/gemini-3.1-flash-image",
-  "google/gemini-2.5-flash-image",
-];
-
 type EdgeLogger = (msg: string, extra?: Record<string, unknown>) => void;
-
-function imageBodyForModel(model: string, prompt: string): Record<string, unknown> {
-  if (model.startsWith("openai/")) {
-    return {
-      model,
-      prompt,
-      quality: "low",
-      size: "1024x1024",
-      n: 1,
-      stream: false,
-    };
-  }
-
-  return {
-    model,
-    messages: [{ role: "user", content: prompt }],
-    modalities: ["image", "text"],
-    stream: false,
-  };
-}
-
-function bytesFromBase64(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function extractIllustration(data: unknown): { bytes: Uint8Array; mime: string } | null {
-  const obj = data as Record<string, unknown>;
-  const first = Array.isArray(obj?.data) ? obj.data[0] as Record<string, unknown> | undefined : undefined;
-  const b64 = typeof first?.b64_json === "string" ? first.b64_json : undefined;
-  if (b64) return { bytes: bytesFromBase64(b64), mime: "image/png" };
-
-  const directUrl = typeof first?.url === "string" ? first.url : undefined;
-  const legacyUrl = (obj as any)?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  const url = directUrl || (typeof legacyUrl === "string" ? legacyUrl : undefined);
-  if (!url || !url.startsWith("data:image/")) return null;
-  const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
-  if (!m) return null;
-  return { bytes: bytesFromBase64(m[2]), mime: m[1] };
-}
-
-async function generateIllustration(
-  prompt: string,
-  pageIndex: number,
-  log: EdgeLogger,
-  errLog: EdgeLogger,
-): Promise<{ bytes: Uint8Array; mime: string } | null> {
-  if (!LOVABLE_API_KEY) return null;
-  for (const model of IMAGE_MODELS) {
-    const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
-    try {
-      log("illustration model start", { page: pageIndex, model });
-      const r = await fetch(LOVABLE_IMAGE_URL, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Lovable-API-Key": LOVABLE_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(imageBodyForModel(model, prompt)),
-      });
-      clearTimeout(timer);
-      if (!r.ok) {
-        const detail = await r.text().catch(() => "");
-        errLog("illustration model failed", { page: pageIndex, model, status: r.status, detail: detail.slice(0, 240) });
-        continue;
-      }
-      const data = await r.json();
-      const img = extractIllustration(data);
-      if (!img) {
-        errLog("illustration response missing image", { page: pageIndex, model });
-        continue;
-      }
-      log("illustration model success", { page: pageIndex, model, bytes: img.bytes.length, mime: img.mime });
-      return img;
-    } catch (e) {
-      clearTimeout(timer);
-      errLog("illustration model threw", { page: pageIndex, model, err: e instanceof Error ? e.message : String(e) });
-    }
-  }
-  return null;
-}
-
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let idx = 0;
-  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-    while (true) {
-      const i = idx++;
-      if (i >= items.length) return;
-      out[i] = await fn(items[i], i);
-    }
-  });
-  await Promise.all(workers);
-  return out;
-}
 
 function decodeJwt(token: string): { sub?: string; exp?: number; email?: string } | null {
   try {
