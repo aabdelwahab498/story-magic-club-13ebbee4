@@ -388,16 +388,14 @@ const StoryDetail = () => {
             <h2 className="text-lg sm:text-xl font-bold text-kids-midnight">
               {t("stories.read_pdf", "Read the full storybook (PDF)")}
             </h2>
-            <a
-              href={story.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
-              className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold hover:opacity-90"
-            >
-              {t("stories.download_pdf", "Download PDF")}
-            </a>
+            <DownloadNowButton
+              storyId={story.id}
+              title={currentTitle}
+              pdfUrl={story.pdf_url}
+              label={t("stories.download_pdf", "Download PDF") as string}
+            />
           </div>
+
           <div className="rounded-2xl overflow-hidden border border-foreground/10 shadow-md bg-muted">
             <iframe
               src={`https://docs.google.com/gview?url=${encodeURIComponent(story.pdf_url)}&embedded=true`}
