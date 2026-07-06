@@ -260,7 +260,7 @@ serve(async (req) => {
       try {
         const head = await fetch(pub.publicUrl, { method: "HEAD", cache: "no-store" });
         const size = Number(head.headers.get("content-length") || "0");
-        if (head.ok && size > 20_000) {
+        if (head.ok && size > 5_000) {
           return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, reused: true }, 200);
         }
         if (head.ok) {
@@ -528,6 +528,53 @@ function drawFallbackIllustration(
     page.drawCircle({ x: fx, y: fy, size: 7, color: p.flower });
     page.drawCircle({ x: fx + 8, y: fy + 5, size: 5, color: p.accent });
   }
+}
+
+function buildFallbackStory(
+  title: string,
+  description: string,
+  ageRange: string,
+  language: string,
+): {
+  title: string;
+  subtitle: string;
+  characterSheet: string;
+  pages: Array<{ index: number; text: string; illustrationPrompt: string }>;
+} {
+  const isAr = language === "ar";
+  const premise = description || title;
+  const characterSheet = "a cheerful child with warm brown eyes, curly dark hair, a sky-blue coat, yellow scarf, and tiny star-shaped satchel";
+  const arPages = [
+    `في صباحٍ لطيف، حملت نجمة حقيبتها الصغيرة وخرجت تبحث عن سرّ ${title}. كان الهواء ناعمًا، وكانت الأزهار تهمس لها بكلماتٍ مشجعة. شعرت أن اليوم يحمل مفاجأة جميلة تناسب قلبها الفضولي.`,
+    `وجدت نجمة أثرًا لامعًا يقودها بين الأشجار. توقفت لتسمع زقزقة عصفور صغير، ثم ابتسمت وقالت: سأمشي بهدوء وأتعلم من كل خطوة. كان الطريق جديدًا، لكنه لم يكن مخيفًا.`,
+    `عند تلٍ أخضر، قابلت نجمة صديقًا يحتاج إلى مساعدة بسيطة. شاركته ماءها وكلماتها الطيبة، فصار الطريق أخف وأدفأ. اكتشفت أن اللطف يجعل المغامرة أجمل.`,
+    `ظهرت غيمة ناعمة وخبأت الأثر اللامع قليلًا. تنفست نجمة ببطء وتذكرت أنها تستطيع التفكير بهدوء. نظرت حولها فرأت لونًا ذهبيًا بين العشب يدلها على الاتجاه.`,
+    `سارت نجمة وصديقها خلف اللمعة الذهبية حتى وصلا إلى حديقة مليئة بالألوان. كل زهرة بدت كأنها تحتفل بهما. ضحكت نجمة، وشعرت أن الشجاعة تكبر عندما نتعاون.`,
+    `في وسط الحديقة كان صندوق صغير لا يحتاج إلى مفتاح، بل إلى كلمة طيبة. قالت نجمة: شكرًا لكل من ساعدني. فتح الصندوق بلطف وخرج منه ضوء دافئ يرقص حول الجميع.`,
+    `فهمت نجمة أن السر لم يكن شيئًا تملكه، بل طريقة ترى بها العالم. عندما تصغي، وتساعد، وتحاول من جديد، تصبح الأيام العادية حكايات مضيئة.`,
+    `عادت نجمة إلى بيتها مع غروبٍ وردي وابتسامة هادئة. وضعت حقيبتها قرب النافذة، ووعدت نفسها بمغامرة جديدة غدًا. نامت وهي تشعر أن قلبها مليء بالنجوم.`,
+  ];
+  const enPages = [
+    `One gentle morning, Najma packed her tiny satchel and followed a bright idea about ${premise}. The breeze felt soft, and the flowers seemed to whisper encouragement. She knew the day was holding a kind surprise for her curious heart.`,
+    `A silver sparkle led Najma between the trees. She paused to listen to a little bird, then smiled and stepped carefully onward. The path was new, but with patience and wonder, it did not feel frightening at all.`,
+    `On a green hill, Najma met a friend who needed a small kindness. She shared her water and a warm word, and the road felt lighter for both of them. She discovered that kindness makes every adventure brighter.`,
+    `A soft cloud drifted down and hid the sparkle for a moment. Najma took a slow breath and remembered she could think calmly. Then she noticed a golden glow in the grass, pointing the way ahead.`,
+    `Najma and her friend followed the glow to a garden bursting with color. Every flower looked as if it were celebrating their arrival. Najma laughed, feeling courage grow stronger when friends work together.`,
+    `In the middle of the garden sat a tiny box that needed no key, only a kind word. “Thank you,” Najma said to everyone who helped. The box opened softly, and warm light danced all around them.`,
+    `Najma understood that the treasure was not a thing to keep, but a way to see the world. When she listened, helped, and tried again, ordinary days became shining stories.`,
+    `She returned home under a rosy sunset with a peaceful smile. Najma placed her satchel by the window and promised herself another adventure tomorrow. That night, her heart felt full of stars.`,
+  ];
+  const texts = isAr ? arPages : enPages;
+  return {
+    title,
+    subtitle: isAr ? `حكاية دافئة للأطفال من عمر ${ageRange}` : `A warm illustrated story for ages ${ageRange}`,
+    characterSheet,
+    pages: texts.map((text, i) => ({
+      index: i + 1,
+      text,
+      illustrationPrompt: `Whimsical watercolor children's book scene for page ${i + 1}: ${text.slice(0, 180)}. Main character: ${characterSheet}. No text or letters.`,
+    })),
+  };
 }
 
 function drawWrapped(page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage, text: string, o: DrawOpts) {
