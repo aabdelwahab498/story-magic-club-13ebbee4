@@ -124,6 +124,11 @@ const MyAiStories = () => {
                     {t("my_stories.open", { defaultValue: "Open" })}
                   </Link>
                 </Button>
+                <DownloadNowButton
+                  storyId={s.id}
+                  title={s.title ?? "Story"}
+                  pdfUrl={(s as unknown as { pdf_url?: string | null }).pdf_url ?? null}
+                />
                 {s.audio_url ? (
                   <Button
                     size="sm"
