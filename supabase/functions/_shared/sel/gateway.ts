@@ -30,7 +30,7 @@ export class AIGatewayError extends Error {
 }
 
 // Gemini models used when no explicit override is passed.
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash"];
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
 interface Provider {
   name: string;
