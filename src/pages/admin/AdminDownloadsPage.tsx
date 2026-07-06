@@ -601,8 +601,8 @@ function Spinner() {
 
 /* ----------------------- Test Download ----------------------- */
 function TestDownloadTab() {
-  const PDF_URL = "/test-download.pdf";
-  const FILE_NAME = "starry-tales-test.pdf";
+  const PDF_URL = "/najmah-admin-test.pdf";
+  const FILE_NAME = "najmah-admin-test.pdf";
   const [status, setStatus] = useState<string>("");
 
   const forceDownload = async () => {
