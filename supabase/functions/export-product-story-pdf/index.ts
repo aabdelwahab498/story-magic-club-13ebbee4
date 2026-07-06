@@ -15,42 +15,96 @@ interface ReqBody { productId: string; language?: string; force?: boolean }
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
 const IMAGE_MODELS = [
-  "google/gemini-3.1-flash-image-preview",
+  "openai/gpt-image-2",
+  "google/gemini-3.1-flash-image",
   "google/gemini-2.5-flash-image",
 ];
 
-async function generateIllustration(prompt: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+type EdgeLogger = (msg: string, extra?: Record<string, unknown>) => void;
+
+function imageBodyForModel(model: string, prompt: string): Record<string, unknown> {
+  if (model.startsWith("openai/")) {
+    return {
+      model,
+      prompt,
+      quality: "low",
+      size: "1024x1024",
+      n: 1,
+      stream: false,
+    };
+  }
+
+  return {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    modalities: ["image", "text"],
+    stream: false,
+  };
+}
+
+function bytesFromBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function extractIllustration(data: unknown): { bytes: Uint8Array; mime: string } | null {
+  const obj = data as Record<string, unknown>;
+  const first = Array.isArray(obj?.data) ? obj.data[0] as Record<string, unknown> | undefined : undefined;
+  const b64 = typeof first?.b64_json === "string" ? first.b64_json : undefined;
+  if (b64) return { bytes: bytesFromBase64(b64), mime: "image/png" };
+
+  const directUrl = typeof first?.url === "string" ? first.url : undefined;
+  const legacyUrl = (obj as any)?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const url = directUrl || (typeof legacyUrl === "string" ? legacyUrl : undefined);
+  if (!url || !url.startsWith("data:image/")) return null;
+  const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
+  if (!m) return null;
+  return { bytes: bytesFromBase64(m[2]), mime: m[1] };
+}
+
+async function generateIllustration(
+  prompt: string,
+  pageIndex: number,
+  log: EdgeLogger,
+  errLog: EdgeLogger,
+): Promise<{ bytes: Uint8Array; mime: string } | null> {
   if (!LOVABLE_API_KEY) return null;
   for (const model of IMAGE_MODELS) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 60_000);
+    const timer = setTimeout(() => ctrl.abort(), 75_000);
     try {
+      log("illustration model start", { page: pageIndex, model });
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
         signal: ctrl.signal,
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          modalities: ["image", "text"],
-          messages: [{ role: "user", content: prompt }],
-        }),
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Lovable-API-Key": LOVABLE_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(imageBodyForModel(model, prompt)),
       });
       clearTimeout(timer);
-      if (!r.ok) continue;
+      if (!r.ok) {
+        const detail = await r.text().catch(() => "");
+        errLog("illustration model failed", { page: pageIndex, model, status: r.status, detail: detail.slice(0, 240) });
+        continue;
+      }
       const data = await r.json();
-      const url: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (!url || !url.startsWith("data:image/")) continue;
-      const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
-      if (!m) continue;
-      const mime = m[1];
-      const bin = atob(m[2]);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return { bytes, mime };
-    } catch {
+      const img = extractIllustration(data);
+      if (!img) {
+        errLog("illustration response missing image", { page: pageIndex, model });
+        continue;
+      }
+      log("illustration model success", { page: pageIndex, model, bytes: img.bytes.length, mime: img.mime });
+      return img;
+    } catch (e) {
       clearTimeout(timer);
+      errLog("illustration model threw", { page: pageIndex, model, err: e instanceof Error ? e.message : String(e) });
     }
   }
   return null;
@@ -184,7 +238,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v2.pdf`;
 
     // Reuse cache
     if (!force) {
@@ -274,24 +328,45 @@ Return STRICT JSON only, no prose, no markdown fences:
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
 
-    // Generate one illustration per page in parallel (concurrency 4).
+    // Generate one illustration per page. Keep concurrency modest to avoid
+    // upstream image rate limits and never cache a text-only PDF as success.
     const characterSheet = storyJson?.characterSheet ?? "";
     log("illustrations begin", { count: pages.length });
     const illT0 = Date.now();
-    const illustrations = await mapLimit(pages, 4, async (p) => {
+    const illustrations = await mapLimit(pages, 2, async (p) => {
       const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
-      const prompt = `Children's picture-book illustration. Soft watercolor and gouache, warm palette, magical and cozy. No text or letters.
+      const prompt = `Bright, attractive children's picture-book illustration for ages ${ageRange}. Soft watercolor and gouache, expressive friendly faces, warm magical details, joyful colors, cozy lighting. No text, letters, logos, captions, or borders.
 Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
 Scene for page ${p.index}: ${scene}
-Full-bleed square composition suitable for a children's storybook.`;
-      const img = await generateIllustration(prompt);
+Full-bleed square composition suitable for a premium children's storybook page.`;
+      const img = await generateIllustration(prompt, p.index, log, errLog);
       return img;
     });
+
+    const missingIllustrations = illustrations
+      .map((img, i) => img ? -1 : i)
+      .filter((i) => i >= 0);
+    if (missingIllustrations.length > 0) {
+      log("illustrations retry missing", { missing: missingIllustrations.map((i) => pages[i].index) });
+      for (const i of missingIllustrations) {
+        const p = pages[i];
+        const simplePrompt = `A charming, colorful watercolor and gouache children's storybook illustration. No text, letters, logos, captions, or borders. Consistent character: ${characterSheet || "a friendly child protagonist"}. Scene: ${p.illustrationPrompt || p.text.slice(0, 180)}.`;
+        illustrations[i] = await generateIllustration(simplePrompt, p.index, log, errLog);
+      }
+    }
+
+    const successfulIllustrations = illustrations.filter(Boolean).length;
     log("illustrations done", {
       ms: Date.now() - illT0,
-      ok: illustrations.filter(Boolean).length,
+      ok: successfulIllustrations,
       failed: illustrations.filter((x) => !x).length,
     });
+    if (successfulIllustrations === 0) {
+      return json({
+        error: "illustrations_failed",
+        hint: "The story was generated, but no illustrations were returned. Please retry the download.",
+      }, 502);
+    }
 
     const isRtl = language === "ar";
 
