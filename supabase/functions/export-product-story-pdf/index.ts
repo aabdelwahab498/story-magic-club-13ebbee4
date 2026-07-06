@@ -14,6 +14,62 @@ interface ReqBody { productId: string; language?: string; force?: boolean }
 
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const IMAGE_MODELS = [
+  "google/gemini-3.1-flash-image-preview",
+  "google/gemini-2.5-flash-image",
+];
+
+async function generateIllustration(prompt: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  if (!LOVABLE_API_KEY) return null;
+  for (const model of IMAGE_MODELS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60_000);
+    try {
+      const r = await fetch(LOVABLE_IMAGE_URL, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          modalities: ["image", "text"],
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      clearTimeout(timer);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const url: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!url || !url.startsWith("data:image/")) continue;
+      const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
+      if (!m) continue;
+      const mime = m[1];
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return { bytes, mime };
+    } catch {
+      clearTimeout(timer);
+    }
+  }
+  return null;
+}
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let idx = 0;
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (true) {
+      const i = idx++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 function decodeJwt(token: string): { sub?: string; exp?: number; email?: string } | null {
   try {
     const [, payload] = token.split(".");
