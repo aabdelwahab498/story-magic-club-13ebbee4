@@ -24,6 +24,7 @@ import {
   generateTrialIllustrations,
   generateTrialPdf,
   downloadTrialPdf,
+  prepareTrialPdfDownloadTarget,
   TrialRateLimitedError,
   TrialContentRejectedError,
   TrialServerError,
@@ -299,6 +300,7 @@ const AIStoryteller = () => {
   // ── Step 3: PDF (on demand). Uses whatever images we have at the moment.
   const handleGuestDownloadPdf = async () => {
     if (!guestTrial) return;
+    const downloadTarget = prepareTrialPdfDownloadTarget();
     setGuestPdfLoading(true);
     try {
       const pdf = await generateTrialPdf({
@@ -315,9 +317,10 @@ const AIStoryteller = () => {
       const rawTitle = (guestTrial.title || "").trim();
       const cleaned = rawTitle.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60);
       const safeTitle = cleaned || "my-story";
-      downloadTrialPdf(pdf.pdfBase64, `${safeTitle}.pdf`);
+      downloadTrialPdf(pdf.pdfBase64, `${safeTitle}.pdf`, downloadTarget);
       toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
     } catch (e) {
+      try { downloadTarget?.close(); } catch { /* ignore */ }
       console.error("[trial-pdf] failed", e);
       toast.error(
         t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."),
@@ -330,6 +333,7 @@ const AIStoryteller = () => {
   // Authenticated users — build a PDF from the current AI story + any illustrations.
   const handleDownloadPdf = async () => {
     if (!story) return;
+    const downloadTarget = prepareTrialPdfDownloadTarget();
     setPdfLoading(true);
     try {
       const scenes = splitIntoScenes(story, 6);
@@ -344,9 +348,10 @@ const AIStoryteller = () => {
         childName: activeChild?.name,
       });
       const cleaned = title.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60);
-      downloadTrialPdf(pdf.pdfBase64, `${cleaned || "story"}.pdf`);
+      downloadTrialPdf(pdf.pdfBase64, `${cleaned || "story"}.pdf`, downloadTarget);
       toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
     } catch (e) {
+      try { downloadTarget?.close(); } catch { /* ignore */ }
       console.error("[pdf] failed", e);
       toast.error(
         t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."),
@@ -472,7 +477,7 @@ const AIStoryteller = () => {
     } catch { /* ignore */ }
     if (!pending?.idea) return;
     pendingFiredRef.current = true;
-    try { localStorage.removeItem("pending-story-idea"); } catch {}
+    try { localStorage.removeItem("pending-story-idea"); } catch { /* ignore */ }
     setCustomPrompt(pending.idea);
     if (pending.narrator && (CHARACTER_KEYS as readonly string[]).includes(pending.narrator)) {
       setCharacterId(pending.narrator as typeof CHARACTER_KEYS[number]);

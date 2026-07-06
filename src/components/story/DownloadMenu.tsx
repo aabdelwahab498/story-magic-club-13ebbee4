@@ -32,6 +32,7 @@ import {
   downloadAudioMp3,
   downloadImagesZip,
   downloadCompletePack,
+  prepareDownloadTarget,
   exportStoryPdf,
   exportStoryEpub,
   safeFilename,
@@ -132,7 +133,9 @@ export default function DownloadMenu({
         return;
       }
     }
+    let downloadTarget: ReturnType<typeof prepareDownloadTarget> = null;
     try {
+      downloadTarget = prepareDownloadTarget();
       setBusy(fmt);
       if (fmt === "pdf") {
         let url = pdfUrl || null;
@@ -141,23 +144,23 @@ export default function DownloadMenu({
           url = await exportStoryPdf(storyId);
         }
         const signed = await signStorageUrl(url, "story-pdfs");
-        await downloadFromUrl(signed, `najmah-${filename}.pdf`);
+        await downloadFromUrl(signed, `najmah-${filename}.pdf`, downloadTarget);
       } else if (fmt === "mp3") {
         if (!audioUrl) {
           toast.error(t("downloads.no_audio", { defaultValue: "Generate narration first." }));
           audit("rejected", "no_audio");
           return;
         }
-        await downloadAudioMp3(audioUrl, `najmah-${filename}.mp3`);
+        await downloadAudioMp3(audioUrl, `najmah-${filename}.mp3`, downloadTarget);
       } else if (fmt === "txt") {
-        downloadTxt(title, pages);
+        downloadTxt(title, pages, downloadTarget);
       } else if (fmt === "docx") {
         toast.message(t("downloads.generating_docx", { defaultValue: "Building DOCX…" }));
-        await downloadDocx(title, pages);
+        await downloadDocx(title, pages, downloadTarget);
       } else if (fmt === "epub") {
         toast.message(t("downloads.generating_epub", { defaultValue: "Building EPUB…" }));
         const url = await exportStoryEpub(storyId);
-        await downloadFromUrl(url, `najmah-${filename}.epub`);
+        await downloadFromUrl(url, `najmah-${filename}.epub`, downloadTarget);
       } else if (fmt === "images") {
         if (!hasImages) {
           toast.error(
@@ -169,7 +172,7 @@ export default function DownloadMenu({
         toast.message(
           t("downloads.zipping_images", { defaultValue: "Bundling illustrations…" }),
         );
-        const ok = await downloadImagesZip(title, pages);
+        const ok = await downloadImagesZip(title, pages, undefined, downloadTarget);
         if (!ok) {
           toast.error(t("downloads.no_images", { defaultValue: "No illustrations available." }));
           audit("rejected", "no_images");
@@ -187,12 +190,14 @@ export default function DownloadMenu({
           pages,
           pdfUrl,
           audioUrl,
+          downloadTarget,
         });
       }
       void logDownload({ storyId, storyTitle: title, format: fmt });
       audit("success");
       toast.success(t("downloads.done", { defaultValue: "Download started" }));
     } catch (e) {
+      try { downloadTarget?.close(); } catch { /* ignore */ }
       const msg = (e as Error)?.message ?? "error";
       audit("error", msg.slice(0, 200));
       if (msg.includes("subscription_required")) {

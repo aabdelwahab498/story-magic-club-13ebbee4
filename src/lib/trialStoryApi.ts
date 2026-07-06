@@ -1,5 +1,10 @@
 // Free-trial story (anonymous, 3-page preview, one-shot per browser).
 import { supabase } from "@/integrations/supabase/client";
+import {
+  downloadBlob,
+  prepareDownloadTarget,
+  type PreparedDownloadTarget,
+} from "@/lib/browserDownload";
 
 export interface TrialStoryPage {
   index: number;
@@ -178,6 +183,8 @@ export interface TrialPdfResponse {
   sizeBytes: number;
 }
 
+export const prepareTrialPdfDownloadTarget = prepareDownloadTarget;
+
 export async function generateTrialPdf(input: {
   title: string;
   pages: { index: number; text: string; emotionTag?: string; imageUrl?: string | null }[];
@@ -202,51 +209,16 @@ export async function generateTrialPdf(input: {
 /** Trigger a browser download of the base64 PDF returned by generateTrialPdf.
  *  Falls back to opening the PDF in a new tab when the current context is a
  *  sandboxed iframe (e.g. the Lovable preview) that blocks direct downloads. */
-export function downloadTrialPdf(pdfBase64: string, filename = "my-story.pdf") {
+export function downloadTrialPdf(
+  pdfBase64: string,
+  filename = "my-story.pdf",
+  target?: PreparedDownloadTarget,
+) {
   const bin = atob(pdfBase64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const blob = new Blob([bytes], { type: "application/pdf" });
-
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
-  // Detect sandboxed iframe (Lovable preview, some embeds) — the browser
-  // silently blocks anchor-triggered downloads there.
-  const inIframe = (() => {
-    try { return window.self !== window.top; } catch { return true; }
-  })();
-
-  const openInNewTab = (href: string) => {
-    const w = window.open(href, "_blank", "noopener,noreferrer");
-    if (!w) {
-      try { (window.top ?? window).location.href = href; }
-      catch { window.location.href = href; }
-    }
-  };
-
-  if (isIOS) {
-    const reader = new FileReader();
-    reader.onloadend = () => openInNewTab(reader.result as string);
-    reader.readAsDataURL(blob);
-    return;
-  }
-
-  const url = URL.createObjectURL(blob);
-
-  if (inIframe) {
-    openInNewTab(url);
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-    return;
-  }
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  downloadBlob(blob, filename, target);
 }
 
 

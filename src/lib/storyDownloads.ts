@@ -1,5 +1,10 @@
 // Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
+import {
+  downloadBlob,
+  prepareDownloadTarget,
+  type PreparedDownloadTarget,
+} from "@/lib/browserDownload";
 import JSZip from "jszip";
 import {
   Document as DocxDocument,
@@ -10,18 +15,8 @@ import {
   AlignmentType,
 } from "docx";
 
-export function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 100);
-}
+export { downloadBlob, prepareDownloadTarget };
+export type { PreparedDownloadTarget };
 
 export function safeFilename(s: string, fallback = "story"): string {
   return (s || fallback).replace(/[^a-zA-Z0-9-_\u0600-\u06FF]+/g, "_").slice(0, 60) || fallback;
@@ -33,9 +28,9 @@ async function fetchAsBlob(url: string): Promise<Blob> {
   return await r.blob();
 }
 
-export async function downloadFromUrl(url: string, filename: string) {
+export async function downloadFromUrl(url: string, filename: string, target?: PreparedDownloadTarget) {
   const blob = await fetchAsBlob(url);
-  downloadBlob(blob, filename);
+  downloadBlob(blob, filename, target);
 }
 
 export interface StoryPageLike {
@@ -51,10 +46,10 @@ export function buildTxt(title: string, pages: StoryPageLike[]): string {
   return `${t}\n${"=".repeat(t.length)}\n\n${body}\n`;
 }
 
-export function downloadTxt(title: string, pages: StoryPageLike[]) {
+export function downloadTxt(title: string, pages: StoryPageLike[], target?: PreparedDownloadTarget) {
   const content = buildTxt(title, pages);
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  downloadBlob(blob, `${safeFilename(title)}.txt`);
+  downloadBlob(blob, `${safeFilename(title)}.txt`, target);
 }
 
 /**
@@ -81,9 +76,13 @@ export async function signStorageUrl(
   }
 }
 
-export async function downloadAudioMp3(audioUrl: string, filename: string) {
+export async function downloadAudioMp3(
+  audioUrl: string,
+  filename: string,
+  target?: PreparedDownloadTarget,
+) {
   const signed = await signStorageUrl(audioUrl, "story-audio");
-  await downloadFromUrl(signed, filename);
+  await downloadFromUrl(signed, filename, target);
 }
 
 // === Edge function callers ===
@@ -174,9 +173,9 @@ export async function buildDocxBlob(title: string, pages: StoryPageLike[]): Prom
   return blob;
 }
 
-export async function downloadDocx(title: string, pages: StoryPageLike[]) {
+export async function downloadDocx(title: string, pages: StoryPageLike[], target?: PreparedDownloadTarget) {
   const blob = await buildDocxBlob(title, pages);
-  downloadBlob(blob, `najmah-${safeFilename(title)}.docx`);
+  downloadBlob(blob, `najmah-${safeFilename(title)}.docx`, target);
 }
 
 // ============================================================
@@ -213,10 +212,11 @@ export async function downloadImagesZip(
   title: string,
   pages: StoryPageLike[],
   onProgress?: (done: number, total: number) => void,
+  target?: PreparedDownloadTarget,
 ): Promise<boolean> {
   const blob = await buildImagesZip(title, pages, onProgress);
   if (!blob) return false;
-  downloadBlob(blob, `najmah-${safeFilename(title)}-images.zip`);
+  downloadBlob(blob, `najmah-${safeFilename(title)}-images.zip`, target);
   return true;
 }
 
@@ -230,10 +230,11 @@ export interface PackOptions {
   pdfUrl?: string | null;
   audioUrl?: string | null;
   onStep?: (label: string) => void;
+  downloadTarget?: PreparedDownloadTarget;
 }
 
 export async function downloadCompletePack(opts: PackOptions): Promise<void> {
-  const { storyId, title, pages, pdfUrl, audioUrl, onStep } = opts;
+  const { storyId, title, pages, pdfUrl, audioUrl, onStep, downloadTarget } = opts;
   const zip = new JSZip();
   const base = `najmah-${safeFilename(title)}`;
 
@@ -287,7 +288,7 @@ export async function downloadCompletePack(opts: PackOptions): Promise<void> {
 
   onStep?.("packaging");
   const out = await zip.generateAsync({ type: "blob" });
-  downloadBlob(out, `${base}-pack.zip`);
+  downloadBlob(out, `${base}-pack.zip`, downloadTarget);
 }
 
 
