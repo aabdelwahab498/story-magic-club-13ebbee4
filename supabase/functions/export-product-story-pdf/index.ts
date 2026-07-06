@@ -361,12 +361,6 @@ Full-bleed square composition suitable for a premium children's storybook page.`
       ok: successfulIllustrations,
       failed: illustrations.filter((x) => !x).length,
     });
-    if (successfulIllustrations === 0) {
-      return json({
-        error: "illustrations_failed",
-        hint: "The story was generated, but no illustrations were returned. Please retry the download.",
-      }, 502);
-    }
 
     const isRtl = language === "ar";
 
@@ -470,6 +464,50 @@ interface DrawOpts {
   size: number; color: ReturnType<typeof rgb>;
   lineHeight?: number;
   align?: "left" | "center" | "right";
+}
+
+function drawFallbackIllustration(
+  page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage,
+  pageIndex: number,
+) {
+  const x = 60;
+  const y = 405;
+  const width = 475;
+  const height = 370;
+  const palettes = [
+    { sky: rgb(0.78, 0.91, 1), hill: rgb(0.48, 0.78, 0.54), accent: rgb(1, 0.74, 0.28), flower: rgb(0.98, 0.38, 0.56) },
+    { sky: rgb(0.86, 0.82, 1), hill: rgb(0.38, 0.72, 0.69), accent: rgb(1, 0.83, 0.35), flower: rgb(0.45, 0.55, 0.95) },
+    { sky: rgb(1, 0.88, 0.75), hill: rgb(0.58, 0.78, 0.42), accent: rgb(0.42, 0.72, 1), flower: rgb(0.92, 0.44, 0.8) },
+  ];
+  const p = palettes[(pageIndex - 1) % palettes.length];
+
+  page.drawRectangle({ x: x - 8, y: y - 8, width: width + 16, height: height + 16, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1 });
+  page.drawRectangle({ x, y, width, height, color: p.sky });
+
+  page.drawCircle({ x: x + width - 78, y: y + height - 72, size: 38, color: p.accent });
+  page.drawCircle({ x: x + 90, y: y + height - 78, size: 22, color: rgb(1, 1, 1) });
+  page.drawCircle({ x: x + 124, y: y + height - 72, size: 28, color: rgb(1, 1, 1) });
+  page.drawCircle({ x: x + 158, y: y + height - 82, size: 20, color: rgb(1, 1, 1) });
+
+  page.drawEllipse({ x: x + 130, y: y + 78, xScale: 185, yScale: 82, color: p.hill });
+  page.drawEllipse({ x: x + 350, y: y + 70, xScale: 170, yScale: 72, color: rgb(0.36, 0.68, 0.5) });
+
+  const childX = x + 238;
+  const childY = y + 118;
+  page.drawCircle({ x: childX, y: childY + 86, size: 26, color: rgb(0.5, 0.28, 0.16) });
+  page.drawCircle({ x: childX, y: childY + 80, size: 21, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: childX - 24, y: childY + 22, width: 48, height: 55, color: p.flower });
+  page.drawRectangle({ x: childX - 45, y: childY + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: childX + 20, y: childY + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: childX - 18, y: childY, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
+  page.drawRectangle({ x: childX + 6, y: childY, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
+
+  for (let i = 0; i < 9; i++) {
+    const fx = x + 55 + ((i * 47 + pageIndex * 19) % 365);
+    const fy = y + 36 + ((i * 23) % 70);
+    page.drawCircle({ x: fx, y: fy, size: 7, color: p.flower });
+    page.drawCircle({ x: fx + 8, y: fy + 5, size: 5, color: p.accent });
+  }
 }
 
 function drawWrapped(page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage, text: string, o: DrawOpts) {
