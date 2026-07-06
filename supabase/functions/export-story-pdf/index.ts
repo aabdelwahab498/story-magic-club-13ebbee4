@@ -15,6 +15,12 @@ serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
 
+  const json = (obj: unknown, status: number): Response =>
+    new Response(JSON.stringify(obj), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   // Body size guard (~4KB — only takes a storyId)
   const cl = Number(req.headers.get("content-length") || "0");
   if (cl > 4_096) return json({ error: "payload_too_large" }, 413);
