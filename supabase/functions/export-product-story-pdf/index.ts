@@ -101,14 +101,23 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const { data: paidAllowed } = await admin.rpc("has_paid_feature", {
+    const { data: paidAllowed, error: gateErr } = await admin.rpc("has_paid_feature", {
       _user_id: userId, _feature: "pdf",
     });
-    const { data: isAdmin } = await admin.rpc("has_role", {
+    const { data: isAdmin, error: roleErr } = await admin.rpc("has_role", {
       _user_id: userId, _role: "admin",
     });
+    if (gateErr) errLog("has_paid_feature error", { err: gateErr.message });
+    if (roleErr) errLog("has_role error", { err: roleErr.message });
+    log("entitlement check", { paidAllowed, isAdmin, email: userEmail });
     if (!paidAllowed && !isAdmin) {
-      return json({ error: "subscription_required", feature: "pdf", blocked: true }, 200);
+      log("entitlement denied");
+      return json({
+        error: "subscription_required",
+        feature: "pdf",
+        blocked: true,
+        hint: "Upgrade to a paid plan to download story PDFs.",
+      }, 200);
     }
 
     const { data: product, error: pErr } = await admin
