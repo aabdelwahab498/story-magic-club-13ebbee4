@@ -90,6 +90,7 @@ export default function AdminDownloadsPage() {
           <TabsTrigger value="users"><UsersIcon className="h-4 w-4 me-1.5" />Users Today</TabsTrigger>
           <TabsTrigger value="audit"><ScrollText className="h-4 w-4 me-1.5" />Audit Log</TabsTrigger>
           <TabsTrigger value="alerts"><AlertTriangle className="h-4 w-4 me-1.5" />Alerts</TabsTrigger>
+          <TabsTrigger value="test"><FileText className="h-4 w-4 me-1.5" />Test Download</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings"><SettingsTab /></TabsContent>
@@ -97,6 +98,7 @@ export default function AdminDownloadsPage() {
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
         <TabsContent value="alerts"><AlertsTab /></TabsContent>
+        <TabsContent value="test"><TestDownloadTab /></TabsContent>
       </Tabs>
     </div>
   );
