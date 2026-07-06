@@ -199,37 +199,46 @@ export async function generateTrialPdf(input: {
   return data as TrialPdfResponse;
 }
 
-/** Trigger a browser download of the base64 PDF returned by generateTrialPdf. */
+/** Trigger a browser download of the base64 PDF returned by generateTrialPdf.
+ *  Falls back to opening the PDF in a new tab when the current context is a
+ *  sandboxed iframe (e.g. the Lovable preview) that blocks direct downloads. */
 export function downloadTrialPdf(pdfBase64: string, filename = "my-story.pdf") {
   const bin = atob(pdfBase64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const blob = new Blob([bytes], { type: "application/pdf" });
 
-  // Safari on iOS ignores the `download` attribute on blob URLs — the PDF
-  // just opens inline and nothing is saved. Detect and use a data URL so the
-  // browser's share sheet / save action becomes available.
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const isIOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
+  // Detect sandboxed iframe (Lovable preview, some embeds) — the browser
+  // silently blocks anchor-triggered downloads there.
+  const inIframe = (() => {
+    try { return window.self !== window.top; } catch { return true; }
+  })();
+
+  const openInNewTab = (href: string) => {
+    const w = window.open(href, "_blank", "noopener,noreferrer");
+    if (!w) {
+      try { (window.top ?? window).location.href = href; }
+      catch { window.location.href = href; }
+    }
+  };
 
   if (isIOS) {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result as string;
-      const w = window.open();
-      if (w) {
-        w.document.title = filename;
-        w.document.body.style.margin = "0";
-        w.document.body.innerHTML = `<iframe src="${dataUrl}" style="border:0;width:100vw;height:100vh"></iframe>`;
-      } else {
-        window.location.href = dataUrl;
-      }
-    };
+    reader.onloadend = () => openInNewTab(reader.result as string);
     reader.readAsDataURL(blob);
     return;
   }
 
   const url = URL.createObjectURL(blob);
+
+  if (inIframe) {
+    openInNewTab(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
