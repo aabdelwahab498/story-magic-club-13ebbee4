@@ -60,7 +60,7 @@ export default function DownloadNowButton({
           defaultValue: "Please sign in to download the story.",
         }),
       );
-      navigate(`/auth?next=${next}`);
+      navigate(`/auth?redirect=${next}`);
       return;
     }
 
