@@ -477,7 +477,7 @@ const AIStoryteller = () => {
     } catch { /* ignore */ }
     if (!pending?.idea) return;
     pendingFiredRef.current = true;
-    try { localStorage.removeItem("pending-story-idea"); } catch {}
+    try { localStorage.removeItem("pending-story-idea"); } catch { /* ignore */ }
     setCustomPrompt(pending.idea);
     if (pending.narrator && (CHARACTER_KEYS as readonly string[]).includes(pending.narrator)) {
       setCharacterId(pending.narrator as typeof CHARACTER_KEYS[number]);
