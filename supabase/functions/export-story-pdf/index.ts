@@ -15,6 +15,12 @@ serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
 
+  const json = (obj: unknown, status: number): Response =>
+    new Response(JSON.stringify(obj), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   // Body size guard (~4KB — only takes a storyId)
   const cl = Number(req.headers.get("content-length") || "0");
   if (cl > 4_096) return json({ error: "payload_too_large" }, 413);
@@ -186,8 +192,3 @@ function drawWrapped(page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage, text
   }
 }
 
-function json(obj: unknown, status: number): Response {
-  return new Response(JSON.stringify(obj), {
-    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}

@@ -314,6 +314,19 @@ export async function logDownload(args: {
       format: args.format,
       file_size_bytes: args.fileSizeBytes ?? null,
     } as never);
+    // Best-effort admin notification
+    supabase.functions
+      .invoke("notify-admins-download", {
+        body: {
+          story_id: args.storyId ?? null,
+          story_title: args.storyTitle ?? null,
+          format: args.format,
+          file_size_bytes: args.fileSizeBytes ?? null,
+        },
+      })
+      .catch(() => {
+        /* silent */
+      });
   } catch {
     /* silent: history is best-effort */
   }
