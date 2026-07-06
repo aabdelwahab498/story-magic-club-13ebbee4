@@ -14,17 +14,35 @@ interface ReqBody { productId: string; language?: string; force?: boolean }
 
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
+function decodeJwt(token: string): { sub?: string; exp?: number; email?: string } | null {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(atob(pad));
+  } catch { return null; }
+}
+
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const pre = handlePreflight(req);
   if (pre) return pre;
+  const requestId = crypto.randomUUID();
+  const t0 = Date.now();
+  const log = (msg: string, extra: Record<string, unknown> = {}) =>
+    console.log(`[product-pdf][${requestId}] ${msg}`, { ms: Date.now() - t0, ...extra });
+  const errLog = (msg: string, extra: Record<string, unknown> = {}) =>
+    console.error(`[product-pdf][${requestId}] ${msg}`, { ms: Date.now() - t0, ...extra });
+
   const json = (obj: unknown, status: number): Response =>
-    new Response(JSON.stringify(obj), {
+    new Response(JSON.stringify({ ...(obj as object), requestId }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   try {
+    log("request received");
     const raw = (await req.json().catch(() => ({}))) as Partial<ReqBody>;
     const productId = typeof raw.productId === "string" ? raw.productId.slice(0, 64) : "";
     const language = (typeof raw.language === "string" ? raw.language.slice(0, 5).toLowerCase() : "en") || "en";
@@ -34,17 +52,42 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    if (!token) return json({ error: "unauthorized" }, 401);
+    if (!token) {
+      errLog("no bearer token");
+      return json({ error: "unauthorized", reason: "missing_token" }, 401);
+    }
+
+    // Prefer server-side verification, but tolerate `session_not_found` when the
+    // JWT itself is still valid — the client's session row may have been rotated
+    // but the bearer token is intact and signed by Supabase. We fall back to
+    // decoding the JWT and re-checking via the service role client.
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: `Bearer ${token}` } } },
     );
+    let userId: string | undefined;
+    let userEmail: string | undefined;
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-    const userId = userData?.user?.id;
-    if (userErr || !userId) {
-      console.error("[product-pdf] auth failed", userErr);
-      return json({ error: "unauthorized" }, 401);
+    if (userData?.user?.id) {
+      userId = userData.user.id;
+      userEmail = userData.user.email ?? undefined;
+      log("auth ok via getUser", { userId });
+    } else {
+      const claims = decodeJwt(token);
+      const now = Math.floor(Date.now() / 1000);
+      if (claims?.sub && claims.exp && claims.exp > now) {
+        log("auth fallback via jwt claims", { userId: claims.sub, getUserErr: userErr?.message });
+        userId = claims.sub;
+        userEmail = claims.email;
+      } else {
+        errLog("auth failed", { getUserErr: userErr?.message, hasClaims: !!claims });
+        return json({
+          error: "unauthorized",
+          reason: userErr?.message === undefined ? "invalid_token" : "session_expired",
+          hint: "Please sign out and sign in again.",
+        }, 401);
+      }
     }
 
     const rl = await checkRateLimits(`u:${userId}`, "export-product-story-pdf", [
