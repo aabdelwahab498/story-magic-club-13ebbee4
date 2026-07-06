@@ -40,10 +40,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: `Bearer ${token}` } } },
     );
-    const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token);
-    const userId = claims?.claims?.sub as string | undefined;
-    if (claimsErr || !userId) {
-      console.error("[product-pdf] auth failed", claimsErr);
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    const userId = userData?.user?.id;
+    if (userErr || !userId) {
+      console.error("[product-pdf] auth failed", userErr);
       return json({ error: "unauthorized" }, 401);
     }
 
