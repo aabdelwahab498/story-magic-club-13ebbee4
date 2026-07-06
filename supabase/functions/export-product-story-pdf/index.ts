@@ -330,14 +330,38 @@ Full-bleed square composition suitable for a children's storybook.`;
     }
     cover.drawText("Najmah", { x: 60, y: 60, size: 12, font, color: rgb(0.7, 0.75, 0.95) });
 
-    // Story pages
-    for (const p of pages) {
+    // Story pages — illustration on top half, text below.
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
-      // Latin fonts cannot render Arabic glyphs — for RTL we still render but note
-      // this is a first pass; a bundled Arabic font would be needed for perfect glyphs.
+
+      const ill = illustrations[i];
+      let textTop = 760;
+      if (ill) {
+        try {
+          const img = ill.mime.includes("png")
+            ? await pdf.embedPng(ill.bytes)
+            : await pdf.embedJpg(ill.bytes);
+          const maxW = 475, maxH = 400;
+          const ratio = Math.min(maxW / img.width, maxH / img.height);
+          const w = img.width * ratio, h = img.height * ratio;
+          const x = (595 - w) / 2;
+          const y = 842 - 50 - h;
+          // Soft rounded card behind the illustration
+          page.drawRectangle({
+            x: x - 8, y: y - 8, width: w + 16, height: h + 16,
+            color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1,
+          });
+          page.drawImage(img, { x, y, width: w, height: h });
+          textTop = y - 20;
+        } catch (e) {
+          errLog("embed image failed", { page: p.index, err: String(e) });
+        }
+      }
+
       drawWrapped(page, p.text ?? "", {
-        x: 60, y: 760, width: 475, font, size: 14, color: rgb(0.1, 0.1, 0.15), lineHeight: 22,
+        x: 60, y: textTop, width: 475, font, size: 13, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
         align: isRtl ? "right" : "left",
       });
       page.drawText(`${p.index}`, { x: 297, y: 30, size: 10, font, color: rgb(0.5, 0.5, 0.6) });
