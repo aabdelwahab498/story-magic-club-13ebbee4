@@ -176,9 +176,21 @@ const Store = () => {
       t("downloads.generating", { defaultValue: "Preparing your full story PDF…" }),
     );
     try {
+      // Force refresh the session before invoking to avoid stale session_not_found
+      await supabase.auth.refreshSession();
       const { data, error } = await supabase.functions.invoke("export-product-story-pdf", {
         body: { productId: p.id, language: i18n.language },
       });
+      const isAuthErr =
+        (error && (error as any)?.context?.status === 401) ||
+        data?.error === "unauthorized";
+      if (isAuthErr) {
+        toast.dismiss(loadingToast);
+        toast.info(t("downloads.session_expired", { defaultValue: "Session expired. Please sign in again." }));
+        await supabase.auth.signOut();
+        navigate("/auth?redirect=/store");
+        return;
+      }
       if (error) throw error;
       if (data?.blocked) {
         toast.dismiss(loadingToast);
