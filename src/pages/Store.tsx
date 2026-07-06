@@ -202,8 +202,9 @@ const Store = () => {
                   src={p.image || ""}
                   alt={title}
                   loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="h-full w-full object-cover object-left transition-transform duration-500 group-hover:scale-105"
                 />
+
                 {p.featured && (
                   <span className="absolute top-3 start-3 px-3 py-1 rounded-full bg-sunset text-kids-midnight text-xs font-bold shadow-soft">
                     ⭐ {t("store.featured", { defaultValue: "Featured" })}
