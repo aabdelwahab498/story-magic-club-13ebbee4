@@ -265,47 +265,144 @@ interface DrawOpts {
   align?: "left" | "center" | "right";
 }
 
-function drawFallbackIllustration(
-  page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage,
-  pageIndex: number,
-) {
-  const x = 60;
-  const y = 405;
-  const width = 475;
-  const height = 370;
-  const palettes = [
-    { sky: rgb(0.78, 0.91, 1), hill: rgb(0.48, 0.78, 0.54), accent: rgb(1, 0.74, 0.28), flower: rgb(0.98, 0.38, 0.56) },
-    { sky: rgb(0.86, 0.82, 1), hill: rgb(0.38, 0.72, 0.69), accent: rgb(1, 0.83, 0.35), flower: rgb(0.45, 0.55, 0.95) },
-    { sky: rgb(1, 0.88, 0.75), hill: rgb(0.58, 0.78, 0.42), accent: rgb(0.42, 0.72, 1), flower: rgb(0.92, 0.44, 0.8) },
-  ];
-  const p = palettes[(pageIndex - 1) % palettes.length];
+type PDFPageT = import("https://esm.sh/pdf-lib@1.17.1").PDFPage;
 
+function drawChild(page: PDFPageT, cx: number, cy: number, shirt: ReturnType<typeof rgb>) {
+  page.drawCircle({ x: cx, y: cy + 86, size: 26, color: rgb(0.5, 0.28, 0.16) });
+  page.drawCircle({ x: cx, y: cy + 80, size: 21, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: cx - 24, y: cy + 22, width: 48, height: 55, color: shirt });
+  page.drawRectangle({ x: cx - 45, y: cy + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: cx + 20, y: cy + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: cx - 18, y: cy, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
+  page.drawRectangle({ x: cx + 6, y: cy, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
+}
+
+function drawTree(page: PDFPageT, cx: number, base: number, s = 1) {
+  page.drawRectangle({ x: cx - 6 * s, y: base, width: 12 * s, height: 40 * s, color: rgb(0.42, 0.28, 0.18) });
+  page.drawCircle({ x: cx, y: base + 55 * s, size: 30 * s, color: rgb(0.28, 0.62, 0.38) });
+  page.drawCircle({ x: cx - 18 * s, y: base + 45 * s, size: 22 * s, color: rgb(0.32, 0.68, 0.42) });
+  page.drawCircle({ x: cx + 18 * s, y: base + 45 * s, size: 22 * s, color: rgb(0.32, 0.68, 0.42) });
+}
+
+function drawStar(page: PDFPageT, cx: number, cy: number, size: number, color: ReturnType<typeof rgb>) {
+  page.drawCircle({ x: cx, y: cy, size, color });
+  page.drawRectangle({ x: cx - size * 0.35, y: cy - size * 1.4, width: size * 0.7, height: size * 2.8, color, rotate: { type: "degrees", angle: 0 } as unknown as never });
+}
+
+function drawFallbackIllustration(page: PDFPageT, pageIndex: number) {
+  const x = 60, y = 405, width = 475, height = 370;
   page.drawRectangle({ x: x - 8, y: y - 8, width: width + 16, height: height + 16, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1 });
-  page.drawRectangle({ x, y, width, height, color: p.sky });
 
-  page.drawCircle({ x: x + width - 78, y: y + height - 72, size: 38, color: p.accent });
-  page.drawCircle({ x: x + 90, y: y + height - 78, size: 22, color: rgb(1, 1, 1) });
-  page.drawCircle({ x: x + 124, y: y + height - 72, size: 28, color: rgb(1, 1, 1) });
-  page.drawCircle({ x: x + 158, y: y + height - 82, size: 20, color: rgb(1, 1, 1) });
+  const scene = ((pageIndex - 1) % 8) + 1;
 
-  page.drawEllipse({ x: x + 130, y: y + 78, xScale: 185, yScale: 82, color: p.hill });
-  page.drawEllipse({ x: x + 350, y: y + 70, xScale: 170, yScale: 72, color: rgb(0.36, 0.68, 0.5) });
-
-  const childX = x + 238;
-  const childY = y + 118;
-  page.drawCircle({ x: childX, y: childY + 86, size: 26, color: rgb(0.5, 0.28, 0.16) });
-  page.drawCircle({ x: childX, y: childY + 80, size: 21, color: rgb(0.98, 0.78, 0.56) });
-  page.drawRectangle({ x: childX - 24, y: childY + 22, width: 48, height: 55, color: p.flower });
-  page.drawRectangle({ x: childX - 45, y: childY + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
-  page.drawRectangle({ x: childX + 20, y: childY + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
-  page.drawRectangle({ x: childX - 18, y: childY, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
-  page.drawRectangle({ x: childX + 6, y: childY, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
-
-  for (let i = 0; i < 9; i++) {
-    const fx = x + 55 + ((i * 47 + pageIndex * 19) % 365);
-    const fy = y + 36 + ((i * 23) % 70);
-    page.drawCircle({ x: fx, y: fy, size: 7, color: p.flower });
-    page.drawCircle({ x: fx + 8, y: fy + 5, size: 5, color: p.accent });
+  if (scene === 1) {
+    // Morning: sun, path, child with satchel
+    page.drawRectangle({ x, y, width, height, color: rgb(1, 0.9, 0.76) });
+    page.drawCircle({ x: x + width - 70, y: y + height - 60, size: 42, color: rgb(1, 0.78, 0.32) });
+    page.drawEllipse({ x: x + 240, y: y + 60, xScale: 260, yScale: 70, color: rgb(0.52, 0.8, 0.5) });
+    // path
+    page.drawEllipse({ x: x + 240, y: y + 40, xScale: 60, yScale: 14, color: rgb(0.92, 0.82, 0.6) });
+    page.drawEllipse({ x: x + 240, y: y + 70, xScale: 40, yScale: 10, color: rgb(0.92, 0.82, 0.6) });
+    drawChild(page, x + 240, y + 100, rgb(0.36, 0.58, 0.95));
+    // satchel
+    page.drawCircle({ x: x + 262, y: y + 138, size: 10, color: rgb(1, 0.82, 0.32) });
+  } else if (scene === 2) {
+    // Forest trees + bird + sparkle trail
+    page.drawRectangle({ x, y, width, height, color: rgb(0.82, 0.94, 0.98) });
+    page.drawEllipse({ x: x + 240, y: y + 40, xScale: 300, yScale: 40, color: rgb(0.48, 0.74, 0.5) });
+    drawTree(page, x + 70, y + 90, 1.2);
+    drawTree(page, x + 140, y + 80, 1);
+    drawTree(page, x + 380, y + 85, 1.1);
+    drawTree(page, x + 440, y + 90, 1);
+    // bird
+    page.drawCircle({ x: x + 300, y: y + 300, size: 10, color: rgb(0.98, 0.7, 0.3) });
+    page.drawCircle({ x: x + 308, y: y + 305, size: 5, color: rgb(0.98, 0.7, 0.3) });
+    // sparkle trail
+    for (let i = 0; i < 8; i++) {
+      page.drawCircle({ x: x + 100 + i * 32, y: y + 200 + Math.sin(i) * 20, size: 4, color: rgb(1, 0.85, 0.35) });
+    }
+    drawChild(page, x + 240, y + 100, rgb(0.95, 0.5, 0.5));
+  } else if (scene === 3) {
+    // Hill with two friends sharing
+    page.drawRectangle({ x, y, width, height, color: rgb(0.86, 0.94, 1) });
+    page.drawCircle({ x: x + 90, y: y + height - 60, size: 30, color: rgb(1, 1, 1) });
+    page.drawCircle({ x: x + 130, y: y + height - 60, size: 26, color: rgb(1, 1, 1) });
+    page.drawEllipse({ x: x + 240, y: y + 50, xScale: 320, yScale: 90, color: rgb(0.4, 0.74, 0.46) });
+    drawChild(page, x + 190, y + 110, rgb(0.98, 0.5, 0.7));
+    drawChild(page, x + 300, y + 110, rgb(0.5, 0.78, 0.98));
+    // heart between
+    page.drawCircle({ x: x + 240, y: y + 180, size: 8, color: rgb(0.95, 0.35, 0.5) });
+    page.drawCircle({ x: x + 250, y: y + 180, size: 8, color: rgb(0.95, 0.35, 0.5) });
+    page.drawRectangle({ x: x + 238, y: y + 168, width: 14, height: 14, color: rgb(0.95, 0.35, 0.5), rotate: { type: "degrees", angle: 45 } as unknown as never });
+  } else if (scene === 4) {
+    // Cloud hides sparkle, calm breathing
+    page.drawRectangle({ x, y, width, height, color: rgb(0.75, 0.85, 0.98) });
+    // big cloud
+    page.drawCircle({ x: x + 220, y: y + 260, size: 42, color: rgb(1, 1, 1) });
+    page.drawCircle({ x: x + 260, y: y + 275, size: 50, color: rgb(1, 1, 1) });
+    page.drawCircle({ x: x + 300, y: y + 260, size: 42, color: rgb(1, 1, 1) });
+    page.drawCircle({ x: x + 260, y: y + 250, size: 55, color: rgb(1, 1, 1) });
+    // golden glow in grass
+    page.drawEllipse({ x: x + 240, y: y + 50, xScale: 320, yScale: 60, color: rgb(0.42, 0.7, 0.44) });
+    page.drawCircle({ x: x + 380, y: y + 70, size: 18, color: rgb(1, 0.82, 0.3) });
+    page.drawCircle({ x: x + 380, y: y + 70, size: 10, color: rgb(1, 0.95, 0.6) });
+    drawChild(page, x + 180, y + 100, rgb(0.6, 0.5, 0.9));
+  } else if (scene === 5) {
+    // Colorful garden
+    page.drawRectangle({ x, y, width, height, color: rgb(1, 0.92, 0.82) });
+    page.drawEllipse({ x: x + 240, y: y + 60, xScale: 320, yScale: 70, color: rgb(0.5, 0.78, 0.48) });
+    const colors = [rgb(0.98, 0.4, 0.55), rgb(0.98, 0.75, 0.3), rgb(0.5, 0.6, 0.98), rgb(0.9, 0.5, 0.95), rgb(1, 0.55, 0.35)];
+    for (let i = 0; i < 18; i++) {
+      const fx = x + 40 + (i * 41) % (width - 60);
+      const fy = y + 30 + (i * 17) % 80;
+      const c = colors[i % colors.length];
+      page.drawCircle({ x: fx, y: fy + 12, size: 6, color: c });
+      page.drawCircle({ x: fx - 8, y: fy + 6, size: 6, color: c });
+      page.drawCircle({ x: fx + 8, y: fy + 6, size: 6, color: c });
+      page.drawCircle({ x: fx, y: fy, size: 6, color: c });
+      page.drawCircle({ x: fx, y: fy + 6, size: 5, color: rgb(1, 0.9, 0.3) });
+    }
+    drawChild(page, x + 240, y + 120, rgb(0.98, 0.55, 0.75));
+  } else if (scene === 6) {
+    // Glowing treasure box with rays
+    page.drawRectangle({ x, y, width, height, color: rgb(0.98, 0.92, 0.76) });
+    // rays
+    for (let i = 0; i < 10; i++) {
+      const ang = (i / 10) * Math.PI * 2;
+      page.drawRectangle({ x: x + 240, y: y + 180, width: 140, height: 6, color: rgb(1, 0.88, 0.4), rotate: { type: "degrees", angle: (ang * 180) / Math.PI } as unknown as never, opacity: 0.5 });
+    }
+    page.drawCircle({ x: x + 240, y: y + 180, size: 50, color: rgb(1, 0.95, 0.55) });
+    // box
+    page.drawRectangle({ x: x + 200, y: y + 120, width: 80, height: 55, color: rgb(0.72, 0.48, 0.28) });
+    page.drawRectangle({ x: x + 200, y: y + 155, width: 80, height: 12, color: rgb(0.98, 0.78, 0.35) });
+    page.drawRectangle({ x: x + 234, y: y + 125, width: 12, height: 45, color: rgb(0.98, 0.78, 0.35) });
+  } else if (scene === 7) {
+    // Starry night reflection sky
+    page.drawRectangle({ x, y, width, height, color: rgb(0.1, 0.14, 0.32) });
+    for (let i = 0; i < 30; i++) {
+      const sx = x + 20 + (i * 53) % (width - 40);
+      const sy = y + 60 + (i * 37) % (height - 80);
+      page.drawCircle({ x: sx, y: sy, size: 2 + (i % 3), color: rgb(1, 0.95, 0.6) });
+    }
+    // moon
+    page.drawCircle({ x: x + width - 80, y: y + height - 70, size: 34, color: rgb(1, 0.96, 0.75) });
+    page.drawEllipse({ x: x + 240, y: y + 40, xScale: 320, yScale: 40, color: rgb(0.18, 0.28, 0.5) });
+    drawChild(page, x + 240, y + 90, rgb(0.6, 0.75, 1));
+  } else {
+    // Sunset home
+    page.drawRectangle({ x, y, width, height, color: rgb(1, 0.72, 0.58) });
+    page.drawCircle({ x: x + width - 90, y: y + 150, size: 44, color: rgb(1, 0.85, 0.4) });
+    page.drawEllipse({ x: x + 240, y: y + 50, xScale: 320, yScale: 60, color: rgb(0.42, 0.6, 0.4) });
+    // house
+    page.drawRectangle({ x: x + 90, y: y + 80, width: 110, height: 90, color: rgb(0.98, 0.86, 0.7) });
+    page.drawRectangle({ x: x + 130, y: y + 80, width: 30, height: 50, color: rgb(0.55, 0.3, 0.2) });
+    page.drawRectangle({ x: x + 105, y: y + 140, width: 22, height: 22, color: rgb(1, 0.9, 0.4) });
+    page.drawRectangle({ x: x + 163, y: y + 140, width: 22, height: 22, color: rgb(1, 0.9, 0.4) });
+    // roof (triangle simulated with rotated rectangle overlay)
+    page.drawRectangle({ x: x + 78, y: y + 168, width: 134, height: 20, color: rgb(0.72, 0.35, 0.28) });
+    page.drawRectangle({ x: x + 100, y: y + 185, width: 90, height: 14, color: rgb(0.72, 0.35, 0.28) });
+    page.drawRectangle({ x: x + 125, y: y + 197, width: 40, height: 10, color: rgb(0.72, 0.35, 0.28) });
+    drawChild(page, x + 340, y + 100, rgb(0.98, 0.55, 0.75));
   }
 }
 
