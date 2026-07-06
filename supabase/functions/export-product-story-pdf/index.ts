@@ -472,7 +472,7 @@ Full-bleed square composition suitable for a premium children's storybook page.`
       return json({ error: "upload_failed" }, 500);
     }
     const { data: pub } = admin.storage.from("story-pdfs").getPublicUrl(path);
-    return json({ pdfUrl: pub.publicUrl, pages: pages.length }, 200);
+    return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, pages: pages.length }, 200);
   } catch (e) {
     console.error("export-product-story-pdf error", e);
     return json({ error: e instanceof Error ? e.message : "unknown" }, 500);
