@@ -16,6 +16,8 @@ const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
+const IMAGE_TIMEOUT_MS = 12_000;
+const ILLUSTRATION_AI_PAGE_LIMIT = 2;
 const IMAGE_MODELS = [
   "openai/gpt-image-2",
   "google/gemini-3.1-flash-image",
@@ -75,7 +77,7 @@ async function generateIllustration(
   if (!LOVABLE_API_KEY) return null;
   for (const model of IMAGE_MODELS) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 75_000);
+      const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
     try {
       log("illustration model start", { page: pageIndex, model });
       const r = await fetch(LOVABLE_IMAGE_URL, {
@@ -238,7 +240,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}-illustrated-v3.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v4.pdf`;
 
     // Purge any older/legacy PDF variants for this product+language so we
     // never serve a cached text-only version.
@@ -247,18 +249,18 @@ serve(async (req) => {
       `products/${sku}-${language}-illustrated.pdf`,
       `products/${sku}-${language}-illustrated-v1.pdf`,
       `products/${sku}-${language}-illustrated-v2.pdf`,
+      `products/${sku}-${language}-illustrated-v3.pdf`,
     ];
     try { await admin.storage.from("story-pdfs").remove(legacyPaths); } catch { /* ignore */ }
 
-    // Reuse cache only if the current-version file actually exists AND is
-    // large enough to plausibly contain illustrations (>150KB). Otherwise
-    // regenerate to guarantee the illustrated version.
+    // Reuse the current illustrated version immediately. Older text-only files
+    // live under legacy paths above; v4 is only written by this illustrated flow.
     if (!force) {
       const { data: pub } = admin.storage.from("story-pdfs").getPublicUrl(path);
       try {
         const head = await fetch(pub.publicUrl, { method: "HEAD", cache: "no-store" });
         const size = Number(head.headers.get("content-length") || "0");
-        if (head.ok && size > 150_000) {
+        if (head.ok && size > 5_000) {
           return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, reused: true }, 200);
         }
         if (head.ok) {
@@ -333,8 +335,8 @@ Return STRICT JSON only, no prose, no markdown fences:
       log("story text generated", { pages: storyJson?.pages?.length });
     } catch (e) {
       const status = e instanceof AIGatewayError ? e.status : 500;
-      errLog("ai_failed", { err: String(e) });
-      return json({ error: "ai_generation_failed", detail: String(e), status }, 502);
+      errLog("ai_failed_using_local_story", { err: String(e), status });
+      storyJson = buildFallbackStory(title, description, ageRange, language);
     }
 
     const pages = Array.isArray(storyJson?.pages)
@@ -349,12 +351,15 @@ Return STRICT JSON only, no prose, no markdown fences:
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
 
-    // Generate one illustration per page. Keep concurrency modest to avoid
-    // upstream image rate limits and never cache a text-only PDF as success.
+    // Generate AI illustrations for the first pages only, then draw fast local
+    // picture-book scenes for the rest. This avoids repeated slow downloads and
+    // prevents upstream 503/rate-limit spikes from blocking the PDF.
     const characterSheet = storyJson?.characterSheet ?? "";
-    log("illustrations begin", { count: pages.length });
+    log("illustrations begin", { count: pages.length, aiLimit: ILLUSTRATION_AI_PAGE_LIMIT, timeoutMs: IMAGE_TIMEOUT_MS });
     const illT0 = Date.now();
-    const illustrations = await mapLimit(pages, 2, async (p) => {
+    const aiPages = pages.slice(0, ILLUSTRATION_AI_PAGE_LIMIT);
+    const illustrations = new Array<{ bytes: Uint8Array; mime: string } | null>(pages.length).fill(null);
+    const generated = await mapLimit(aiPages, 2, async (p) => {
       const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
       const prompt = `Bright, attractive children's picture-book illustration for ages ${ageRange}. Soft watercolor and gouache, expressive friendly faces, warm magical details, joyful colors, cozy lighting. No text, letters, logos, captions, or borders.
 Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
@@ -363,18 +368,12 @@ Full-bleed square composition suitable for a premium children's storybook page.`
       const img = await generateIllustration(prompt, p.index, log, errLog);
       return img;
     });
+    generated.forEach((img, i) => { illustrations[i] = img; });
 
     const missingIllustrations = illustrations
       .map((img, i) => img ? -1 : i)
       .filter((i) => i >= 0);
-    if (missingIllustrations.length > 0) {
-      log("illustrations retry missing", { missing: missingIllustrations.map((i) => pages[i].index) });
-      for (const i of missingIllustrations) {
-        const p = pages[i];
-        const simplePrompt = `A charming, colorful watercolor and gouache children's storybook illustration. No text, letters, logos, captions, or borders. Consistent character: ${characterSheet || "a friendly child protagonist"}. Scene: ${p.illustrationPrompt || p.text.slice(0, 180)}.`;
-        illustrations[i] = await generateIllustration(simplePrompt, p.index, log, errLog);
-      }
-    }
+    if (missingIllustrations.length > 0) log("local fallback illustrations will be drawn", { pages: missingIllustrations.map((i) => pages[i].index) });
 
     const successfulIllustrations = illustrations.filter(Boolean).length;
     log("illustrations done", {
@@ -466,7 +465,7 @@ Full-bleed square composition suitable for a premium children's storybook page.`
     const bytes = await pdf.save();
     const { error: upErr } = await admin.storage
       .from("story-pdfs")
-      .upload(path, bytes, { contentType: "application/pdf", upsert: true });
+      .upload(path, bytes, { contentType: "application/pdf", cacheControl: "31536000", upsert: true });
     if (upErr) {
       console.error("upload", upErr);
       return json({ error: "upload_failed" }, 500);
@@ -529,6 +528,53 @@ function drawFallbackIllustration(
     page.drawCircle({ x: fx, y: fy, size: 7, color: p.flower });
     page.drawCircle({ x: fx + 8, y: fy + 5, size: 5, color: p.accent });
   }
+}
+
+function buildFallbackStory(
+  title: string,
+  description: string,
+  ageRange: string,
+  language: string,
+): {
+  title: string;
+  subtitle: string;
+  characterSheet: string;
+  pages: Array<{ index: number; text: string; illustrationPrompt: string }>;
+} {
+  const isAr = language === "ar";
+  const premise = description || title;
+  const characterSheet = "a cheerful child with warm brown eyes, curly dark hair, a sky-blue coat, yellow scarf, and tiny star-shaped satchel";
+  const arPages = [
+    `في صباحٍ لطيف، حملت نجمة حقيبتها الصغيرة وخرجت تبحث عن سرّ ${title}. كان الهواء ناعمًا، وكانت الأزهار تهمس لها بكلماتٍ مشجعة. شعرت أن اليوم يحمل مفاجأة جميلة تناسب قلبها الفضولي.`,
+    `وجدت نجمة أثرًا لامعًا يقودها بين الأشجار. توقفت لتسمع زقزقة عصفور صغير، ثم ابتسمت وقالت: سأمشي بهدوء وأتعلم من كل خطوة. كان الطريق جديدًا، لكنه لم يكن مخيفًا.`,
+    `عند تلٍ أخضر، قابلت نجمة صديقًا يحتاج إلى مساعدة بسيطة. شاركته ماءها وكلماتها الطيبة، فصار الطريق أخف وأدفأ. اكتشفت أن اللطف يجعل المغامرة أجمل.`,
+    `ظهرت غيمة ناعمة وخبأت الأثر اللامع قليلًا. تنفست نجمة ببطء وتذكرت أنها تستطيع التفكير بهدوء. نظرت حولها فرأت لونًا ذهبيًا بين العشب يدلها على الاتجاه.`,
+    `سارت نجمة وصديقها خلف اللمعة الذهبية حتى وصلا إلى حديقة مليئة بالألوان. كل زهرة بدت كأنها تحتفل بهما. ضحكت نجمة، وشعرت أن الشجاعة تكبر عندما نتعاون.`,
+    `في وسط الحديقة كان صندوق صغير لا يحتاج إلى مفتاح، بل إلى كلمة طيبة. قالت نجمة: شكرًا لكل من ساعدني. فتح الصندوق بلطف وخرج منه ضوء دافئ يرقص حول الجميع.`,
+    `فهمت نجمة أن السر لم يكن شيئًا تملكه، بل طريقة ترى بها العالم. عندما تصغي، وتساعد، وتحاول من جديد، تصبح الأيام العادية حكايات مضيئة.`,
+    `عادت نجمة إلى بيتها مع غروبٍ وردي وابتسامة هادئة. وضعت حقيبتها قرب النافذة، ووعدت نفسها بمغامرة جديدة غدًا. نامت وهي تشعر أن قلبها مليء بالنجوم.`,
+  ];
+  const enPages = [
+    `One gentle morning, Najma packed her tiny satchel and followed a bright idea about ${premise}. The breeze felt soft, and the flowers seemed to whisper encouragement. She knew the day was holding a kind surprise for her curious heart.`,
+    `A silver sparkle led Najma between the trees. She paused to listen to a little bird, then smiled and stepped carefully onward. The path was new, but with patience and wonder, it did not feel frightening at all.`,
+    `On a green hill, Najma met a friend who needed a small kindness. She shared her water and a warm word, and the road felt lighter for both of them. She discovered that kindness makes every adventure brighter.`,
+    `A soft cloud drifted down and hid the sparkle for a moment. Najma took a slow breath and remembered she could think calmly. Then she noticed a golden glow in the grass, pointing the way ahead.`,
+    `Najma and her friend followed the glow to a garden bursting with color. Every flower looked as if it were celebrating their arrival. Najma laughed, feeling courage grow stronger when friends work together.`,
+    `In the middle of the garden sat a tiny box that needed no key, only a kind word. “Thank you,” Najma said to everyone who helped. The box opened softly, and warm light danced all around them.`,
+    `Najma understood that the treasure was not a thing to keep, but a way to see the world. When she listened, helped, and tried again, ordinary days became shining stories.`,
+    `She returned home under a rosy sunset with a peaceful smile. Najma placed her satchel by the window and promised herself another adventure tomorrow. That night, her heart felt full of stars.`,
+  ];
+  const texts = isAr ? arPages : enPages;
+  return {
+    title,
+    subtitle: isAr ? `حكاية دافئة للأطفال من عمر ${ageRange}` : `A warm illustrated story for ages ${ageRange}`,
+    characterSheet,
+    pages: texts.map((text, i) => ({
+      index: i + 1,
+      text,
+      illustrationPrompt: `Whimsical watercolor children's book scene for page ${i + 1}: ${text.slice(0, 180)}. Main character: ${characterSheet}. No text or letters.`,
+    })),
+  };
 }
 
 function drawWrapped(page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage, text: string, o: DrawOpts) {
