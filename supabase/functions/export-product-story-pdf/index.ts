@@ -1,130 +1,18 @@
 // export-product-story-pdf — Generates a full children's story PDF for a Store
-// product on-demand using the AI gateway, then uploads it to `story-pdfs`
+// product on-demand, then uploads it to `story-pdfs`
 // under `products/<sku>-<lang>.pdf` so repeated downloads reuse the file.
 
 import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
-import { aiJson, AIGatewayError } from "../_shared/sel/gateway.ts";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 interface ReqBody { productId: string; language?: string; force?: boolean }
 
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
-const IMAGE_TIMEOUT_MS = 12_000;
-const ILLUSTRATION_AI_PAGE_LIMIT = 2;
-const IMAGE_MODELS = [
-  "openai/gpt-image-2",
-  "google/gemini-3.1-flash-image",
-  "google/gemini-2.5-flash-image",
-];
-
 type EdgeLogger = (msg: string, extra?: Record<string, unknown>) => void;
-
-function imageBodyForModel(model: string, prompt: string): Record<string, unknown> {
-  if (model.startsWith("openai/")) {
-    return {
-      model,
-      prompt,
-      quality: "low",
-      size: "1024x1024",
-      n: 1,
-      stream: false,
-    };
-  }
-
-  return {
-    model,
-    messages: [{ role: "user", content: prompt }],
-    modalities: ["image", "text"],
-    stream: false,
-  };
-}
-
-function bytesFromBase64(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function extractIllustration(data: unknown): { bytes: Uint8Array; mime: string } | null {
-  const obj = data as Record<string, unknown>;
-  const first = Array.isArray(obj?.data) ? obj.data[0] as Record<string, unknown> | undefined : undefined;
-  const b64 = typeof first?.b64_json === "string" ? first.b64_json : undefined;
-  if (b64) return { bytes: bytesFromBase64(b64), mime: "image/png" };
-
-  const directUrl = typeof first?.url === "string" ? first.url : undefined;
-  const legacyUrl = (obj as any)?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  const url = directUrl || (typeof legacyUrl === "string" ? legacyUrl : undefined);
-  if (!url || !url.startsWith("data:image/")) return null;
-  const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
-  if (!m) return null;
-  return { bytes: bytesFromBase64(m[2]), mime: m[1] };
-}
-
-async function generateIllustration(
-  prompt: string,
-  pageIndex: number,
-  log: EdgeLogger,
-  errLog: EdgeLogger,
-): Promise<{ bytes: Uint8Array; mime: string } | null> {
-  if (!LOVABLE_API_KEY) return null;
-  for (const model of IMAGE_MODELS) {
-    const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
-    try {
-      log("illustration model start", { page: pageIndex, model });
-      const r = await fetch(LOVABLE_IMAGE_URL, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Lovable-API-Key": LOVABLE_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(imageBodyForModel(model, prompt)),
-      });
-      clearTimeout(timer);
-      if (!r.ok) {
-        const detail = await r.text().catch(() => "");
-        errLog("illustration model failed", { page: pageIndex, model, status: r.status, detail: detail.slice(0, 240) });
-        continue;
-      }
-      const data = await r.json();
-      const img = extractIllustration(data);
-      if (!img) {
-        errLog("illustration response missing image", { page: pageIndex, model });
-        continue;
-      }
-      log("illustration model success", { page: pageIndex, model, bytes: img.bytes.length, mime: img.mime });
-      return img;
-    } catch (e) {
-      clearTimeout(timer);
-      errLog("illustration model threw", { page: pageIndex, model, err: e instanceof Error ? e.message : String(e) });
-    }
-  }
-  return null;
-}
-
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let idx = 0;
-  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-    while (true) {
-      const i = idx++;
-      if (i >= items.length) return;
-      out[i] = await fn(items[i], i);
-    }
-  });
-  await Promise.all(workers);
-  return out;
-}
 
 function decodeJwt(token: string): { sub?: string; exp?: number; email?: string } | null {
   try {
@@ -283,61 +171,8 @@ serve(async (req) => {
     const description = localize(product.description) || "";
     const ageRange = product.age_range || "6-9";
 
-    const langNames: Record<string, string> = {
-      en: "English", ar: "Arabic", de: "German", fr: "French", it: "Italian", es: "Spanish",
-    };
-
-    const system = `You are Najmah, an award-winning children's picture-book author and art director. Output STRICT JSON only.`;
-    const user = `Write a complete children's picture-book story in ${langNames[language]}.
-Title: "${title}"
-Premise / description: ${description || "(none provided; invent a wonderful story that matches the title)"}
-Target age range: ${ageRange}
-
-Story requirements:
-- 8 pages, each 3–5 short sentences (~50–80 words per page).
-- Gentle emotional arc: setup → challenge → turning point → resolution → warm ending.
-- Rich sensory details, kind and hopeful tone, no violence or scary content.
-- Use the given title as-is.
-
-For EACH page also produce an English illustration prompt (~35–55 words) even if
-the story is in another language. The illustration prompt MUST:
-- describe a single storybook scene from that page
-- be a warm, whimsical children's book illustration, soft watercolor + gouache
-- keep the same main character(s) consistent across every page (same age, hair,
-  outfit, colors) — restate their look each time
-- include no text, letters, logos, or borders in the image
-
-Also produce ONE global "characterSheet" line (~25–40 words) describing the
-main character's look so every page stays visually consistent.
-
-Return STRICT JSON only, no prose, no markdown fences:
-{
-  "title": string,
-  "subtitle": string,          // one warm sentence, <120 chars
-  "characterSheet": string,    // reusable visual description of the main character
-  "pages": [ { "index": number, "text": string, "illustrationPrompt": string } ]  // 8 items, index 1..8
-}`;
-
-    let storyJson: {
-      title?: string;
-      subtitle?: string;
-      characterSheet?: string;
-      pages?: Array<{ index: number; text: string; illustrationPrompt?: string }>;
-    };
-    try {
-      storyJson = await aiJson({
-        system,
-        user,
-        temperature: 0.85,
-        maxTokens: 3600,
-        responseFormat: "json_object",
-      });
-      log("story text generated", { pages: storyJson?.pages?.length });
-    } catch (e) {
-      const status = e instanceof AIGatewayError ? e.status : 500;
-      errLog("ai_failed_using_local_story", { err: String(e), status });
-      storyJson = buildFallbackStory(title, description, ageRange, language);
-    }
+    const storyJson = buildFallbackStory(title, description, ageRange, language);
+    log("local story generated", { pages: storyJson.pages.length });
 
     const pages = Array.isArray(storyJson?.pages)
       ? storyJson.pages
@@ -351,36 +186,7 @@ Return STRICT JSON only, no prose, no markdown fences:
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
 
-    // Generate AI illustrations for the first pages only, then draw fast local
-    // picture-book scenes for the rest. This avoids repeated slow downloads and
-    // prevents upstream 503/rate-limit spikes from blocking the PDF.
-    const characterSheet = storyJson?.characterSheet ?? "";
-    log("illustrations begin", { count: pages.length, aiLimit: ILLUSTRATION_AI_PAGE_LIMIT, timeoutMs: IMAGE_TIMEOUT_MS });
-    const illT0 = Date.now();
-    const aiPages = pages.slice(0, ILLUSTRATION_AI_PAGE_LIMIT);
-    const illustrations = new Array<{ bytes: Uint8Array; mime: string } | null>(pages.length).fill(null);
-    const generated = await mapLimit(aiPages, 2, async (p) => {
-      const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
-      const prompt = `Bright, attractive children's picture-book illustration for ages ${ageRange}. Soft watercolor and gouache, expressive friendly faces, warm magical details, joyful colors, cozy lighting. No text, letters, logos, captions, or borders.
-Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
-Scene for page ${p.index}: ${scene}
-Full-bleed square composition suitable for a premium children's storybook page.`;
-      const img = await generateIllustration(prompt, p.index, log, errLog);
-      return img;
-    });
-    generated.forEach((img, i) => { illustrations[i] = img; });
-
-    const missingIllustrations = illustrations
-      .map((img, i) => img ? -1 : i)
-      .filter((i) => i >= 0);
-    if (missingIllustrations.length > 0) log("local fallback illustrations will be drawn", { pages: missingIllustrations.map((i) => pages[i].index) });
-
-    const successfulIllustrations = illustrations.filter(Boolean).length;
-    log("illustrations done", {
-      ms: Date.now() - illT0,
-      ok: successfulIllustrations,
-      failed: illustrations.filter((x) => !x).length,
-    });
+    log("local illustrations ready", { count: pages.length });
 
     const isRtl = language === "ar";
 
@@ -425,35 +231,8 @@ Full-bleed square composition suitable for a premium children's storybook page.`
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
 
-      const ill = illustrations[i];
-      let textTop = 760;
-      let drewIllustration = false;
-      if (ill) {
-        try {
-          const img = ill.mime.includes("png")
-            ? await pdf.embedPng(ill.bytes)
-            : await pdf.embedJpg(ill.bytes);
-          const maxW = 475, maxH = 400;
-          const ratio = Math.min(maxW / img.width, maxH / img.height);
-          const w = img.width * ratio, h = img.height * ratio;
-          const x = (595 - w) / 2;
-          const y = 842 - 50 - h;
-          // Soft rounded card behind the illustration
-          page.drawRectangle({
-            x: x - 8, y: y - 8, width: w + 16, height: h + 16,
-            color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1,
-          });
-          page.drawImage(img, { x, y, width: w, height: h });
-          textTop = y - 20;
-          drewIllustration = true;
-        } catch (e) {
-          errLog("embed image failed", { page: p.index, err: String(e) });
-        }
-      }
-      if (!drewIllustration) {
-        drawFallbackIllustration(page, p.index);
-        textTop = 370;
-      }
+      drawFallbackIllustration(page, p.index);
+      const textTop = 370;
 
       drawWrapped(page, p.text ?? "", {
         x: 60, y: textTop, width: 475, font, size: 13, color: rgb(0.1, 0.1, 0.15), lineHeight: 20,
