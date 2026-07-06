@@ -17,6 +17,7 @@ import StoryVideoPlayer from "@/components/story/StoryVideoPlayer";
 import { useGenerateClassicNarration } from "@/lib/storyTtsApi";
 import { useAuth } from "@/hooks/useAuth";
 import { Film, Wand2 } from "lucide-react";
+import DownloadNowButton from "@/components/story/DownloadNowButton";
 
 interface DBStory {
   id: string;
