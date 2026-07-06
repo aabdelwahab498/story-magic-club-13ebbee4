@@ -33,14 +33,19 @@ serve(async (req) => {
     if (!ALLOWED_LANGS.has(language)) return json({ error: "invalid_language" }, 400);
 
     const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (!token) return json({ error: "unauthorized" }, 401);
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
     );
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
-    if (!userId) return json({ error: "unauthorized" }, 401);
+    const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token);
+    const userId = claims?.claims?.sub as string | undefined;
+    if (claimsErr || !userId) {
+      console.error("[product-pdf] auth failed", claimsErr);
+      return json({ error: "unauthorized" }, 401);
+    }
 
     const rl = await checkRateLimits(`u:${userId}`, "export-product-story-pdf", [
       { windowSec: 60, max: 2 },
