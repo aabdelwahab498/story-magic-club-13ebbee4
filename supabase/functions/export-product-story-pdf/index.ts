@@ -238,7 +238,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}-illustrated-v2.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v3.pdf`;
 
     // Reuse cache
     if (!force) {
@@ -413,6 +413,7 @@ Full-bleed square composition suitable for a premium children's storybook page.`
 
       const ill = illustrations[i];
       let textTop = 760;
+      let drewIllustration = false;
       if (ill) {
         try {
           const img = ill.mime.includes("png")
@@ -430,9 +431,14 @@ Full-bleed square composition suitable for a premium children's storybook page.`
           });
           page.drawImage(img, { x, y, width: w, height: h });
           textTop = y - 20;
+          drewIllustration = true;
         } catch (e) {
           errLog("embed image failed", { page: p.index, err: String(e) });
         }
+      }
+      if (!drewIllustration) {
+        drawFallbackIllustration(page, p.index);
+        textTop = 370;
       }
 
       drawWrapped(page, p.text ?? "", {
