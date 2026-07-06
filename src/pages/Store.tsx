@@ -297,23 +297,40 @@ const Store = () => {
                   </Collapsible>
                 )}
 
-                <div className="flex gap-2 mt-auto">
-                  <button
-                    onClick={() => handleAddToCart(p.id)}
-                    className="flex-1 px-3 py-2.5 bg-secondary text-secondary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
-                    aria-label={t("store.add_to_cart", { defaultValue: "Add to cart" })}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t("store.add_to_cart", { defaultValue: "Add" })}
-                  </button>
-                  <button
-                    onClick={() => handleBuy(title, priceUsd, p.paddle_price_id)}
-                    className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    {t("store.buy_now")}
-                  </button>
+                <div className="flex flex-col gap-2 mt-auto">
+                  {!isCourse && (
+                    <button
+                      onClick={() => handleDownloadStoryPdf(p)}
+                      disabled={pdfBusy === p.id}
+                      className="w-full px-3 py-2.5 bg-kids-midnight text-white rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5 disabled:opacity-70"
+                    >
+                      {pdfBusy === p.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      {t("store.download_pdf", { defaultValue: "Download PDF" })}
+                    </button>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddToCart(p.id)}
+                      className="flex-1 px-3 py-2.5 bg-secondary text-secondary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
+                      aria-label={t("store.add_to_cart", { defaultValue: "Add to cart" })}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t("store.add_to_cart", { defaultValue: "Add" })}
+                    </button>
+                    <button
+                      onClick={() => handleBuy(title, priceUsd, p.paddle_price_id)}
+                      className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      {t("store.buy_now")}
+                    </button>
+                  </div>
                 </div>
+
               </div>
             </article>
           );
