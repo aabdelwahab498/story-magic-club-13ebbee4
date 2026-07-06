@@ -1,27 +1,33 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown, X } from "lucide-react";
+import { ShoppingBag, Truck, Sparkles, Loader2, ShoppingCart, Plus, ChevronDown, X, Download } from "lucide-react";
 import { useProducts } from "@/lib/contentApi";
 import { getLocalized } from "@/lib/multilingual";
 import PaymentModal from "@/components/payment/PaymentModal";
 import type { PaymentItem } from "@/components/payment/PaymentSummary";
 import CartDrawer from "@/components/cart/CartDrawer";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useAddToCart, useCart } from "@/lib/cartApi";
 import { usePaddle } from "@/hooks/usePaddle";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { downloadProductStoryPdf } from "@/lib/productStoryPdf";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+
 const Store = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { canExportPdf } = useSubscription();
   const navigate = useNavigate();
   const { data: products, isLoading } = useProducts();
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+
   const { data: cartItems = [] } = useCart(user?.id);
   const addToCart = useAddToCart();
   const [payOpen, setPayOpen] = useState(false);
@@ -150,6 +156,40 @@ const Store = () => {
     addToCart.mutate({ userId: user.id, productId });
   };
 
+  const handleDownloadStoryPdf = async (p: {
+    id: string;
+    name: unknown;
+    description?: unknown;
+    image?: string | null;
+  }) => {
+    if (!user) {
+      toast.info(t("downloads.login_required", { defaultValue: "Please sign in to download the story." }));
+      navigate("/auth?redirect=/store");
+      return;
+    }
+    if (!canExportPdf) {
+      toast.info(t("downloads.paywall", { defaultValue: "Upgrade to download stories." }));
+      navigate("/pricing");
+      return;
+    }
+    const title = getLocalized(p.name as never, i18n.language) || "Story";
+    const description = getLocalized(p.description as never, i18n.language) || "";
+    setPdfBusy(p.id);
+    try {
+      await downloadProductStoryPdf(
+        { title, description, imageUrl: p.image ?? null },
+        `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`,
+      );
+      toast.success(t("downloads.done", { defaultValue: "Download started" }));
+    } catch {
+      toast.error(t("downloads.failed", { defaultValue: "Download failed" }));
+    } finally {
+      setPdfBusy(null);
+    }
+  };
+
+
+
 
   return (
     <div className="py-4 sm:py-6 lg:py-8">
@@ -257,23 +297,40 @@ const Store = () => {
                   </Collapsible>
                 )}
 
-                <div className="flex gap-2 mt-auto">
-                  <button
-                    onClick={() => handleAddToCart(p.id)}
-                    className="flex-1 px-3 py-2.5 bg-secondary text-secondary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
-                    aria-label={t("store.add_to_cart", { defaultValue: "Add to cart" })}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t("store.add_to_cart", { defaultValue: "Add" })}
-                  </button>
-                  <button
-                    onClick={() => handleBuy(title, priceUsd, p.paddle_price_id)}
-                    className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    {t("store.buy_now")}
-                  </button>
+                <div className="flex flex-col gap-2 mt-auto">
+                  {!isCourse && (
+                    <button
+                      onClick={() => handleDownloadStoryPdf(p)}
+                      disabled={pdfBusy === p.id}
+                      className="w-full px-3 py-2.5 bg-kids-midnight text-white rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5 disabled:opacity-70"
+                    >
+                      {pdfBusy === p.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      {t("store.download_pdf", { defaultValue: "Download PDF" })}
+                    </button>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddToCart(p.id)}
+                      className="flex-1 px-3 py-2.5 bg-secondary text-secondary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
+                      aria-label={t("store.add_to_cart", { defaultValue: "Add to cart" })}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t("store.add_to_cart", { defaultValue: "Add" })}
+                    </button>
+                    <button
+                      onClick={() => handleBuy(title, priceUsd, p.paddle_price_id)}
+                      className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm hover-pop shadow-soft inline-flex items-center justify-center gap-1.5"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      {t("store.buy_now")}
+                    </button>
+                  </div>
                 </div>
+
               </div>
             </article>
           );
