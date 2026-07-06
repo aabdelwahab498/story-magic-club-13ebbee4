@@ -8,6 +8,8 @@ import {
   ScrollText,
   AlertTriangle,
   Settings as SettingsIcon,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
