@@ -15,42 +15,96 @@ interface ReqBody { productId: string; language?: string; force?: boolean }
 const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
 const IMAGE_MODELS = [
-  "google/gemini-3.1-flash-image-preview",
+  "openai/gpt-image-2",
+  "google/gemini-3.1-flash-image",
   "google/gemini-2.5-flash-image",
 ];
 
-async function generateIllustration(prompt: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+type EdgeLogger = (msg: string, extra?: Record<string, unknown>) => void;
+
+function imageBodyForModel(model: string, prompt: string): Record<string, unknown> {
+  if (model.startsWith("openai/")) {
+    return {
+      model,
+      prompt,
+      quality: "low",
+      size: "1024x1024",
+      n: 1,
+      stream: false,
+    };
+  }
+
+  return {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    modalities: ["image", "text"],
+    stream: false,
+  };
+}
+
+function bytesFromBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function extractIllustration(data: unknown): { bytes: Uint8Array; mime: string } | null {
+  const obj = data as Record<string, unknown>;
+  const first = Array.isArray(obj?.data) ? obj.data[0] as Record<string, unknown> | undefined : undefined;
+  const b64 = typeof first?.b64_json === "string" ? first.b64_json : undefined;
+  if (b64) return { bytes: bytesFromBase64(b64), mime: "image/png" };
+
+  const directUrl = typeof first?.url === "string" ? first.url : undefined;
+  const legacyUrl = (obj as any)?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const url = directUrl || (typeof legacyUrl === "string" ? legacyUrl : undefined);
+  if (!url || !url.startsWith("data:image/")) return null;
+  const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
+  if (!m) return null;
+  return { bytes: bytesFromBase64(m[2]), mime: m[1] };
+}
+
+async function generateIllustration(
+  prompt: string,
+  pageIndex: number,
+  log: EdgeLogger,
+  errLog: EdgeLogger,
+): Promise<{ bytes: Uint8Array; mime: string } | null> {
   if (!LOVABLE_API_KEY) return null;
   for (const model of IMAGE_MODELS) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 60_000);
+    const timer = setTimeout(() => ctrl.abort(), 75_000);
     try {
+      log("illustration model start", { page: pageIndex, model });
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
         signal: ctrl.signal,
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          modalities: ["image", "text"],
-          messages: [{ role: "user", content: prompt }],
-        }),
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Lovable-API-Key": LOVABLE_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(imageBodyForModel(model, prompt)),
       });
       clearTimeout(timer);
-      if (!r.ok) continue;
+      if (!r.ok) {
+        const detail = await r.text().catch(() => "");
+        errLog("illustration model failed", { page: pageIndex, model, status: r.status, detail: detail.slice(0, 240) });
+        continue;
+      }
       const data = await r.json();
-      const url: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (!url || !url.startsWith("data:image/")) continue;
-      const m = url.match(/^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i);
-      if (!m) continue;
-      const mime = m[1];
-      const bin = atob(m[2]);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return { bytes, mime };
-    } catch {
+      const img = extractIllustration(data);
+      if (!img) {
+        errLog("illustration response missing image", { page: pageIndex, model });
+        continue;
+      }
+      log("illustration model success", { page: pageIndex, model, bytes: img.bytes.length, mime: img.mime });
+      return img;
+    } catch (e) {
       clearTimeout(timer);
+      errLog("illustration model threw", { page: pageIndex, model, err: e instanceof Error ? e.message : String(e) });
     }
   }
   return null;
@@ -184,7 +238,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v3.pdf`;
 
     // Reuse cache
     if (!force) {
@@ -274,22 +328,37 @@ Return STRICT JSON only, no prose, no markdown fences:
       : [];
     if (pages.length === 0) return json({ error: "ai_empty_story" }, 502);
 
-    // Generate one illustration per page in parallel (concurrency 4).
+    // Generate one illustration per page. Keep concurrency modest to avoid
+    // upstream image rate limits and never cache a text-only PDF as success.
     const characterSheet = storyJson?.characterSheet ?? "";
     log("illustrations begin", { count: pages.length });
     const illT0 = Date.now();
-    const illustrations = await mapLimit(pages, 4, async (p) => {
+    const illustrations = await mapLimit(pages, 2, async (p) => {
       const scene = p.illustrationPrompt || `Scene: ${p.text.slice(0, 220)}`;
-      const prompt = `Children's picture-book illustration. Soft watercolor and gouache, warm palette, magical and cozy. No text or letters.
+      const prompt = `Bright, attractive children's picture-book illustration for ages ${ageRange}. Soft watercolor and gouache, expressive friendly faces, warm magical details, joyful colors, cozy lighting. No text, letters, logos, captions, or borders.
 Main character (keep consistent every page): ${characterSheet || "a friendly child protagonist"}.
 Scene for page ${p.index}: ${scene}
-Full-bleed square composition suitable for a children's storybook.`;
-      const img = await generateIllustration(prompt);
+Full-bleed square composition suitable for a premium children's storybook page.`;
+      const img = await generateIllustration(prompt, p.index, log, errLog);
       return img;
     });
+
+    const missingIllustrations = illustrations
+      .map((img, i) => img ? -1 : i)
+      .filter((i) => i >= 0);
+    if (missingIllustrations.length > 0) {
+      log("illustrations retry missing", { missing: missingIllustrations.map((i) => pages[i].index) });
+      for (const i of missingIllustrations) {
+        const p = pages[i];
+        const simplePrompt = `A charming, colorful watercolor and gouache children's storybook illustration. No text, letters, logos, captions, or borders. Consistent character: ${characterSheet || "a friendly child protagonist"}. Scene: ${p.illustrationPrompt || p.text.slice(0, 180)}.`;
+        illustrations[i] = await generateIllustration(simplePrompt, p.index, log, errLog);
+      }
+    }
+
+    const successfulIllustrations = illustrations.filter(Boolean).length;
     log("illustrations done", {
       ms: Date.now() - illT0,
-      ok: illustrations.filter(Boolean).length,
+      ok: successfulIllustrations,
       failed: illustrations.filter((x) => !x).length,
     });
 
@@ -338,6 +407,7 @@ Full-bleed square composition suitable for a children's storybook.`;
 
       const ill = illustrations[i];
       let textTop = 760;
+      let drewIllustration = false;
       if (ill) {
         try {
           const img = ill.mime.includes("png")
@@ -355,9 +425,14 @@ Full-bleed square composition suitable for a children's storybook.`;
           });
           page.drawImage(img, { x, y, width: w, height: h });
           textTop = y - 20;
+          drewIllustration = true;
         } catch (e) {
           errLog("embed image failed", { page: p.index, err: String(e) });
         }
+      }
+      if (!drewIllustration) {
+        drawFallbackIllustration(page, p.index);
+        textTop = 370;
       }
 
       drawWrapped(page, p.text ?? "", {
@@ -389,6 +464,50 @@ interface DrawOpts {
   size: number; color: ReturnType<typeof rgb>;
   lineHeight?: number;
   align?: "left" | "center" | "right";
+}
+
+function drawFallbackIllustration(
+  page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage,
+  pageIndex: number,
+) {
+  const x = 60;
+  const y = 405;
+  const width = 475;
+  const height = 370;
+  const palettes = [
+    { sky: rgb(0.78, 0.91, 1), hill: rgb(0.48, 0.78, 0.54), accent: rgb(1, 0.74, 0.28), flower: rgb(0.98, 0.38, 0.56) },
+    { sky: rgb(0.86, 0.82, 1), hill: rgb(0.38, 0.72, 0.69), accent: rgb(1, 0.83, 0.35), flower: rgb(0.45, 0.55, 0.95) },
+    { sky: rgb(1, 0.88, 0.75), hill: rgb(0.58, 0.78, 0.42), accent: rgb(0.42, 0.72, 1), flower: rgb(0.92, 0.44, 0.8) },
+  ];
+  const p = palettes[(pageIndex - 1) % palettes.length];
+
+  page.drawRectangle({ x: x - 8, y: y - 8, width: width + 16, height: height + 16, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1 });
+  page.drawRectangle({ x, y, width, height, color: p.sky });
+
+  page.drawCircle({ x: x + width - 78, y: y + height - 72, size: 38, color: p.accent });
+  page.drawCircle({ x: x + 90, y: y + height - 78, size: 22, color: rgb(1, 1, 1) });
+  page.drawCircle({ x: x + 124, y: y + height - 72, size: 28, color: rgb(1, 1, 1) });
+  page.drawCircle({ x: x + 158, y: y + height - 82, size: 20, color: rgb(1, 1, 1) });
+
+  page.drawEllipse({ x: x + 130, y: y + 78, xScale: 185, yScale: 82, color: p.hill });
+  page.drawEllipse({ x: x + 350, y: y + 70, xScale: 170, yScale: 72, color: rgb(0.36, 0.68, 0.5) });
+
+  const childX = x + 238;
+  const childY = y + 118;
+  page.drawCircle({ x: childX, y: childY + 86, size: 26, color: rgb(0.5, 0.28, 0.16) });
+  page.drawCircle({ x: childX, y: childY + 80, size: 21, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: childX - 24, y: childY + 22, width: 48, height: 55, color: p.flower });
+  page.drawRectangle({ x: childX - 45, y: childY + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: childX + 20, y: childY + 42, width: 25, height: 9, color: rgb(0.98, 0.78, 0.56) });
+  page.drawRectangle({ x: childX - 18, y: childY, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
+  page.drawRectangle({ x: childX + 6, y: childY, width: 12, height: 28, color: rgb(0.22, 0.36, 0.58) });
+
+  for (let i = 0; i < 9; i++) {
+    const fx = x + 55 + ((i * 47 + pageIndex * 19) % 365);
+    const fy = y + 36 + ((i * 23) % 70);
+    page.drawCircle({ x: fx, y: fy, size: 7, color: p.flower });
+    page.drawCircle({ x: fx + 8, y: fy + 5, size: 5, color: p.accent });
+  }
 }
 
 function drawWrapped(page: import("https://esm.sh/pdf-lib@1.17.1").PDFPage, text: string, o: DrawOpts) {
