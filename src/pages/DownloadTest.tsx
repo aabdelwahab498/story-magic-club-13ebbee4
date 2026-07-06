@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
+import { Download, ExternalLink, CheckCircle2, AlertCircle, Smartphone, Monitor, Tablet, Share2, FolderOpen } from "lucide-react";
 
 const PDF_URL = "/test-download.pdf";
 const FILE_NAME = "starry-tales-test.pdf";
