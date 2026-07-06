@@ -232,6 +232,28 @@ const Store = () => {
       }
 
       const { data, error } = result;
+      // Handle rate limit (429) gracefully
+      const retryAfter =
+        (data?.error === "rate_limited" && Number(data?.retry_after)) ||
+        (Number((error as any)?.context?.status) === 429 ? 60 : 0);
+      if (retryAfter > 0) {
+        toast.dismiss(loadingToast);
+        toast.error(
+          t("downloads.rate_limited", {
+            defaultValue: `Too many downloads. Please wait ${retryAfter}s and try again.`,
+            seconds: retryAfter,
+          }),
+          {
+            duration: Math.min(retryAfter * 1000, 10000),
+            action: {
+              label: t("downloads.retry", { defaultValue: "Retry" }),
+              onClick: () =>
+                setTimeout(() => handleDownloadStoryPdf(p), retryAfter * 1000),
+            },
+          },
+        );
+        return;
+      }
       if (error) throw error;
       if (data?.blocked) {
         toast.dismiss(loadingToast);

@@ -147,9 +147,9 @@ serve(async (req) => {
     }
 
     const rl = await checkRateLimits(`u:${userId}`, "export-product-story-pdf", [
-      { windowSec: 60, max: 2 },
-      { windowSec: 3600, max: 10 },
-      { windowSec: 86400, max: 30 },
+      { windowSec: 60, max: 6 },
+      { windowSec: 3600, max: 30 },
+      { windowSec: 86400, max: 100 },
     ]);
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
