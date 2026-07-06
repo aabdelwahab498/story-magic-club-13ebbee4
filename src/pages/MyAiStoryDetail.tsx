@@ -101,6 +101,11 @@ const MyAiStoryDetail = () => {
           <Badge variant="secondary">{story.language.toUpperCase()}</Badge>
           <span>{new Date(story.created_at).toLocaleDateString(i18n.language)}</span>
           <StoryPreviewDialog title={story.title ?? "Story"} pages={pages} />
+          <DownloadNowButton
+            storyId={story.id}
+            title={story.title ?? "Story"}
+            pdfUrl={(story as unknown as { pdf_url?: string | null }).pdf_url ?? null}
+          />
           <DownloadMenu
             storyId={story.id}
             title={story.title ?? "Story"}
@@ -108,6 +113,7 @@ const MyAiStoryDetail = () => {
             pdfUrl={(story as unknown as { pdf_url?: string | null }).pdf_url ?? null}
             audioUrl={story.audio_url ?? null}
           />
+
         </div>
       </header>
 
