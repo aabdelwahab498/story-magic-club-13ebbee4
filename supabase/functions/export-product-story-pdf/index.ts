@@ -16,8 +16,8 @@ const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
-const IMAGE_TIMEOUT_MS = 18_000;
-const ILLUSTRATION_AI_PAGE_LIMIT = 4;
+const IMAGE_TIMEOUT_MS = 12_000;
+const ILLUSTRATION_AI_PAGE_LIMIT = 2;
 const IMAGE_MODELS = [
   "openai/gpt-image-2",
   "google/gemini-3.1-flash-image",
