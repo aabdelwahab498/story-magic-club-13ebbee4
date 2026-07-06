@@ -8,6 +8,8 @@ import {
   ScrollText,
   AlertTriangle,
   Settings as SettingsIcon,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -88,6 +90,7 @@ export default function AdminDownloadsPage() {
           <TabsTrigger value="users"><UsersIcon className="h-4 w-4 me-1.5" />Users Today</TabsTrigger>
           <TabsTrigger value="audit"><ScrollText className="h-4 w-4 me-1.5" />Audit Log</TabsTrigger>
           <TabsTrigger value="alerts"><AlertTriangle className="h-4 w-4 me-1.5" />Alerts</TabsTrigger>
+          <TabsTrigger value="test"><FileText className="h-4 w-4 me-1.5" />Test Download</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings"><SettingsTab /></TabsContent>
@@ -95,6 +98,7 @@ export default function AdminDownloadsPage() {
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
         <TabsContent value="alerts"><AlertsTab /></TabsContent>
+        <TabsContent value="test"><TestDownloadTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -591,6 +595,105 @@ function Spinner() {
   return (
     <div className="flex items-center justify-center py-16">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
+    </div>
+  );
+}
+
+/* ----------------------- Test Download ----------------------- */
+function TestDownloadTab() {
+  const PDF_URL = "/test-download.pdf";
+  const FILE_NAME = "starry-tales-test.pdf";
+  const [status, setStatus] = useState<string>("");
+
+  const forceDownload = async () => {
+    setStatus("جاري التحميل…");
+    try {
+      const res = await fetch(PDF_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = FILE_NAME;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      setStatus("✅ تم بدء التنزيل. تحقق من مجلد التنزيلات.");
+      toast.success("تم بدء التنزيل");
+    } catch (e) {
+      setStatus(`❌ فشل التنزيل: ${(e as Error).message}`);
+      toast.error("فشل التنزيل");
+    }
+  };
+
+  return (
+    <div className="space-y-6 mt-4 max-w-3xl">
+      <section className="bg-card border rounded-2xl p-5 shadow-sm space-y-4">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            اختبار تنزيل ملف PDF
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            يستخدم لاختبار سلوك التنزيل على أجهزة العملاء المختلفة.
+          </p>
+          <p className="text-xs font-mono text-muted-foreground mt-2">
+            URL: <span className="text-foreground">{PDF_URL}</span>
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={forceDownload} className="gap-2 rounded-full">
+            <DownloadIcon className="h-4 w-4" />
+            تنزيل ملف الاختبار (PDF)
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2 rounded-full"
+            onClick={() => window.open(PDF_URL, "_blank", "noopener,noreferrer")}
+          >
+            <ExternalLink className="h-4 w-4" />
+            فتح في تبويب جديد
+          </Button>
+          <a
+            href={PDF_URL}
+            download={FILE_NAME}
+            className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm hover:bg-muted transition"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            رابط تنزيل مباشر
+          </a>
+        </div>
+
+        {status && (
+          <p className="text-sm bg-muted/40 border rounded-lg p-3">{status}</p>
+        )}
+      </section>
+
+      <section className="bg-card border rounded-2xl p-5 shadow-sm">
+        <h3 className="font-bold mb-3">📖 دليل التنزيل حسب الجهاز</h3>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li>📱 <b className="text-foreground">iPhone/iPad:</b> اضغط "فتح في تبويب جديد" ← Share ⬆️ ← Save to Files.</li>
+          <li>🤖 <b className="text-foreground">Android:</b> اضغط "تنزيل ملف الاختبار" — يبدأ التنزيل تلقائيًا في مجلد Downloads.</li>
+          <li>💻 <b className="text-foreground">Desktop:</b> ينزل مباشرة في مجلد التنزيلات.</li>
+        </ul>
+        <p className="text-sm mt-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+          ✅ لو نجح التنزيل هنا، نفس الطريقة هتشتغل مع ملفات القصص الحقيقية.
+        </p>
+      </section>
+
+      <section className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-3 border-b bg-muted/30">
+          <p className="text-sm font-semibold">معاينة الملف داخل الصفحة</p>
+        </div>
+        <iframe
+          src={PDF_URL}
+          title="Test PDF preview"
+          className="w-full"
+          style={{ height: 480 }}
+        />
+      </section>
     </div>
   );
 }
