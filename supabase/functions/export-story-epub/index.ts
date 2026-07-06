@@ -79,7 +79,7 @@ serve(async (req) => {
       .eq("id", storyId)
       .single();
     if (sErr || !story) return json({ error: "story_not_found" }, 404);
-    if (story.user_id !== userId) return json({ error: "forbidden" }, 403);
+    if (story.user_id !== userId && !isAdmin) return json({ error: "forbidden" }, 403);
 
     type Page = { text: string; image_url?: string | null };
     let pages: Page[] = [];
