@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Lock, Volume2, Pause, Square } from "lucide-react";
 import type { SelStoryResponse, SelStoryPage } from "@/lib/selStoryApi";
 import { illustrateSelStory, exportStoryPdf, SubscriptionRequiredError } from "@/lib/selStoryApi";
+import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
+
 import { recordIllustrationMetric } from "@/lib/illustrationMetrics";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -30,6 +32,8 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const [idx, setIdx] = useState(0);
   const [illustrating, setIllustrating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [mp3Loading, setMp3Loading] = useState(false);
+
   const [pageStatus, setPageStatus] = useState<Record<number, "idle" | "pending" | "ready" | "failed">>({});
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
   // Per-page queued/started timestamps surfaced in the progress strip tooltip
