@@ -81,3 +81,71 @@ export const useGenerateClassicNarration = () => {
   });
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Edge TTS (free MP3 download, no API key). Uses Microsoft Edge Read Aloud
+// via the `narrate-story-edge` function. Always returns HTTP 200 with a
+// structured `{ success, code?, message?, url? }` body.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StoryMp3Result {
+  url: string;
+  voice: string;
+  cached: boolean;
+  bytes?: number;
+}
+
+export class StoryMp3Error extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "StoryMp3Error";
+  }
+}
+
+export async function generateStoryMp3(args: {
+  text: string;
+  language: string;
+  voice?: string;
+  storyId?: string;
+}): Promise<StoryMp3Result> {
+  const { data, error } = await supabase.functions.invoke("narrate-story-edge", {
+    body: args,
+  });
+  if (error) {
+    throw new StoryMp3Error(
+      "network_error",
+      "Could not reach the audio service. Please try again.",
+    );
+  }
+  if (!data || data.success !== true) {
+    throw new StoryMp3Error(
+      data?.code || "unknown",
+      data?.message || "Audio generation failed. Please try again.",
+    );
+  }
+  return {
+    url: data.url as string,
+    voice: data.voice as string,
+    cached: !!data.cached,
+    bytes: data.bytes,
+  };
+}
+
+export async function downloadStoryMp3(url: string, filename: string) {
+  const res = await fetch(url);
+  if (!res.ok) throw new StoryMp3Error("download_failed", "Could not download the audio file.");
+  const blob = await res.blob();
+  const objUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objUrl;
+  a.download = filename;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+}
+
+
