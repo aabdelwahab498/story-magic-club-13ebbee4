@@ -1013,6 +1013,88 @@ const AIStoryteller = () => {
               </button>
             </div>
           )}
+          <div className="mb-4 mx-auto max-w-3xl flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => {
+                const header = `${selStory.title}\n\n`;
+                const body = selStory.pages
+                  .map((p) => `— Page ${p.index} —\n${p.text}`)
+                  .join("\n\n");
+                const footer = selStory.sel_outcome?.statement
+                  ? `\n\n---\n${selStory.sel_outcome.statement}\n`
+                  : "";
+                const text = header + body + footer;
+                const safe = (selStory.title || "story")
+                  .replace(/[^\p{L}\p{N}\-_ ]+/gu, "")
+                  .replace(/\s+/g, "-")
+                  .slice(0, 60) || "story";
+                const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${safe}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast.success(t("page_ai_storyteller.txt_downloaded", "Story .txt downloaded"));
+              }}
+              className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2"
+            >
+              <BookOpen className="h-4 w-4" />
+              {t("page_ai_storyteller.download_story_txt", "Download story (.txt)")}
+            </button>
+
+            {(sub.canExportPdf || isAdmin) ? (
+              <button
+                onClick={async () => {
+                  const downloadTarget = prepareTrialPdfDownloadTarget();
+                  setPdfLoading(true);
+                  try {
+                    const pdf = await generateTrialPdf({
+                      title: selStory.title,
+                      pages: selStory.pages.map((p) => ({
+                        index: p.index,
+                        text: p.text,
+                        emotionTag: p.emotionTag,
+                        imageUrl: p.imageUrl ?? null,
+                      })),
+                      childName: activeChild?.name,
+                      selStatement: selStory.sel_outcome?.statement,
+                    });
+                    const safe = (selStory.title || "story")
+                      .replace(/[^\p{L}\p{N}\-_ ]+/gu, "")
+                      .replace(/\s+/g, "-")
+                      .slice(0, 60) || "story";
+                    downloadTrialPdf(pdf.pdfBase64, `${safe}.pdf`, downloadTarget);
+                    toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
+                  } catch (e) {
+                    try { downloadTarget?.close(); } catch { /* ignore */ }
+                    console.error("[sel-pdf] failed", e);
+                    toast.error(t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."));
+                  } finally {
+                    setPdfLoading(false);
+                  }
+                }}
+                disabled={pdfLoading}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                {pdfLoading
+                  ? t("page_ai_storyteller.building_pdf", "Building PDF...")
+                  : t("page_ai_storyteller.download_story_pdf", "Download story PDF")}
+                {isAdmin && !sub.canExportPdf ? " (owner)" : ""}
+              </button>
+            ) : (
+              <Link
+                to="/pricing"
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-pink-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2"
+              >
+                <Crown className="h-4 w-4" />
+                {t("page_ai_storyteller.subscribe_to_export_pdf", "Subscribe to export PDF")}
+              </Link>
+            )}
+          </div>
           <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
         </div>
       ) : !story ? (
