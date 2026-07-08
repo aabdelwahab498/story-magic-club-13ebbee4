@@ -14,6 +14,7 @@ import { useActiveChild } from "@/lib/childProfilesApi";
 import { composeSelStory, planSelStory, readComposeErrorDetails, ComposeStoryError, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
+import { BrowserNarratorSettings } from "@/components/BrowserNarratorSettings";
 import IllustrateButton from "@/components/IllustrateButton";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useByokStatus } from "@/hooks/useByokStatus";
