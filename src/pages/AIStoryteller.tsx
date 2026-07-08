@@ -96,7 +96,7 @@ const AIStoryteller = () => {
   const lang = i18n.language;
   const isAr = lang?.startsWith("ar");
   const { active: activeChild } = useActiveChild();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const sub = useSubscription();
   const byok = useByokStatus();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
