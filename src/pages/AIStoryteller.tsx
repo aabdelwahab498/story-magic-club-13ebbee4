@@ -1759,6 +1759,22 @@ const AIStoryteller = () => {
               <PremiumBadge featureKey="pdf" size="lg" />
             )}
 
+            {!guestMode && story && (
+              <button
+                onClick={handleDownloadMp3}
+                disabled={mp3Loading}
+                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                title={t("page_ai_storyteller.mp3_hint", "Free voice download — 10 to 30 seconds")}
+              >
+                {mp3Loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+                {mp3Loading
+                  ? t("page_ai_storyteller.building_mp3", "Generating audio…")
+                  : t("page_ai_storyteller.download_story_mp3", "Download story MP3")}
+              </button>
+            )}
+
+
+
 
             <button
               onClick={() => {
