@@ -484,6 +484,7 @@ const AIStoryteller = () => {
 
   // Accept an incoming idea from /stories ("Tell us your idea") and auto-generate.
   const location = useLocation();
+  const navigate = useNavigate();
   const autoFiredRef = useRef(false);
   useEffect(() => {
     const state = (location.state as { idea?: string; autoGenerate?: boolean; narrator?: typeof CHARACTER_KEYS[number] } | null) ?? null;
