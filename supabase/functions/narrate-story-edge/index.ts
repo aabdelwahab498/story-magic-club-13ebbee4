@@ -74,9 +74,16 @@ serve(async (req) => {
     );
   } catch (e) {
     if (e instanceof TtsError) {
-      console.log(JSON.stringify({ scope: "narrate-story-edge", code: e.code, message: e.userMessage }));
+      console.log(JSON.stringify({ scope: "narrate-story-edge", code: e.code, message: e.userMessage, retryable: e.retryable, provider: e.provider }));
       return jsonOk(
-        { success: false, code: e.code, message: e.userMessage },
+        {
+          success: false,
+          code: e.code,
+          error: e.userMessage,
+          message: e.userMessage,
+          retryable: e.retryable,
+          provider: e.provider ?? "edge-tts",
+        },
         cors,
       );
     }
@@ -85,7 +92,10 @@ serve(async (req) => {
       {
         success: false,
         code: "internal_error",
+        error: "Something went wrong. Please try again.",
         message: "Something went wrong. Please try again.",
+        retryable: true,
+        provider: "edge-tts",
       },
       cors,
     );

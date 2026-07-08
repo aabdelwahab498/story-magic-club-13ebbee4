@@ -63,15 +63,32 @@ export type TtsErrorCode =
   | "storage_upload_failed"
   | "internal_error";
 
+const RETRYABLE_CODES: ReadonlySet<TtsErrorCode> = new Set([
+  "tts_upstream_failed",
+  "tts_timeout",
+  "storage_upload_failed",
+]);
+
 export class TtsError extends Error {
   code: TtsErrorCode;
   /** User-safe message (no server internals). */
   userMessage: string;
-  constructor(code: TtsErrorCode, userMessage: string, cause?: unknown) {
+  /** True when the caller can safely retry the same request. */
+  retryable: boolean;
+  /** Provider id that raised the error, if known. */
+  provider?: string;
+  constructor(
+    code: TtsErrorCode,
+    userMessage: string,
+    cause?: unknown,
+    opts?: { provider?: string; retryable?: boolean },
+  ) {
     super(userMessage);
     this.name = "TtsError";
     this.code = code;
     this.userMessage = userMessage;
+    this.retryable = opts?.retryable ?? RETRYABLE_CODES.has(code);
+    this.provider = opts?.provider;
     if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
   }
 }
