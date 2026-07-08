@@ -403,11 +403,28 @@ const AIStoryteller = () => {
     setSelStory(null);
     startProgressTimeline();
     try {
+      console.log("[SEL] composeSelStory → start", input);
       const res = await composeSelStory({ ...input, presetBlueprint });
       stopProgressTimeline("done");
       if (!res.passed) toast.warning(`SEL quality ${res.quality.total}/25 — review recommended`);
+      console.log("[SEL] composeSelStory → success", {
+        title: res.title,
+        pages: res.pages?.length,
+        quality: res.quality?.total,
+        passed: res.passed,
+      });
       setSelStory(res);
+      try {
+        localStorage.setItem(
+          "last-generated-sel-story",
+          JSON.stringify({ story: res, ts: Date.now() }),
+        );
+        console.log("[SEL] persisted to localStorage: last-generated-sel-story");
+      } catch (err) {
+        console.warn("[SEL] failed to persist last story", err);
+      }
     } catch (e) {
+      console.error("[SEL] composeSelStory → error", e);
       await handleSelError(e);
     } finally {
       setGenerating(false);
