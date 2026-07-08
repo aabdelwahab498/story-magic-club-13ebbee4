@@ -250,7 +250,7 @@ Return plain readable text (no JSON, no markdown code fences). Everything in ${l
       story = await aiChat({
         system: systemPrompt,
         user: userPrompt,
-        maxTokens: 3000,
+        maxTokens: 8000,
       });
       console.info(`[generate-story] succeeded via Gemini`);
     } catch (e) {
