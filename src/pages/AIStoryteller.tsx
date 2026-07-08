@@ -110,6 +110,17 @@ const AIStoryteller = () => {
   const [story, setStory] = useState("");
   const [selMode, setSelMode] = useState(true);
   const [selStory, setSelStory] = useState<SelStoryResponse | null>(null);
+  // Debug: log every time selStory changes so we can verify the download banner should render
+  useEffect(() => {
+    if (selStory) {
+      console.log("[SEL] selStory state updated → download buttons should be VISIBLE", {
+        title: selStory.title,
+        pages: selStory.pages?.length,
+      });
+    } else {
+      console.log("[SEL] selStory state cleared → download buttons hidden");
+    }
+  }, [selStory]);
   const [illustrations, setIllustrations] = useState<ClassicIllustration[]>([]);
   const [illustrating, setIllustrating] = useState(false);
   const [illustrationsGated, setIllustrationsGated] = useState(false);
