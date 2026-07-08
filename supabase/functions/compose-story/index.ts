@@ -92,15 +92,39 @@ serve(async (req) => {
 
   try {
     log("request received");
+
+    // 1) Environment preflight — validate required secrets BEFORE calling AI.
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+      errLog("missing supabase env vars", {
+        hasUrl: !!SUPABASE_URL,
+        hasAnon: !!SUPABASE_ANON_KEY,
+        hasServiceRole: !!SUPABASE_SERVICE_ROLE_KEY,
+      });
+      return fail("service_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+    }
+    if (!GEMINI_API_KEY) {
+      errLog("GEMINI_API_KEY missing — cannot call AI");
+      return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+    }
+
+    // 2) Parse & validate request payload.
     const raw = await req.json().catch(() => ({}));
     const childName = str(raw.childName, 60);
     const theme = str(raw.theme, 80);
     const age = Number(raw.age);
     if (!childName || !theme || !Number.isFinite(age) || age < 3 || age > 12) {
-      return json({ error: "missing_or_invalid_fields", requestId }, 400, corsHeaders);
+      errLog("invalid input", { hasName: !!childName, hasTheme: !!theme, age });
+      return fail("invalid_input", FRIENDLY_INPUT, corsHeaders);
     }
     const language = str(raw.language, 5).toLowerCase() || "en";
-    if (!ALLOWED_LANGS.has(language)) return json({ error: "invalid_language", requestId }, 400, corsHeaders);
+    if (!ALLOWED_LANGS.has(language)) {
+      errLog("invalid language", { language });
+      return fail("invalid_input", FRIENDLY_INPUT, corsHeaders);
+    }
     const customPrompt = str(raw.customPrompt, 500);
     const childProfileId = str(raw.childProfileId, 40);
     const emotionalFocus = Array.isArray(raw.emotionalFocus)
@@ -112,47 +136,51 @@ serve(async (req) => {
       : undefined;
     const body: ComposeRequest = { childName, age, theme, language, customPrompt, childProfileId: childProfileId || undefined, emotionalFocus, mode, presetBlueprint };
 
-    // Auth (we need user_id to persist)
+    // 3) Auth (we need user_id to persist)
     const authHeader = req.headers.get("Authorization") ?? "";
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id ?? null;
-    if (!userId) return json({ error: "unauthorized", requestId }, 401, corsHeaders);
+    if (!userId) {
+      errLog("unauthorized — no valid session");
+      return fail("unauthorized", FRIENDLY_AUTH, corsHeaders);
+    }
     log("auth ok", { userId });
 
-    // Rate limit + quota (server-side, cannot be bypassed) — admins bypass
+    // 4) Rate limit + quota (server-side, cannot be bypassed) — admins bypass
     const identifier = `u:${userId}`;
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: userId, _role: "admin" });
-    // Fair-use story limits (daily + monthly) — admins bypass
     if (!isAdmin) {
       const fair = await enforceStoryFairUse(userId);
-      if (!fair.allowed) return quotaResponse(fair, corsHeaders);
+      if (!fair.allowed) {
+        errLog("quota exceeded", { reason: (fair as { reason?: string }).reason });
+        return fail("quota_exceeded", FRIENDLY_QUOTA, corsHeaders);
+      }
     }
     void identifier;
 
-    // Lovable AI moderation on user-supplied free text
+    // 5) Lovable AI moderation on user-supplied free text
     const toModerate = [childName, theme, customPrompt, ...emotionalFocus].filter(Boolean).join("\n");
     if (toModerate.trim().length > 0) {
       try {
         const verdict = await moderateText(toModerate, { language, childAge: age });
         if (!verdict.allowed || verdict.severity === "medium" || verdict.severity === "high" || verdict.severity === "critical") {
-          console.warn("[compose-story] moderation rejected", { userId, severity: verdict.severity, categories: verdict.categories });
-          return moderationRejectedResponse(verdict, corsHeaders);
+          console.warn(`[compose-story][${requestId}] moderation rejected`, { userId, severity: verdict.severity, categories: verdict.categories });
+          return fail("moderation_rejected", FRIENDLY_MODERATION, corsHeaders);
         }
       } catch (e) {
+        // Moderation is best-effort — log and continue if the moderation gateway itself fails.
         if (e instanceof ModerationGatewayError) {
-          return json({ error: "moderation_unavailable", requestId }, e.status, corsHeaders);
+          errLog("moderation gateway unavailable — continuing", { status: e.status });
+        } else {
+          errLog("moderation threw", { msg: e instanceof Error ? e.message : String(e) });
         }
       }
     }
+
 
     const ageBand = ageToBand(body.age);
     const plannerInput: PlannerInput = {
