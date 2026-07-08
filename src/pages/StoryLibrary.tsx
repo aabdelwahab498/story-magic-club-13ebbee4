@@ -33,7 +33,7 @@ const StoryLibrary = () => {
   const lang = i18n.language;
   const navigate = useNavigate();
   const isAr = lang === "ar";
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const sub = useSubscription();
   const [ideaPrompt, setIdeaPrompt] = useState("");
   const [ideaNarrator, setIdeaNarrator] = useState<NarratorId>(DEFAULT_NARRATOR);
@@ -339,8 +339,8 @@ const StoryLibrary = () => {
                 toast.info(t("stories.signin_to_generate", "Please sign in, then subscribe to generate your audio story."));
                 return;
               }
-              // Signed in but no audio capability / free tier → go subscribe first
-              if (!sub.loading && (!sub.canAudio || sub.tier === "free")) {
+              // Signed in but no audio capability / free tier → go subscribe first (owner bypass)
+              if (!isAdmin && !sub.loading && (!sub.canAudio || sub.tier === "free")) {
                 navigate("/pricing?subscribe=parent&feature=audio");
                 toast.info(t("stories.subscribe_to_generate", "Subscribe to generate your full audio story. We'll resume right after."));
                 return;
