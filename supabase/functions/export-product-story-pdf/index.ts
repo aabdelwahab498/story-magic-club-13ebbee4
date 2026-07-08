@@ -128,7 +128,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}-illustrated-v4.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v5.pdf`;
 
     // Purge any older/legacy PDF variants for this product+language so we
     // never serve a cached text-only version.
@@ -138,6 +138,7 @@ serve(async (req) => {
       `products/${sku}-${language}-illustrated-v1.pdf`,
       `products/${sku}-${language}-illustrated-v2.pdf`,
       `products/${sku}-${language}-illustrated-v3.pdf`,
+      `products/${sku}-${language}-illustrated-v4.pdf`,
     ];
     try { await admin.storage.from("story-pdfs").remove(legacyPaths); } catch { /* ignore */ }
 
@@ -198,7 +199,6 @@ serve(async (req) => {
     // Cover
     const cover = pdf.addPage([595, 842]);
     cover.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.06, 0.08, 0.18) });
-    // Optional cover image
     if (product.image) {
       try {
         const r = await fetch(product.image);
@@ -225,13 +225,65 @@ serve(async (req) => {
     }
     cover.drawText("Najmah", { x: 60, y: 60, size: 12, font, color: rgb(0.7, 0.75, 0.95) });
 
+    // Per-SKU illustration overrides. When a product has bespoke artwork
+    // uploaded to storage, we embed those images instead of the vector
+    // fallback illustrations. Keyed by normalized sku.
+    const STORAGE_BASE = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs`;
+    const ILLUSTRATION_OVERRIDES: Record<string, string[]> = {
+      "story-misk-mermaid": [
+        `${STORAGE_BASE}/products/misk-mermaid/p1.jpg`,
+        `${STORAGE_BASE}/products/misk-mermaid/p2.jpg`,
+        `${STORAGE_BASE}/products/misk-mermaid/p3.jpg`,
+        `${STORAGE_BASE}/products/misk-mermaid/p4.png`,
+        `${STORAGE_BASE}/products/misk-mermaid/p5.png`,
+        `${STORAGE_BASE}/products/misk-mermaid/p6.png`,
+        `${STORAGE_BASE}/products/misk-mermaid/p7.png`,
+      ],
+    };
+    const overrideUrls = ILLUSTRATION_OVERRIDES[sku] ?? null;
+
+    // Pre-fetch override images once (parallel) so page loop stays fast.
+    const overrideImages: Array<
+      { img: import("https://esm.sh/pdf-lib@1.17.1").PDFImage; w: number; h: number } | null
+    > = overrideUrls
+      ? await Promise.all(
+          overrideUrls.map(async (url) => {
+            try {
+              const r = await fetch(url);
+              if (!r.ok) return null;
+              const ct = r.headers.get("content-type") ?? "";
+              const bytes = new Uint8Array(await r.arrayBuffer());
+              const img = ct.includes("png")
+                ? await pdf.embedPng(bytes)
+                : await pdf.embedJpg(bytes);
+              return { img, w: img.width, h: img.height };
+            } catch (e) {
+              log("override img fetch failed", { url, err: (e as Error).message });
+              return null;
+            }
+          }),
+        )
+      : [];
+
     // Story pages — illustration on top half, text below.
     for (let i = 0; i < pages.length; i++) {
       const p = pages[i];
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
 
-      drawFallbackIllustration(page, p.index);
+      const ov = overrideImages[i];
+      if (ov) {
+        const boxX = 60, boxY = 405, boxW = 475, boxH = 370;
+        page.drawRectangle({
+          x: boxX - 8, y: boxY - 8, width: boxW + 16, height: boxH + 16,
+          color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1,
+        });
+        const ratio = Math.min(boxW / ov.w, boxH / ov.h);
+        const w = ov.w * ratio, h = ov.h * ratio;
+        page.drawImage(ov.img, { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, width: w, height: h });
+      } else {
+        drawFallbackIllustration(page, p.index);
+      }
       const textTop = 370;
 
       drawWrapped(page, p.text ?? "", {
