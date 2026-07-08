@@ -1,20 +1,30 @@
-// Microsoft Edge Read Aloud TTS (free, no API key).
-// Speaks to `speech.platform.bing.com` over a WebSocket exactly like the
-// Edge browser's built-in Read Aloud feature. Returns MP3 bytes.
+// Microsoft Edge Read Aloud provider — Deno-native reimplementation of
+// the `rany2/edge-tts` Python library.
 //
-// Voice list: https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list
-// Reference: https://github.com/rany2/edge-tts
+// Talks to `speech.platform.bing.com` over WebSocket exactly like the
+// Edge browser's built-in Read Aloud feature. Free, no API key, no
+// billing, no credit card. Returns MP3 bytes in the
+// `audio-24khz-48kbitrate-mono-mp3` format.
+//
+// Voice list reference:
+//   https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list
+// Behaviour reference:
+//   https://github.com/rany2/edge-tts
+
+import type { TtsProvider, TtsSynthesizeOpts } from "./types.ts";
+import { TtsError } from "./types.ts";
 
 const TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 const CHROMIUM_FULL_VERSION = "130.0.2849.68";
 const WSS_URL =
   "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1";
+const OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3";
+const SYNTH_TIMEOUT_MS = 45_000;
 
+/** Rounded, per-request security token — replicates edge-tts DRM.py. */
 async function generateSecMsGec(): Promise<string> {
-  // WinFileTime = (unix_time + 11644473600) * 10^7, rounded down to nearest 5 min
-  let ticks =
-    BigInt(Math.floor(Date.now() / 1000) + 11644473600) * 10000000n;
-  ticks -= ticks % 3000000000n;
+  let ticks = BigInt(Math.floor(Date.now() / 1000) + 11644473600) * 10000000n;
+  ticks -= ticks % 3000000000n; // round down to nearest 5 min
   const input = `${ticks}${TRUSTED_CLIENT_TOKEN}`;
   const hash = await crypto.subtle.digest(
     "SHA-256",
@@ -26,14 +36,6 @@ async function generateSecMsGec(): Promise<string> {
     .toUpperCase();
 }
 
-export interface SynthesizeOpts {
-  text: string;
-  voice: string;
-  rate?: string; // e.g. "+0%"
-  pitch?: string; // e.g. "+0Hz"
-  volume?: string; // e.g. "+0%"
-}
-
 function escapeXml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -43,10 +45,7 @@ function escapeXml(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-/** Synthesize a single text chunk (safe up to ~3000 chars) to MP3 bytes. */
-export async function synthesizeEdgeTts(
-  opts: SynthesizeOpts,
-): Promise<Uint8Array> {
+async function synthesizeOnce(opts: TtsSynthesizeOpts): Promise<Uint8Array> {
   const gec = await generateSecMsGec();
   const url =
     `${WSS_URL}?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}` +
@@ -60,14 +59,29 @@ export async function synthesizeEdgeTts(
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     const chunks: Uint8Array[] = [];
-    const timeout = setTimeout(() => {
-      try {
-        ws.close();
-      } catch {
-        /* noop */
-      }
-      reject(new Error("edge_tts_timeout"));
-    }, 45000);
+    let settled = false;
+
+    const finish = (err: Error | null, out?: Uint8Array) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      try { ws.close(); } catch { /* noop */ }
+      if (opts.signal) opts.signal.removeEventListener("abort", onAbort);
+      if (err) reject(err);
+      else resolve(out!);
+    };
+
+    const timeout = setTimeout(
+      () => finish(new TtsError("tts_timeout", "TTS generation timed out.")),
+      SYNTH_TIMEOUT_MS,
+    );
+
+    const onAbort = () =>
+      finish(new TtsError("tts_upstream_failed", "TTS request aborted."));
+    if (opts.signal) {
+      if (opts.signal.aborted) return onAbort();
+      opts.signal.addEventListener("abort", onAbort);
+    }
 
     ws.onopen = () => {
       const timestamp = new Date().toString();
@@ -79,7 +93,7 @@ export async function synthesizeEdgeTts(
                 sentenceBoundaryEnabled: "false",
                 wordBoundaryEnabled: "false",
               },
-              outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+              outputFormat: OUTPUT_FORMAT,
             },
           },
         },
@@ -90,7 +104,6 @@ export async function synthesizeEdgeTts(
           `Path:speech.config\r\n\r\n` +
           JSON.stringify(config),
       );
-
       const ssml =
         `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>` +
         `<voice name='${opts.voice}'>` +
@@ -108,26 +121,16 @@ export async function synthesizeEdgeTts(
 
     ws.onmessage = (ev) => {
       if (typeof ev.data === "string") {
-        // Text frame — headers only. `Path:turn.end` marks completion.
         if (ev.data.includes("Path:turn.end")) {
-          clearTimeout(timeout);
-          try {
-            ws.close();
-          } catch {
-            /* noop */
-          }
           let total = 0;
           for (const c of chunks) total += c.length;
           const out = new Uint8Array(total);
           let off = 0;
-          for (const c of chunks) {
-            out.set(c, off);
-            off += c.length;
-          }
+          for (const c of chunks) { out.set(c, off); off += c.length; }
           if (out.length === 0) {
-            reject(new Error("edge_tts_empty_audio"));
+            finish(new TtsError("tts_upstream_failed", "Empty audio from provider."));
           } else {
-            resolve(out);
+            finish(null, out);
           }
         }
       } else {
@@ -140,27 +143,23 @@ export async function synthesizeEdgeTts(
       }
     };
 
-    ws.onerror = () => {
-      clearTimeout(timeout);
-      reject(new Error("edge_tts_ws_error"));
-    };
-
+    ws.onerror = () =>
+      finish(new TtsError("tts_upstream_failed", "WebSocket error from TTS."));
     ws.onclose = (e) => {
       if (chunks.length === 0) {
-        clearTimeout(timeout);
-        reject(new Error(`edge_tts_closed:${e.code}`));
+        finish(new TtsError("tts_upstream_failed", `Connection closed (${e.code}).`));
       }
     };
   });
 }
 
 /** Split text on sentence boundaries into chunks safe for Edge TTS. */
-export function chunkForEdgeTts(text: string, maxLen = 2800): string[] {
+export function chunkText(text: string, maxLen = 2800): string[] {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return [];
   if (clean.length <= maxLen) return [clean];
-  const parts: string[] = [];
   const sentences = clean.split(/(?<=[.!?؟\n])\s+/);
+  const parts: string[] = [];
   let buf = "";
   for (const s of sentences) {
     if ((buf + " " + s).trim().length > maxLen && buf) {
@@ -174,13 +173,31 @@ export function chunkForEdgeTts(text: string, maxLen = 2800): string[] {
   // Hard-split anything still too long.
   const final: string[] = [];
   for (const p of parts) {
-    if (p.length <= maxLen) {
-      final.push(p);
-      continue;
-    }
+    if (p.length <= maxLen) { final.push(p); continue; }
     for (let i = 0; i < p.length; i += maxLen) {
       final.push(p.slice(i, i + maxLen));
     }
   }
   return final;
 }
+
+export const edgeTtsProvider: TtsProvider = {
+  id: "edge-tts",
+  displayName: "Microsoft Edge Read Aloud",
+  maxChunkChars: 2800,
+  voicesByLang: {
+    ar: [
+      "ar-EG-SalmaNeural",
+      "ar-EG-ShakirNeural",
+      "ar-SA-ZariyahNeural",
+      "ar-SA-HamedNeural",
+    ],
+    en: [
+      "en-US-AriaNeural",
+      "en-US-GuyNeural",
+      "en-US-JennyNeural",
+      "en-GB-SoniaNeural",
+    ],
+  },
+  synthesize: synthesizeOnce,
+};
