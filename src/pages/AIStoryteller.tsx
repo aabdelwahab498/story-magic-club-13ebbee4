@@ -214,6 +214,24 @@ const AIStoryteller = () => {
 
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
+    // Log the raw error server-side only; surface only friendly text to the user.
+    console.error("[compose-story] failed", e);
+
+    // Standardized {success:false, code, message} response from the edge function
+    if (e instanceof ComposeStoryError) {
+      setErrorDetails({ status: 200, message: e.friendlyMessage, raw: { code: e.code, message: e.friendlyMessage }, requestId: undefined });
+      if (e.code === "unauthorized") {
+        try { await supabase.auth.signOut(); } catch { /* ignore */ }
+        toast.error(e.friendlyMessage);
+        setLastError(e.friendlyMessage);
+        navigate("/auth", { state: { from: "/ai-storyteller" } });
+        return;
+      }
+      toast.error(e.friendlyMessage);
+      setLastError(e.friendlyMessage);
+      return;
+    }
+
     const info = await handleEdgeError(e, t, { context: "compose-story" });
     const extra = await readComposeErrorDetails(e);
     const mergedInfo: EdgeErrorInfo = {
@@ -223,29 +241,23 @@ const AIStoryteller = () => {
       status: info.status || extra.status || 0,
     };
     setErrorDetails(mergedInfo);
-    console.error("[compose-story] failed", { mergedInfo, raw: e });
-    const fallback = (typeof mergedInfo.raw === "object" && mergedInfo.raw && typeof (mergedInfo.raw as { message?: string }).message === "string"
-      ? (mergedInfo.raw as { message: string }).message
-      : null) ||
-      mergedInfo.message ||
-      (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
-    // Session expired / signed out mid-flight → sign back in
-    const rawBlob = `${fallback} ${JSON.stringify(mergedInfo.raw ?? {})}`.toLowerCase();
+    // Always show a friendly generic message — never leak requestId / raw body / status.
+    const friendly = t(
+      "page_ai_storyteller.story_generation_failed_friendly",
+      "Unable to generate the story right now. Please try again in a few moments.",
+    );
+    // Session expired mid-flight → sign back in
+    const rawBlob = `${mergedInfo.message ?? ""} ${JSON.stringify(mergedInfo.raw ?? {})}`.toLowerCase();
     if (mergedInfo.status === 401 || /unauthorized|session/.test(rawBlob)) {
       try { await supabase.auth.signOut(); } catch { /* ignore */ }
-      const msg = t("ai.errors.sign_in_required", "Your session expired — please sign in again to generate stories.");
+      const msg = t("ai.errors.sign_in_required", "Please sign in to generate a story.");
       toast.error(msg);
       setLastError(msg);
       navigate("/auth", { state: { from: "/ai-storyteller" } });
       return;
     }
-    if (looksLikeApiKeyFailure(mergedInfo, fallback)) {
-      const msg = apiKeyErrorMessage();
-      toast.error(msg);
-      setLastError(msg);
-      return;
-    }
-    setLastError(fallback);
+    toast.error(friendly);
+    setLastError(friendly);
   };
 
 
