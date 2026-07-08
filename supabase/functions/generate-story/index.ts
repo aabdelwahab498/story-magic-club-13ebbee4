@@ -170,20 +170,27 @@ serve(async (req) => {
     const themeGuide = THEME_GUIDE[themeId] || "";
     const ageGuide = AGE_GUIDE[ageId] || "";
 
-    const systemPrompt = `You are a magical bedtime storyteller for children. Write a soothing, age-appropriate story in ${langName}.
-- Match the language exactly: every word in ${langName}.
-- Keep tone warm, gentle, and imaginative.
-- Use short paragraphs (2-3 sentences each) for easy reading aloud.
-- End with a peaceful, comforting closing line.
-- Do not include English headings if the language is not English.
-- The theme and age guidance below MUST shape vocabulary, setting, pacing and tone — they are not optional.`;
+    // ===== Najmah AI — SEL / DAP / Trauma-Informed story generation prompt =====
+    const systemPrompt = `You are Najmah AI, an expert educational storytelling assistant specializing in children's stories built on Social Emotional Learning (SEL), Developmentally Appropriate Practice (DAP), and Trauma-Informed Education.
 
-    const userPrompt = `Create a bedtime story with these elements:
-- Storyteller character: ${character}
+You ALWAYS follow these non-negotiable standards:
+- Write 100% in ${langName}. Never mix languages. Section headings below must also appear translated into ${langName} (keep the same order and meaning).
+- Target ONE emotion only and ONE emotional skill only for the whole story.
+- Follow the emotional arc strictly: Normal situation → Trigger event → Emotional escalation → Emotional regulation → Safe ending. Never skip a step.
+- The child character must be realistic and imperfect (has a clear weakness and internal motivation).
+- Include ONE supportive character who helps the child NAME feelings and regulate them — never lectures, never shames, never solves the problem for the child.
+- Use very short sentences, positive language, age-appropriate vocabulary, and a warm calm tone.
+- Absolutely avoid: violence, fear-based education, threats, punishment, shame, religious or political debate, long explanations, direct moral lessons.
+- Teach through experience, normalize emotions, promote empathy, respect child autonomy, and end with emotional safety.
+- The story body MUST be exactly 12 pages. Each page: Scene title, 1–2 short sentences, illustration description, and the child's emotion on that page.
+- Before returning, silently run the Quality Checklist. If any item fails, regenerate the story internally until every item passes, then return only the final version.`;
+
+    const userPrompt = `Generate a full Najmah AI story using this input:
+- Storyteller / narrator character: ${character}
 - Theme: ${theme}
 - Target age: ${ageRange}
-- Length: ${wordTarget}
-${customPrompt ? `- Special elements requested: ${customPrompt}` : ""}
+- Approximate reading length: ${wordTarget}
+${customPrompt ? `- Parent's special request (must be honored safely): ${customPrompt}` : ""}
 
 THEME DIRECTION (${theme}):
 ${themeGuide}
@@ -191,7 +198,44 @@ ${themeGuide}
 AGE-APPROPRIATE STYLE (${ageRange}):
 ${ageGuide}
 
-Write the story now in ${langName}, fully respecting both the theme direction and the age-appropriate style.`;
+Follow this workflow internally, then output the final structured story:
+
+Step 1 — Educational Goal: pick child age, ONE target emotion (from: Anger, Fear, Sadness, Jealousy, Shame, Anxiety, Frustration, Confidence, Gratitude), ONE emotional skill, one learning outcome.
+Step 2 — Character Design: realistic child with Name, Age, Gender, Personality, Strength, Weakness, Internal motivation, Environment. Not perfect.
+Step 3 — Support Character: ONE (mother, father, friend, teacher, grandparent, imaginary friend, or animal). Helps identify feelings and regulate. Never lectures / shames / solves for the child.
+Step 4 — Emotional Arc: Normal situation → Trigger event → Emotional escalation → Emotional regulation → Safe ending.
+Step 5 — Story Structure: exactly 12 pages, each with Scene title, 1–2 short sentences, illustration description, child's emotion.
+Step 6 — Language Rules: very short sentences, positive, age-appropriate, warm and calm. No violence/fear/threats/punishment/shame/long explanations.
+Step 7 — Educational Rules: teach one skill, normalize emotions, healthy regulation, empathy, autonomy, emotional safety, no direct moral lesson.
+
+Step 8 — OUTPUT FORMAT (return ONLY this, in ${langName}, in this exact order, using clear headings translated into ${langName}):
+
+1. Story Title
+2. Educational Goal
+3. Target Emotion
+4. Emotional Skill
+5. Learning Outcome
+6. Character Profile
+7. Support Character
+8. Story Outline
+9. Story (12 Pages) — for each page:
+   - Page N
+   - Scene Title
+   - Text (1–2 short sentences)
+   - Illustration Prompt
+   - Child's Emotion
+10. Parent Guide — include: Story objective, What the child learns, Discussion questions, Practical activity, Tips for parents.
+11. Quality Checklist — mark each with ✔:
+   - SEL compliant
+   - DAP compliant
+   - Trauma-informed
+   - Safe ending
+   - Emotional regulation included
+   - One emotion only
+   - One emotional skill only
+   - Child autonomy respected
+
+Return plain readable text (no JSON, no markdown code fences). Everything in ${langName}.`;
 
     if (!GEMINI_API_KEY) {
       console.error("[generate-story] CRITICAL: GEMINI_API_KEY is not configured. AI call aborted.");
@@ -206,7 +250,7 @@ Write the story now in ${langName}, fully respecting both the theme direction an
       story = await aiChat({
         system: systemPrompt,
         user: userPrompt,
-        maxTokens: 3000,
+        maxTokens: 8000,
       });
       console.info(`[generate-story] succeeded via Gemini`);
     } catch (e) {
