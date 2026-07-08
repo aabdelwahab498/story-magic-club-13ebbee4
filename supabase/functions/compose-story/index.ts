@@ -358,31 +358,27 @@ serve(async (req) => {
     log("success", { totalMs: Date.now() - t0 });
     return json(responsePayload, 200, corsHeaders);
   } catch (e) {
+    // Never leak raw errors / stacks / requestIds to the client.
+    // Log everything server-side; return HTTP 200 with a friendly message.
     const msg = e instanceof Error ? e.message : String(e);
     if (e instanceof AIGatewayError) {
       errLog("AI gateway failure", { status: e.status, msg });
-      if (e.status === 429) return json({ error: "rate_limited", requestId, detail: msg }, 429, corsHeaders);
-      if (e.status === 402) {
-        // Provider-side capacity exhausted — surface as upstream issue.
-        return json({
-          error: "ai_provider_unavailable",
-          reason: "upstream_capacity",
-          message: "The AI provider is temporarily unavailable. Please try again shortly.",
-          requestId,
-          detail: msg,
-        }, 503, corsHeaders);
-      }
-      if (e.status === 502) return json({ error: "ai_invalid_json", requestId, detail: msg }, 502, corsHeaders);
-      return json({ error: "ai_gateway_failed", requestId, status: e.status, detail: msg }, 502, corsHeaders);
+      if (e.status === 429) return fail("rate_limited", FRIENDLY_RATE, corsHeaders);
+      if (e.status === 402) return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+      if (e.status === 401 || e.status === 403) return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+      return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
     }
     errLog("unhandled error", { msg, stack: e instanceof Error ? e.stack?.slice(0, 600) : undefined });
-    return json({ error: "internal_error", requestId, detail: msg }, 500, corsHeaders);
+    return fail("internal_error", FRIENDLY_GENERIC, corsHeaders);
   }
 });
 
+// Legacy helper — kept for compatibility with any remaining call sites.
+// New failure paths use fail() which always returns HTTP 200.
 function json(obj: unknown, status: number, corsHeaders: Record<string, string>): Response {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
