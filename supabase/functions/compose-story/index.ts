@@ -45,6 +45,31 @@ const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 const str = (v: unknown, max: number) =>
   typeof v === "string" ? v.slice(0, max).trim() : "";
 
+// Standardized user-facing error payload — always HTTP 200 so the browser
+// never surfaces "non-2xx" / raw Edge Function errors. `code` is for the
+// client to branch on (e.g. show "please sign in"); `message` is the only
+// string ever shown to end users.
+const FRIENDLY_GENERIC = "Unable to generate the story right now. Please try again in a few moments.";
+const FRIENDLY_UNAVAILABLE = "AI service is temporarily unavailable. Please try again later.";
+const FRIENDLY_AUTH = "Please sign in to generate a story.";
+const FRIENDLY_MODERATION = "Your idea couldn't be used. Please try a different topic.";
+const FRIENDLY_QUOTA = "You've reached your story limit for now. Please try again later.";
+const FRIENDLY_RATE = "Too many requests. Please wait a moment and try again.";
+const FRIENDLY_INPUT = "Some details are missing or invalid. Please review your inputs.";
+
+function fail(
+  code: string,
+  message: string,
+  corsHeaders: Record<string, string>,
+  extra: Record<string, unknown> = {},
+): Response {
+  // Always HTTP 200: client reads `success:false` + friendly message.
+  return new Response(
+    JSON.stringify({ success: false, code, message, ...extra }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+}
+
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const pre = handlePreflight(req);
@@ -59,7 +84,11 @@ serve(async (req) => {
 
   // Body size guard (~16KB)
   const cl = Number(req.headers.get("content-length") || "0");
-  if (cl > 16_384) return json({ error: "payload_too_large", requestId }, 413, corsHeaders);
+  if (cl > 16_384) {
+    errLog("payload too large", { contentLength: cl });
+    return fail("payload_too_large", FRIENDLY_INPUT, corsHeaders);
+  }
+
 
   try {
     log("request received");
