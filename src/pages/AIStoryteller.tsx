@@ -229,6 +229,16 @@ const AIStoryteller = () => {
       : null) ||
       mergedInfo.message ||
       (e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
+    // Session expired / signed out mid-flight → sign back in
+    const rawBlob = `${fallback} ${JSON.stringify(mergedInfo.raw ?? {})}`.toLowerCase();
+    if (mergedInfo.status === 401 || /unauthorized|session/.test(rawBlob)) {
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      const msg = t("ai.errors.sign_in_required", "Your session expired — please sign in again to generate stories.");
+      toast.error(msg);
+      setLastError(msg);
+      navigate("/auth", { state: { from: "/ai-storyteller" } });
+      return;
+    }
     if (looksLikeApiKeyFailure(mergedInfo, fallback)) {
       const msg = apiKeyErrorMessage();
       toast.error(msg);
@@ -237,6 +247,7 @@ const AIStoryteller = () => {
     }
     setLastError(fallback);
   };
+
 
   // Guest path: route to the trial-story edge function (anonymous-friendly).
   // Renders the result in the classic story view (no audio, no illustrate button).
