@@ -137,6 +137,8 @@ serve(async (req) => {
         `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/misk-mermaid/misk-mermaid-full.pdf`,
       "story-luma-nova":
         `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/luma-nova/luma-nova-full.pdf`,
+      "story-sami-thunder":
+        `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/sami-thunder/sami-thunder-full.pdf`,
     };
     if (PREAUTHORED_PDFS[sku]) {
       return json({ pdfUrl: `${PREAUTHORED_PDFS[sku]}?v=${Date.now()}`, reused: true, preauthored: true }, 200);
