@@ -1481,25 +1481,18 @@ const AIStoryteller = () => {
                   )}
                 </span>
               )}
-              {!guestMode && sub.canAudio && (
-                <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-foreground/80 dark:text-white/80 cursor-pointer select-none px-2 py-1 rounded-full bg-white/30 dark:bg-white/10 border border-white/40 dark:border-white/20"
-                  title={t("ai.hd_voice_hint", "Use ElevenLabs HD voice (subscription required)")}>
-                  <input
-                    type="checkbox"
-                    checked={useHdVoice}
-                    onChange={(e) => {
-                      if (narrationState !== "idle") stopAllNarration();
-                      setUseHdVoice(e.target.checked);
-                    }}
-                    className="accent-primary"
-                  />
-                  <span className="inline-flex items-center gap-1">
-                    <Crown className="h-3.5 w-3.5" />
-                    {t("ai.hd_voice", "HD Voice")}
-                  </span>
-                </label>
+              {!guestMode && (
+                <BrowserNarratorSettings
+                  language={lang}
+                  onChange={() => {
+                    // Restart if currently playing so new speed/voice takes effect.
+                    if (narrationState === "playing" || narrationState === "paused") {
+                      stopAllNarration();
+                    }
+                  }}
+                />
               )}
-              {!guestMode && sub.canAudio && (
+              {!guestMode && (
                 <button
                   onClick={handlePlayPause}
                   disabled={narrationState === "loading"}
@@ -1524,7 +1517,7 @@ const AIStoryteller = () => {
                   )}
                 </button>
               )}
-              {!guestMode && sub.canAudio && (narrationState === "playing" || narrationState === "paused") && (
+              {!guestMode && (narrationState === "playing" || narrationState === "paused") && (
                 <button
                   onClick={stopAllNarration}
                   className="p-2 rounded-full bg-destructive/80 hover:bg-destructive backdrop-blur-sm border border-white/40 dark:border-white/30 text-destructive-foreground transition-colors"
@@ -1533,9 +1526,6 @@ const AIStoryteller = () => {
                 >
                   <Square className="h-5 w-5" fill="currentColor" />
                 </button>
-              )}
-              {(guestMode || (!guestMode && !sub.canAudio)) && (
-                <PremiumBadge featureKey="audio" size="sm" />
               )}
             </div>
 
