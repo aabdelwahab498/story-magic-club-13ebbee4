@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Volume2, Loader2, ChevronLeft, ChevronRight, X, Images, Pause, ArrowRight, Headphones, Sparkles, Wand2 } from "lucide-react";
+import { BookOpen, Volume2, Loader2, ChevronLeft, ChevronRight, X, Images, Pause, ArrowRight, Headphones, Sparkles, Wand2, Check, Crown, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalized, type Multilingual } from "@/lib/multilingual";
 import { toast } from "sonner";
@@ -11,6 +11,9 @@ import type { NarratorId } from "@/lib/narrators";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { generateTrialPdf, downloadTrialPdf, prepareTrialPdfDownloadTarget } from "@/lib/trialStoryApi";
+import type { SelStoryResponse } from "@/lib/selStoryApi";
+
 
 
 interface DBStory {
