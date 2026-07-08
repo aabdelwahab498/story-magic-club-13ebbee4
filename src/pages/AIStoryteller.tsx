@@ -11,7 +11,7 @@ import ReadingMode from "@/components/ReadingMode";
 import { saveAiStory, generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild } from "@/lib/childProfilesApi";
-import { composeSelStory, planSelStory, readComposeErrorDetails, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
+import { composeSelStory, planSelStory, readComposeErrorDetails, ComposeStoryError, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
 import IllustrateButton from "@/components/IllustrateButton";
