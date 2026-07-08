@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Volume2, Loader2, ChevronLeft, ChevronRight, X, Images, Pause, ArrowRight, Headphones, Sparkles, Wand2 } from "lucide-react";
+import { BookOpen, Volume2, Loader2, ChevronLeft, ChevronRight, X, Images, Pause, ArrowRight, Headphones, Sparkles, Wand2, Check, Crown, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalized, type Multilingual } from "@/lib/multilingual";
 import { toast } from "sonner";
@@ -11,6 +11,9 @@ import type { NarratorId } from "@/lib/narrators";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { generateTrialPdf, downloadTrialPdf, prepareTrialPdfDownloadTarget } from "@/lib/trialStoryApi";
+import type { SelStoryResponse } from "@/lib/selStoryApi";
+
 
 
 interface DBStory {
@@ -44,6 +47,33 @@ const StoryLibrary = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lastGenerated, setLastGenerated] = useState<SelStoryResponse | null>(null);
+  const [lastPdfLoading, setLastPdfLoading] = useState(false);
+
+  // Pick up the most recently generated story (persisted from /ai-storyteller) so
+  // users can re-download its .txt / PDF without leaving /stories.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("last-generated-sel-story");
+      if (!raw) {
+        console.log("[StoryLibrary] no last-generated-sel-story in localStorage");
+        return;
+      }
+      const parsed = JSON.parse(raw) as { story: SelStoryResponse; ts: number };
+      if (parsed?.story?.pages?.length) {
+        setLastGenerated(parsed.story);
+        console.log("[StoryLibrary] loaded last generated story → showing download card", {
+          title: parsed.story.title,
+          pages: parsed.story.pages.length,
+          ts: parsed.ts,
+        });
+      }
+    } catch (err) {
+      console.warn("[StoryLibrary] failed to parse last-generated-sel-story", err);
+    }
+  }, []);
+
+
 
   // Per-story narrator selection so each card remembers the child's choice
   const [narratorByStory, setNarratorByStory] = useState<Record<string, NarratorId>>({});
@@ -356,6 +386,103 @@ const StoryLibrary = () => {
           </button>
         </div>
       </div>
+
+      {lastGenerated && (
+        <div className="mb-8 mx-auto max-w-3xl rounded-2xl border-2 border-emerald-400/60 bg-gradient-to-br from-emerald-50 via-white to-sky-50 dark:from-emerald-950/40 dark:via-slate-900/60 dark:to-indigo-950/40 shadow-xl p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <p className="text-sm sm:text-base font-extrabold text-emerald-700 dark:text-emerald-300">
+              {t("stories.last_story_ready", "Your latest story is ready — download it now")}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3 truncate">{lastGenerated.title}</p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => {
+                const header = `${lastGenerated.title}\n\n`;
+                const body = lastGenerated.pages
+                  .map((p) => `— Page ${p.index} —\n${p.text}`)
+                  .join("\n\n");
+                const footer = lastGenerated.sel_outcome?.statement
+                  ? `\n\n---\n${lastGenerated.sel_outcome.statement}\n`
+                  : "";
+                const text = header + body + footer;
+                const safe = (lastGenerated.title || "story")
+                  .replace(/[^\p{L}\p{N}\-_ ]+/gu, "")
+                  .replace(/\s+/g, "-")
+                  .slice(0, 60) || "story";
+                const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${safe}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                console.log("[StoryLibrary] TXT downloaded", safe);
+                toast.success(t("page_ai_storyteller.txt_downloaded", "Story .txt downloaded"));
+              }}
+              className="px-6 py-3 text-base bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-full font-extrabold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+            >
+              <Download className="h-5 w-5" />
+              {t("page_ai_storyteller.download_story_txt", "Download story (.txt)")}
+            </button>
+
+            {(sub.canExportPdf || isAdmin) ? (
+              <button
+                onClick={async () => {
+                  const downloadTarget = prepareTrialPdfDownloadTarget();
+                  setLastPdfLoading(true);
+                  try {
+                    const pdf = await generateTrialPdf({
+                      title: lastGenerated.title,
+                      pages: lastGenerated.pages.map((p) => ({
+                        index: p.index,
+                        text: p.text,
+                        emotionTag: p.emotionTag,
+                        imageUrl: p.imageUrl ?? null,
+                      })),
+                      selStatement: lastGenerated.sel_outcome?.statement,
+                    });
+                    const safe = (lastGenerated.title || "story")
+                      .replace(/[^\p{L}\p{N}\-_ ]+/gu, "")
+                      .replace(/\s+/g, "-")
+                      .slice(0, 60) || "story";
+                    downloadTrialPdf(pdf.pdfBase64, `${safe}.pdf`, downloadTarget);
+                    console.log("[StoryLibrary] PDF downloaded", safe);
+                    toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
+                  } catch (e) {
+                    try { downloadTarget?.close(); } catch { /* ignore */ }
+                    console.error("[StoryLibrary] PDF failed", e);
+                    toast.error(t("page_ai_storyteller.could_not_build_the_pdf_please_try_again", "Could not build the PDF — please try again in a moment."));
+                  } finally {
+                    setLastPdfLoading(false);
+                  }
+                }}
+                disabled={lastPdfLoading}
+                className="px-6 py-3 text-base bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full font-extrabold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {lastPdfLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <BookOpen className="h-5 w-5" />}
+                {lastPdfLoading
+                  ? t("page_ai_storyteller.building_pdf", "Building PDF...")
+                  : t("page_ai_storyteller.download_story_pdf", "Download story PDF")}
+                {isAdmin && !sub.canExportPdf ? " (owner)" : ""}
+              </button>
+            ) : (
+              <Link
+                to="/pricing"
+                className="px-6 py-3 text-base bg-gradient-to-r from-amber-400 to-pink-500 text-white rounded-full font-extrabold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+              >
+                <Crown className="h-5 w-5" />
+                {t("page_ai_storyteller.subscribe_to_export_pdf", "Subscribe to export PDF")}
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+
 
       {selected && (
         <div className="bg-card rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8">

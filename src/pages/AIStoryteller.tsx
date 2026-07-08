@@ -110,6 +110,17 @@ const AIStoryteller = () => {
   const [story, setStory] = useState("");
   const [selMode, setSelMode] = useState(true);
   const [selStory, setSelStory] = useState<SelStoryResponse | null>(null);
+  // Debug: log every time selStory changes so we can verify the download banner should render
+  useEffect(() => {
+    if (selStory) {
+      console.log("[SEL] selStory state updated → download buttons should be VISIBLE", {
+        title: selStory.title,
+        pages: selStory.pages?.length,
+      });
+    } else {
+      console.log("[SEL] selStory state cleared → download buttons hidden");
+    }
+  }, [selStory]);
   const [illustrations, setIllustrations] = useState<ClassicIllustration[]>([]);
   const [illustrating, setIllustrating] = useState(false);
   const [illustrationsGated, setIllustrationsGated] = useState(false);
@@ -403,11 +414,28 @@ const AIStoryteller = () => {
     setSelStory(null);
     startProgressTimeline();
     try {
+      console.log("[SEL] composeSelStory → start", input);
       const res = await composeSelStory({ ...input, presetBlueprint });
       stopProgressTimeline("done");
       if (!res.passed) toast.warning(`SEL quality ${res.quality.total}/25 — review recommended`);
+      console.log("[SEL] composeSelStory → success", {
+        title: res.title,
+        pages: res.pages?.length,
+        quality: res.quality?.total,
+        passed: res.passed,
+      });
       setSelStory(res);
+      try {
+        localStorage.setItem(
+          "last-generated-sel-story",
+          JSON.stringify({ story: res, ts: Date.now() }),
+        );
+        console.log("[SEL] persisted to localStorage: last-generated-sel-story");
+      } catch (err) {
+        console.warn("[SEL] failed to persist last story", err);
+      }
     } catch (e) {
+      console.error("[SEL] composeSelStory → error", e);
       await handleSelError(e);
     } finally {
       setGenerating(false);
@@ -995,6 +1023,15 @@ const AIStoryteller = () => {
 
       {selStory ? (
         <div>
+          {(() => {
+            console.log("[SEL] rendering download banner", {
+              hasSelStory: !!selStory,
+              generating,
+              canExportPdf: sub.canExportPdf,
+              isAdmin,
+            });
+            return null;
+          })()}
           {customPrompt.trim() && (
             <div className="mb-3 mx-auto max-w-3xl flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
               <span className="text-[11px] uppercase tracking-wide font-bold text-primary shrink-0">
