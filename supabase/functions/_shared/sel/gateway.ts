@@ -193,14 +193,11 @@ export async function aiJson<T = unknown>(opts: AIChatOpts): Promise<T> {
   for (const p of provs) {
     for (const m of p.models) {
       console.log(`[sel/gateway] json ${p.name}:${m}`);
-      let r: Response;
-      try {
-        r = await callOnce(p, m, body);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error(`[sel/gateway] json ${p.name}:${m} threw (timeout/network): ${msg}`);
+      const { response: r, threw } = await callWithRetries(p, m, body);
+      if (!r) {
+        console.error(`[sel/gateway] json ${p.name}:${m} network/timeout after retries: ${threw}`);
         lastStatus = 504;
-        lastTxt = msg;
+        lastTxt = threw ?? "network_error";
         continue;
       }
       if (!r.ok) {
