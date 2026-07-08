@@ -1023,6 +1023,15 @@ const AIStoryteller = () => {
 
       {selStory ? (
         <div>
+          {(() => {
+            console.log("[SEL] rendering download banner", {
+              hasSelStory: !!selStory,
+              generating,
+              canExportPdf: sub.canExportPdf,
+              isAdmin,
+            });
+            return null;
+          })()}
           {customPrompt.trim() && (
             <div className="mb-3 mx-auto max-w-3xl flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
               <span className="text-[11px] uppercase tracking-wide font-bold text-primary shrink-0">
