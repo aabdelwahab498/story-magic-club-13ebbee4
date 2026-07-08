@@ -1,61 +1,95 @@
-# خطة تنفيذ الطلبات
 
-## Phase 1 — UI (يبدأ فوراً)
+## ملخص الوضع
 
-**1.1 Profile Icon في الـ Navbar**
-- إضافة Avatar dropdown في `src/components/Navigation.tsx` يمين اللوجو
-- يعرض صورة المستخدم من `profiles.avatar_url` أو fallback بأول حرف من الاسم
-- Dropdown menu: Profile, My Stories, Subscription, Sign Out
-- يظهر Sign In button لو مفيش user
+**يعمل الآن:**
+- توليد النص (Gemini عبر `compose-story` / `generate-story`)
+- تحميل TXT (من الواجهة مباشرة)
+- تحميل PDF (عبر `export-story-pdf` و `trial-pdf`)
+- تشغيل الصوت داخل المتصفح فقط (Web Speech API)
 
-**1.2 تحويل الواجهة للإنجليزية كافتراضي**
-- تغيير `src/i18n/config.ts`: `fallbackLng: "en"` (موجود بالفعل) + التأكد إن `en` هي الاختيار الأول
-- الإبقاء على العربي كخيار في اللغة (زي ما اتفقنا)
-- مسح أي `localStorage` قديم لو محفوظ فيه `ar` تلقائياً — لا؛ الأفضل نسيبها للمستخدم
+**المفقود:** تحميل ملف صوتي (MP3) للقصة.
 
-## Phase 2 — تفكيك دوال الـ AI (أهم جزء لتوفير الـ API)
+## الحل: Microsoft Edge TTS (مجاني، بدون مفتاح)
 
-**2.1 Generate Story = Text + Audio فقط**
-- تعديل `compose-story` و `trial-story`: يرجع النص + يستدعي TTS للنطق فقط
-- **ما يستدعيش** `illustrate-story` نهائياً
-- الصور تفضل `null` في response
+مكتبة `rany2/edge-tts` تستخدم خدمة Microsoft Edge Read Aloud مجاناً بدون API key. لا يمكن تشغيلها في المتصفح مباشرة (تعتمد على WebSocket خاص + توقيع)، لذلك سنستدعيها من **Edge Function** ونعيد ملف MP3 للمستخدم.
 
-**2.2 Illustrate عند الطلب فقط**
-- الـ frontend عنده بالفعل زر Illustrate (موجود في `IllustrateButton.tsx`)
-- إضافة check صارم في `illustrate-story/index.ts`:
-  ```
-  if (story.pages.every(p => p.image_url)) 
-    return { blocked: true, reason: "already_illustrated" }
-  ```
-- إضافة flag `illustrated_at` في story record
+### 1) إنشاء Edge Function جديدة: `narrate-story-edge`
 
-**2.3 Save & Download PDF**
-- `export-story-pdf` موجود ويشتغل — سنتأكد إنه يحفظ ويعطي download URL
-- إضافة زر PDF واضح بعد الترسيم
+- تستقبل: `{ storyId?, text, language, voice? }`
+- تتحقق من:
+  - تسجيل دخول المستخدم (JWT)
+  - طول النص (حد 20KB)
+  - صحة اللغة (ar/en)
+- تختار صوت افتراضي حسب اللغة:
+  - عربي: `ar-EG-SalmaNeural` (أو `ar-SA-HamedNeural`)
+  - إنجليزي: `en-US-AriaNeural`
+- تفتح WebSocket مع `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1`
+- تُرسل SSML وتستقبل chunks بصيغة `audio-24khz-48kbitrate-mono-mp3`
+- تُجمّع chunks وتحفظ الملف في bucket `story-audio` باسم `{userId}/{storyId|hash}.mp3`
+- تُعيد: `{ success: true, url, duration }`
 
-## Phase 3 — Audio Player Pause/Resume Fix
+سيتم تطبيق منطق edge-tts داخل الـ function مباشرة بدون مكتبة خارجية (بروتوكول WebSocket بسيط ومعروف) لضمان التوافق مع Deno runtime وتجنب مشاكل npm packages.
 
-- المشكلة في `SelStoryViewer.tsx` أو narrator hook: عند pause بيعمل `audio.src = ""` بدل `audio.pause()`
-- الحل: استخدام `audio.pause()` فقط + الاحتفاظ بـ `audio.currentTime` عند resume
-- إضافة state `isPaused` منفصل عن `isPlaying`
+### 2) chunking للنصوص الطويلة
 
-## Phase 4 — Auth Email Confirmation
+القصص قد تكون طويلة. سنقسم النص إلى فقرات ≤3000 حرف، ونولّد كل جزء عبر WebSocket منفصل، ثم نجمع bytes الـ MP3 بالتسلسل (MP3 يدعم concatenation المباشر).
 
-- فحص `supabase/functions/auth-email-hook/index.ts` (لو موجود)
-- التأكد من `emailRedirectTo: window.location.origin/` في signup
-- ملاحظة للعميل: تفعيل الإيميلات يحتاج domain مضبوط من Cloud → Emails
+### 3) معالجة الأخطاء (كما اتفقنا سابقاً)
 
-## قرارات AI Services (تم التأكيد)
+كل الأخطاء تُعاد بـ HTTP 200 + `{ success: false, code, message }`:
+- `unauthorized` — لا يوجد session
+- `text_too_long`
+- `tts_upstream_failed` — مع retry تلقائي 3 مرات مع exponential backoff (1s/2s/4s)
+- `storage_upload_failed`
 
-- **Text/Chat/Translation**: Google Gemini مباشر عبر Google AI Studio API
-  - Model: `gemini-2.5-flash` (fallback: `gemini-1.5-flash`)
-  - يتطلب سر جديد: `GEMINI_API_KEY`
-  - سنعدل `supabase/functions/_shared/sel/gateway.ts` ليكون Gemini-first
-- **TTS**: OpenAI `gpt-4o-mini-tts` عبر Lovable Gateway (LOVABLE_API_KEY الحالي)
-- **حذف/تعطيل**: OpenRouter, Claude, DeepSeek references من الكود
+### 4) تحديث الواجهة
 
-## ترتيب التنفيذ
+**`src/lib/storyTtsApi.ts`:**
+- دالة `generateStoryMp3({ storyId, text, language, voice })` تستدعي `narrate-story-edge` وترجع URL
+- دالة `downloadStoryMp3(url, filename)` تُنزل الملف
 
-سأنفذ بالترتيب: Phase 1 → 2 → 3 → 4. كل Phase أختبرها وأأكدلك قبل ما أعدي للي بعدها.
+**`src/pages/AIStoryteller.tsx` و `src/components/SelStoryViewer.tsx`:**
+- إضافة زر **"تحميل صوت MP3"** بجانب أزرار TXT/PDF الحالية
+- عند الضغط: يظهر spinner + رسالة "جاري توليد الصوت..." (قد تستغرق 10–30 ثانية)
+- بعد النجاح: تحميل تلقائي + toast نجاح
+- عند الفشل: toast ودود بالرسالة العربية/الإنجليزية
 
-**سنبدأ الآن بـ Phase 1.1: Profile Icon.**
+**`src/components/BrowserNarratorSettings.tsx`:** يبقى كما هو للتشغيل داخل المتصفح.
+
+### 5) اختيار الصوت للمستخدم (اختياري)
+
+في `BrowserNarratorSettings` نضيف قسم "صوت التحميل" مع dropdown للأصوات المتوفرة على Edge TTS:
+- عربي: Salma, Hamed, Zariyah, Shakir
+- إنجليزي: Aria, Guy, Jenny, Christopher
+
+يُحفظ التفضيل في `localStorage` ويُرسل عند التحميل.
+
+### 6) Caching
+
+قبل التوليد، نفحص إذا كان الملف موجوداً في `story-audio/{userId}/{storyId}-{voice}.mp3`. لو موجود → نعيد الـ URL مباشرة بدون إعادة توليد. يوفّر وقت وعرض نطاق.
+
+## تقنية (للمرجع)
+
+بروتوكول Edge TTS المستخدم داخل Function:
+```
+1. GET wss://speech.platform.bing.com/... مع Trusted-Client-Token=6A5AA1D4EAFF4E9FB37E23D68491D6F4
+2. إرسال speech.config JSON
+3. إرسال SSML mkssml
+4. استقبال binary frames: header + MP3 chunks
+5. إغلاق عند "turn.end"
+```
+
+## ما لن يتغير
+
+- `narrate-story-full` القديم (Google TTS) سيبقى محذوف الاستدعاء منه — لا نُعيد مفاتيح Google.
+- Web Speech API يبقى للتشغيل الفوري داخل المتصفح.
+- منطق النص و PDF لا يتغير.
+
+## الملفات المتأثرة
+
+- **جديد:** `supabase/functions/narrate-story-edge/index.ts`
+- **جديد:** `supabase/functions/_shared/edgeTts.ts` (بروتوكول WebSocket)
+- **معدّل:** `src/lib/storyTtsApi.ts`
+- **معدّل:** `src/pages/AIStoryteller.tsx`
+- **معدّل:** `src/components/SelStoryViewer.tsx`
+- **معدّل:** `src/components/BrowserNarratorSettings.tsx` (اختياري: dropdown أصوات التحميل)

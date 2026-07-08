@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Lock, Volume2, Pause, Square } from "lucide-react";
 import type { SelStoryResponse, SelStoryPage } from "@/lib/selStoryApi";
 import { illustrateSelStory, exportStoryPdf, SubscriptionRequiredError } from "@/lib/selStoryApi";
+import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
+
 import { recordIllustrationMetric } from "@/lib/illustrationMetrics";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -30,6 +32,8 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const [idx, setIdx] = useState(0);
   const [illustrating, setIllustrating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [mp3Loading, setMp3Loading] = useState(false);
+
   const [pageStatus, setPageStatus] = useState<Record<number, "idle" | "pending" | "ready" | "failed">>({});
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
   // Per-page queued/started timestamps surfaced in the progress strip tooltip
@@ -343,6 +347,34 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     audioPositionRef.current = 0;
     setAudioState("idle");
   };
+
+  const handleDownloadMp3 = async () => {
+    if (!user) {
+      toast.error(t("paywall.sign_in_required", "Sign in to unlock this feature"), {
+        action: { label: t("paywall.sign_in_cta", "Sign in"), onClick: goAuth },
+      });
+      return;
+    }
+    setMp3Loading(true);
+    try {
+      const fullText = pages.map((p) => p.text).join("\n\n");
+      const isArabic = /[\u0600-\u06FF]/.test(fullText);
+      const res = await generateStoryMp3({
+        text: fullText,
+        language: isArabic ? "ar" : "en",
+        storyId: story.story_id ?? undefined,
+      });
+      const safe = (story.title || "story").replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story";
+      await downloadStoryMp3(res.url, `${safe}.mp3`);
+      toast.success(t("sel.mp3_ready", "Audio MP3 downloaded 🎧"));
+    } catch (e) {
+      const msg = e instanceof StoryMp3Error ? e.message : t("sel.mp3_failed", "Could not build the audio.");
+      toast.error(msg);
+    } finally {
+      setMp3Loading(false);
+    }
+  };
+
 
   const handleNarrate = async () => {
     if (audioState === "playing") {
@@ -713,6 +745,18 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         ) : (
           <PremiumBadge featureKey="illustrations" size="lg" />
         )}
+
+        <button
+          onClick={handleDownloadMp3}
+          disabled={mp3Loading}
+          className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
+          title={t("sel.mp3_hint", "Free voice download — 10 to 30 seconds")}
+        >
+          {mp3Loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+          {mp3Loading
+            ? t("sel.mp3_building", "Generating audio…")
+            : t("sel.download_mp3", "Download MP3")}
+        </button>
 
 
         <button

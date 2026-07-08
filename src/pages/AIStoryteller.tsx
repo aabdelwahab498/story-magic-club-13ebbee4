@@ -33,6 +33,8 @@ import {
   clearTrialResume,
   type TrialStoryResponse,
 } from "@/lib/trialStoryApi";
+import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
+
 
 
 const CHARACTER_KEYS = ["wizard", "fairy", "robot", "dragon", "alien"] as const;
@@ -143,6 +145,29 @@ const AIStoryteller = () => {
   const [guestIllustrating, setGuestIllustrating] = useState(false);
   const [guestPdfLoading, setGuestPdfLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [mp3Loading, setMp3Loading] = useState(false);
+
+  const handleDownloadMp3 = async () => {
+    if (!story) return;
+    setMp3Loading(true);
+    try {
+      const isArabic = /[\u0600-\u06FF]/.test(story);
+      const res = await generateStoryMp3({
+        text: story,
+        language: isArabic ? "ar" : "en",
+      });
+      const rawTitle = `${t(`ai.themes.${themeId}`)}-${t(`ai.characters.${characterId}`)}`;
+      const safe = rawTitle.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story";
+      await downloadStoryMp3(res.url, `${safe}.mp3`);
+      toast.success(t("page_ai_storyteller.mp3_ready", "Audio MP3 downloaded 🎧"));
+    } catch (e) {
+      const msg = e instanceof StoryMp3Error ? e.message : "Could not build the audio.";
+      toast.error(msg);
+    } finally {
+      setMp3Loading(false);
+    }
+  };
+
 
   // Drive the visual progress bar with timed step transitions while the
   // edge function runs server-side (it is not streamable). Cleared on result.
@@ -1733,6 +1758,22 @@ const AIStoryteller = () => {
             {!guestMode && story && !sub.canExportPdf && !isAdmin && (
               <PremiumBadge featureKey="pdf" size="lg" />
             )}
+
+            {!guestMode && story && (
+              <button
+                onClick={handleDownloadMp3}
+                disabled={mp3Loading}
+                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                title={t("page_ai_storyteller.mp3_hint", "Free voice download — 10 to 30 seconds")}
+              >
+                {mp3Loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+                {mp3Loading
+                  ? t("page_ai_storyteller.building_mp3", "Generating audio…")
+                  : t("page_ai_storyteller.download_story_mp3", "Download story MP3")}
+              </button>
+            )}
+
+
 
 
             <button
