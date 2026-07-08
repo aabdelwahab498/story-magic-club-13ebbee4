@@ -128,7 +128,7 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
-    const path = `products/${sku}-${language}-illustrated-v4.pdf`;
+    const path = `products/${sku}-${language}-illustrated-v5.pdf`;
 
     // Purge any older/legacy PDF variants for this product+language so we
     // never serve a cached text-only version.
@@ -138,6 +138,7 @@ serve(async (req) => {
       `products/${sku}-${language}-illustrated-v1.pdf`,
       `products/${sku}-${language}-illustrated-v2.pdf`,
       `products/${sku}-${language}-illustrated-v3.pdf`,
+      `products/${sku}-${language}-illustrated-v4.pdf`,
     ];
     try { await admin.storage.from("story-pdfs").remove(legacyPaths); } catch { /* ignore */ }
 
