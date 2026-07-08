@@ -72,6 +72,8 @@ function providers(modelOverride?: string): Provider[] {
 }
 
 const PER_CALL_TIMEOUT_MS = 25_000;
+const RETRY_DELAYS_MS = [1000, 2000, 4000];
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 async function callOnce(provider: Provider, model: string, body: Record<string, unknown>): Promise<Response> {
   const ctrl = new AbortController();
@@ -90,6 +92,38 @@ async function callOnce(provider: Provider, model: string, body: Record<string, 
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Call a provider/model with exponential-backoff retries on transient failures. */
+async function callWithRetries(
+  provider: Provider,
+  model: string,
+  body: Record<string, unknown>,
+): Promise<{ response?: Response; threw?: string }> {
+  let lastResp: Response | undefined;
+  let lastThrew: string | undefined;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const r = await callOnce(provider, model, body);
+      if (r.ok) return { response: r };
+      lastResp = r;
+      // Non-retryable status → return immediately
+      if (!RETRYABLE_STATUSES.has(r.status)) return { response: r };
+      const delay = RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) return { response: r };
+      console.warn(`[sel/gateway] ${provider.name}:${model} -> ${r.status}; retry in ${delay}ms (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`);
+      // Consume body to free the connection before waiting
+      try { await r.text(); } catch { /* ignore */ }
+      await new Promise((res) => setTimeout(res, delay));
+    } catch (e) {
+      lastThrew = e instanceof Error ? e.message : String(e);
+      const delay = RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) return { threw: lastThrew };
+      console.warn(`[sel/gateway] ${provider.name}:${model} threw (${lastThrew}); retry in ${delay}ms`);
+      await new Promise((res) => setTimeout(res, delay));
+    }
+  }
+  return lastResp ? { response: lastResp } : { threw: lastThrew };
 }
 
 export async function aiChat(opts: AIChatOpts): Promise<string> {
