@@ -33,7 +33,7 @@ const StoryLibrary = () => {
   const lang = i18n.language;
   const navigate = useNavigate();
   const isAr = lang === "ar";
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const sub = useSubscription();
   const [ideaPrompt, setIdeaPrompt] = useState("");
   const [ideaNarrator, setIdeaNarrator] = useState<NarratorId>(DEFAULT_NARRATOR);
