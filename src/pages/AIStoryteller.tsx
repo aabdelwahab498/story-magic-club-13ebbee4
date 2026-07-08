@@ -828,60 +828,22 @@ const AIStoryteller = () => {
 
     setNarrationState("loading");
 
-    // Try HD voice (ElevenLabs) first if enabled
-    if (useHdVoice) {
-      try {
-        const { data, error } = await supabase.functions.invoke("narrate-story", {
-          body: { text: story, language: lang, character: characterId },
-        });
-        if (error) throw error;
-        if (data?.audioContent && !data?.fallback) {
-          const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
-          audio.onended = () => {
-            logAudio({ source: "Narrator/HD", kind: "ended", after: audio.currentTime, duration: audio.duration });
-            hdAudioRef.current = null;
-            hdAudioPositionRef.current = 0;
-            setNarrationState("idle");
-            setActiveVoiceSource(null);
-          };
-          audio.onerror = () => {
-            logAudio({ source: "Narrator/HD", kind: "error", message: "audio element error event" });
-            hdAudioRef.current = null;
-            hdAudioPositionRef.current = 0;
-            setNarrationState("idle");
-            setActiveVoiceSource(null);
-          };
-          hdAudioPositionRef.current = 0;
-          hdAudioRef.current = audio;
-          await audio.play();
-          setNarrationState("playing");
-          setActiveVoiceSource("hd");
-          return;
-        }
-        if (data?.fallback) {
-          const reason = data?.error;
-          if (reason === "subscription_required") {
-            toast.info(t("ai.hd_voice_locked", "HD voice needs a subscription — using basic voice."));
-          } else if (reason === "unauthorized") {
-            toast.info(t("ai.hd_voice_signin", "Sign in to use HD voice — using basic voice."));
-          }
-        }
-      } catch (err) {
-        // Any HD narration failure (network, 5xx, payment, etc.) → silently fall back
-        // to browser TTS so the listener experience never breaks.
-        console.error("HD voice failed, falling back to browser TTS:", err);
-        toast.info(
-          t("page_ai_storyteller.premium_voice_unavailable_switched_to_ba", "Premium voice unavailable — switched to basic voice"),
-        );
-      }
-    }
-
-    // Fallback / default: Browser TTS — last-resort guarantees audio plays.
+    // Browser Web Speech API only — no cloud TTS, no API keys, no payments.
     try {
       await startBrowserTts();
     } catch (err) {
       console.error("browser tts failed to start:", err);
-      toast.error(t("page_ai_storyteller.audio_playback_failed", "Audio playback failed"));
+      const { isBrowserTtsSupported } = await import("@/lib/browserTts");
+      if (!isBrowserTtsSupported()) {
+        toast.error(
+          t(
+            "narrator.unsupported",
+            "Your browser doesn't support built-in narration. Please try the latest Chrome, Edge, Safari, or Firefox.",
+          ),
+        );
+      } else {
+        toast.error(t("page_ai_storyteller.audio_playback_failed", "Audio playback failed"));
+      }
       setNarrationState("idle");
     }
   };
