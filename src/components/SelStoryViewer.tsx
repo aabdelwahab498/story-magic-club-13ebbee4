@@ -746,6 +746,18 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           <PremiumBadge featureKey="illustrations" size="lg" />
         )}
 
+        <button
+          onClick={handleDownloadMp3}
+          disabled={mp3Loading}
+          className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
+          title={t("sel.mp3_hint", "Free voice download — 10 to 30 seconds")}
+        >
+          {mp3Loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+          {mp3Loading
+            ? t("sel.mp3_building", "Generating audio…")
+            : t("sel.download_mp3", "Download MP3")}
+        </button>
+
 
         <button
           onClick={onBack}
