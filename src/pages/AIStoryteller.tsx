@@ -14,6 +14,7 @@ import { useActiveChild } from "@/lib/childProfilesApi";
 import { composeSelStory, planSelStory, readComposeErrorDetails, ComposeStoryError, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
+import { BrowserNarratorSettings } from "@/components/BrowserNarratorSettings";
 import IllustrateButton from "@/components/IllustrateButton";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useByokStatus } from "@/hooks/useByokStatus";
@@ -828,60 +829,22 @@ const AIStoryteller = () => {
 
     setNarrationState("loading");
 
-    // Try HD voice (ElevenLabs) first if enabled
-    if (useHdVoice) {
-      try {
-        const { data, error } = await supabase.functions.invoke("narrate-story", {
-          body: { text: story, language: lang, character: characterId },
-        });
-        if (error) throw error;
-        if (data?.audioContent && !data?.fallback) {
-          const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
-          audio.onended = () => {
-            logAudio({ source: "Narrator/HD", kind: "ended", after: audio.currentTime, duration: audio.duration });
-            hdAudioRef.current = null;
-            hdAudioPositionRef.current = 0;
-            setNarrationState("idle");
-            setActiveVoiceSource(null);
-          };
-          audio.onerror = () => {
-            logAudio({ source: "Narrator/HD", kind: "error", message: "audio element error event" });
-            hdAudioRef.current = null;
-            hdAudioPositionRef.current = 0;
-            setNarrationState("idle");
-            setActiveVoiceSource(null);
-          };
-          hdAudioPositionRef.current = 0;
-          hdAudioRef.current = audio;
-          await audio.play();
-          setNarrationState("playing");
-          setActiveVoiceSource("hd");
-          return;
-        }
-        if (data?.fallback) {
-          const reason = data?.error;
-          if (reason === "subscription_required") {
-            toast.info(t("ai.hd_voice_locked", "HD voice needs a subscription — using basic voice."));
-          } else if (reason === "unauthorized") {
-            toast.info(t("ai.hd_voice_signin", "Sign in to use HD voice — using basic voice."));
-          }
-        }
-      } catch (err) {
-        // Any HD narration failure (network, 5xx, payment, etc.) → silently fall back
-        // to browser TTS so the listener experience never breaks.
-        console.error("HD voice failed, falling back to browser TTS:", err);
-        toast.info(
-          t("page_ai_storyteller.premium_voice_unavailable_switched_to_ba", "Premium voice unavailable — switched to basic voice"),
-        );
-      }
-    }
-
-    // Fallback / default: Browser TTS — last-resort guarantees audio plays.
+    // Browser Web Speech API only — no cloud TTS, no API keys, no payments.
     try {
       await startBrowserTts();
     } catch (err) {
       console.error("browser tts failed to start:", err);
-      toast.error(t("page_ai_storyteller.audio_playback_failed", "Audio playback failed"));
+      const { isBrowserTtsSupported } = await import("@/lib/browserTts");
+      if (!isBrowserTtsSupported()) {
+        toast.error(
+          t(
+            "narrator.unsupported",
+            "Your browser doesn't support built-in narration. Please try the latest Chrome, Edge, Safari, or Firefox.",
+          ),
+        );
+      } else {
+        toast.error(t("page_ai_storyteller.audio_playback_failed", "Audio playback failed"));
+      }
       setNarrationState("idle");
     }
   };
@@ -1519,25 +1482,18 @@ const AIStoryteller = () => {
                   )}
                 </span>
               )}
-              {!guestMode && sub.canAudio && (
-                <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-foreground/80 dark:text-white/80 cursor-pointer select-none px-2 py-1 rounded-full bg-white/30 dark:bg-white/10 border border-white/40 dark:border-white/20"
-                  title={t("ai.hd_voice_hint", "Use ElevenLabs HD voice (subscription required)")}>
-                  <input
-                    type="checkbox"
-                    checked={useHdVoice}
-                    onChange={(e) => {
-                      if (narrationState !== "idle") stopAllNarration();
-                      setUseHdVoice(e.target.checked);
-                    }}
-                    className="accent-primary"
-                  />
-                  <span className="inline-flex items-center gap-1">
-                    <Crown className="h-3.5 w-3.5" />
-                    {t("ai.hd_voice", "HD Voice")}
-                  </span>
-                </label>
+              {!guestMode && (
+                <BrowserNarratorSettings
+                  language={lang}
+                  onChange={() => {
+                    // Restart if currently playing so new speed/voice takes effect.
+                    if (narrationState === "playing" || narrationState === "paused") {
+                      stopAllNarration();
+                    }
+                  }}
+                />
               )}
-              {!guestMode && sub.canAudio && (
+              {!guestMode && (
                 <button
                   onClick={handlePlayPause}
                   disabled={narrationState === "loading"}
@@ -1562,7 +1518,7 @@ const AIStoryteller = () => {
                   )}
                 </button>
               )}
-              {!guestMode && sub.canAudio && (narrationState === "playing" || narrationState === "paused") && (
+              {!guestMode && (narrationState === "playing" || narrationState === "paused") && (
                 <button
                   onClick={stopAllNarration}
                   className="p-2 rounded-full bg-destructive/80 hover:bg-destructive backdrop-blur-sm border border-white/40 dark:border-white/30 text-destructive-foreground transition-colors"
@@ -1571,9 +1527,6 @@ const AIStoryteller = () => {
                 >
                   <Square className="h-5 w-5" fill="currentColor" />
                 </button>
-              )}
-              {(guestMode || (!guestMode && !sub.canAudio)) && (
-                <PremiumBadge featureKey="audio" size="sm" />
               )}
             </div>
 

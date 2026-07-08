@@ -346,76 +346,55 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
   const handleNarrate = async () => {
     if (audioState === "playing") {
-      if (audioRef.current && !("cancel" in audioRef.current)) {
-        pauseAudio(audioRef.current as HTMLAudioElement, audioPositionRef, "SelViewer");
-      } else {
-        logAudio({ source: "SelViewer/TTS", kind: "pause" });
-        audioRef.current?.pause();
-      }
+      logAudio({ source: "SelViewer/TTS", kind: "pause" });
+      audioRef.current?.pause();
       setAudioState("paused");
       return;
     }
-    if (audioState === "idle" && !requireSubscription("audio")) return;
     if (audioState === "paused") {
       if (audioRef.current && "resume" in audioRef.current) {
         logAudio({ source: "SelViewer/TTS", kind: "resume-playing" });
         audioRef.current.resume();
-      } else if (audioRef.current && "play" in audioRef.current) {
-        resumeAudio(audioRef.current as HTMLAudioElement, audioPositionRef, "SelViewer");
+        setAudioState("playing");
       }
-      setAudioState("playing");
       return;
     }
-    if (!requireSubscription("audio")) return;
     setAudioState("loading");
     try {
-      const fullText = pages.map((p) => p.text).join("\n\n");
-      const isArabic = /[\u0600-\u06FF]/.test(fullText);
-      const { data, error } = await supabase.functions.invoke("narrate-story", {
-        body: { text: fullText, language: isArabic ? "ar" : "en", character: "fairy" },
-      });
-      if (error) throw error;
-      if (data?.fallback || !data?.audioContent) {
-        const browserHandle = await speakWithBrowser({
-          text: fullText,
-          language: isArabic ? "ar" : "en",
-          character: "fairy",
-          ageId: story.age_band,
-          onEnd: () => {
-            audioRef.current = null;
-            setAudioState("idle");
-          },
-          onError: () => {
-            audioRef.current = null;
-            setAudioState("idle");
-            toast.error("Narration failed");
-          },
-        });
-        audioRef.current = browserHandle;
-        setAudioState("playing");
+      const { isBrowserTtsSupported } = await import("@/lib/browserTts");
+      if (!isBrowserTtsSupported()) {
+        toast.error(
+          t(
+            "narrator.unsupported",
+            "Your browser doesn't support built-in narration. Please try the latest Chrome, Edge, Safari, or Firefox.",
+          ),
+        );
+        setAudioState("idle");
         return;
       }
-
-      const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
-      audio.onended = () => {
-        audioRef.current = null;
-        audioPositionRef.current = 0;
-        setAudioState("idle");
-      };
-      audio.onerror = () => {
-        audioRef.current = null;
-        audioPositionRef.current = 0;
-        setAudioState("idle");
-        toast.error("Playback failed");
-      };
-      audioPositionRef.current = 0;
-      audioRef.current = audio;
-      await audio.play();
+      const fullText = pages.map((p) => p.text).join("\n\n");
+      const isArabic = /[\u0600-\u06FF]/.test(fullText);
+      const browserHandle = await speakWithBrowser({
+        text: fullText,
+        language: isArabic ? "ar" : "en",
+        character: "fairy",
+        ageId: story.age_band,
+        onEnd: () => {
+          audioRef.current = null;
+          setAudioState("idle");
+        },
+        onError: () => {
+          audioRef.current = null;
+          setAudioState("idle");
+          toast.error(t("narrator.playback_failed", "Narration failed"));
+        },
+      });
+      audioRef.current = browserHandle;
       setAudioState("playing");
     } catch (e) {
       console.error(e);
-      await handleEdgeError(e, t, { context: "narrate-story" });
       setAudioState("idle");
+      toast.error(t("narrator.playback_failed", "Narration failed"));
     }
   };
 

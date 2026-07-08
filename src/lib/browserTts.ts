@@ -34,7 +34,44 @@ const LANG_MAP: Record<string, string> = {
 };
 
 export function isBrowserTtsSupported(): boolean {
-  return typeof window !== "undefined" && "speechSynthesis" in window;
+  return typeof window !== "undefined"
+    && "speechSynthesis" in window
+    && typeof window.SpeechSynthesisUtterance !== "undefined";
+}
+
+// -----------------------------------------------------------------------------
+// User preferences (persisted in localStorage)
+// -----------------------------------------------------------------------------
+const RATE_KEY = "starry-tales-narrator-rate";
+const VOICE_KEY = "starry-tales-narrator-voice";
+
+export function getNarratorRate(): number {
+  if (typeof window === "undefined") return 1;
+  const raw = Number(window.localStorage.getItem(RATE_KEY));
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  return Math.max(0.5, Math.min(2, raw));
+}
+export function setNarratorRate(rate: number) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(RATE_KEY, String(Math.max(0.5, Math.min(2, rate))));
+}
+export function getNarratorVoiceURI(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(VOICE_KEY) || "";
+}
+export function setNarratorVoiceURI(uri: string) {
+  if (typeof window === "undefined") return;
+  if (uri) window.localStorage.setItem(VOICE_KEY, uri);
+  else window.localStorage.removeItem(VOICE_KEY);
+}
+
+/** List installed voices, optionally filtered by BCP-47 prefix (e.g. "ar", "en"). */
+export async function listBrowserVoices(langPrefix?: string): Promise<SpeechSynthesisVoice[]> {
+  if (!isBrowserTtsSupported()) return [];
+  const voices = await loadVoices();
+  if (!langPrefix) return voices;
+  const p = langPrefix.toLowerCase();
+  return voices.filter((v) => v.lang.toLowerCase().startsWith(p));
 }
 
 // Voices load asynchronously in some browsers. We cache them after the first
@@ -188,12 +225,21 @@ export async function speakWithBrowser({
 
   let cancelled = false;
 
+  // Apply user preferences (voice pick + rate multiplier).
+  const preferredUri = getNarratorVoiceURI();
+  const userVoice = preferredUri
+    ? voices.find((v) => v.voiceURI === preferredUri && v.lang.toLowerCase().startsWith(langPrefix.toLowerCase()))
+    : undefined;
+  const chosenVoice = userVoice ?? voice;
+  const rateMul = getNarratorRate();
+  const finalRateWithUser = Math.max(0.1, Math.min(10, finalRate * rateMul));
+
   for (let i = 0; i < chunks.length; i++) {
     const u = new SpeechSynthesisUtterance(chunks[i]);
-    if (voice) u.voice = voice;
-    u.lang = voice?.lang || langPrefix;
+    if (chosenVoice) u.voice = chosenVoice;
+    u.lang = chosenVoice?.lang || langPrefix;
     u.pitch = finalPitch;
-    u.rate = finalRate;
+    u.rate = finalRateWithUser;
     u.volume = 1;
     if (i === chunks.length - 1) {
       u.onend = () => {
