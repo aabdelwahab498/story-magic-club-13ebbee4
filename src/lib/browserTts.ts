@@ -225,12 +225,21 @@ export async function speakWithBrowser({
 
   let cancelled = false;
 
+  // Apply user preferences (voice pick + rate multiplier).
+  const preferredUri = getNarratorVoiceURI();
+  const userVoice = preferredUri
+    ? voices.find((v) => v.voiceURI === preferredUri && v.lang.toLowerCase().startsWith(langPrefix.toLowerCase()))
+    : undefined;
+  const chosenVoice = userVoice ?? voice;
+  const rateMul = getNarratorRate();
+  const finalRateWithUser = Math.max(0.1, Math.min(10, finalRate * rateMul));
+
   for (let i = 0; i < chunks.length; i++) {
     const u = new SpeechSynthesisUtterance(chunks[i]);
-    if (voice) u.voice = voice;
-    u.lang = voice?.lang || langPrefix;
+    if (chosenVoice) u.voice = chosenVoice;
+    u.lang = chosenVoice?.lang || langPrefix;
     u.pitch = finalPitch;
-    u.rate = finalRate;
+    u.rate = finalRateWithUser;
     u.volume = 1;
     if (i === chunks.length - 1) {
       u.onend = () => {
