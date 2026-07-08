@@ -263,7 +263,8 @@ serve(async (req) => {
     }
 
     if (!written || !safety || !length) {
-      return json({ error: "pipeline_failed", requestId }, 500, corsHeaders);
+      errLog("pipeline_failed — missing writer/safety/length output");
+      return fail("pipeline_failed", FRIENDLY_GENERIC, corsHeaders);
     }
 
     // Synthetic quality report — judge disabled in single-pass mode.
