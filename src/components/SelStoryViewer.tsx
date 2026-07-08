@@ -348,6 +348,34 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     setAudioState("idle");
   };
 
+  const handleDownloadMp3 = async () => {
+    if (!user) {
+      toast.error(t("paywall.sign_in_required", "Sign in to unlock this feature"), {
+        action: { label: t("paywall.sign_in_cta", "Sign in"), onClick: goAuth },
+      });
+      return;
+    }
+    setMp3Loading(true);
+    try {
+      const fullText = pages.map((p) => p.text).join("\n\n");
+      const isArabic = /[\u0600-\u06FF]/.test(fullText);
+      const res = await generateStoryMp3({
+        text: fullText,
+        language: isArabic ? "ar" : "en",
+        storyId: story.story_id ?? undefined,
+      });
+      const safe = (story.title || "story").replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story";
+      await downloadStoryMp3(res.url, `${safe}.mp3`);
+      toast.success(t("sel.mp3_ready", "Audio MP3 downloaded 🎧"));
+    } catch (e) {
+      const msg = e instanceof StoryMp3Error ? e.message : t("sel.mp3_failed", "Could not build the audio.");
+      toast.error(msg);
+    } finally {
+      setMp3Loading(false);
+    }
+  };
+
+
   const handleNarrate = async () => {
     if (audioState === "playing") {
       logAudio({ source: "SelViewer/TTS", kind: "pause" });
