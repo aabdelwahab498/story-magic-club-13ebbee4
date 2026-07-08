@@ -191,6 +191,40 @@ serve(async (req) => {
 
     const isRtl = language === "ar";
 
+    // Build PDF
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+    // Cover
+    const cover = pdf.addPage([595, 842]);
+    cover.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.06, 0.08, 0.18) });
+    if (product.image) {
+      try {
+        const r = await fetch(product.image);
+        if (r.ok) {
+          const ct = r.headers.get("content-type") ?? "";
+          const bytes = new Uint8Array(await r.arrayBuffer());
+          const img = ct.includes("png")
+            ? await pdf.embedPng(bytes)
+            : await pdf.embedJpg(bytes);
+          const maxW = 435, maxH = 320;
+          const ratio = Math.min(maxW / img.width, maxH / img.height);
+          const w = img.width * ratio, h = img.height * ratio;
+          cover.drawImage(img, { x: (595 - w) / 2, y: 380, width: w, height: h });
+        }
+      } catch (e) { console.warn("cover img", e); }
+    }
+    drawWrapped(cover, storyJson?.title || title, {
+      x: 60, y: 340, width: 475, font: fontBold, size: 30, color: rgb(1, 1, 1), align: "center",
+    });
+    if (storyJson?.subtitle) {
+      drawWrapped(cover, storyJson.subtitle, {
+        x: 60, y: 220, width: 475, font, size: 14, color: rgb(0.85, 0.88, 1), align: "center",
+      });
+    }
+    cover.drawText("Najmah", { x: 60, y: 60, size: 12, font, color: rgb(0.7, 0.75, 0.95) });
+
     // Per-SKU illustration overrides. When a product has bespoke artwork
     // uploaded to storage, we embed those images instead of the vector
     // fallback illustrations. Keyed by normalized sku.
@@ -230,9 +264,6 @@ serve(async (req) => {
           }),
         )
       : [];
-
-    // Build PDF (cover already added below — actually we need pdf before pre-fetch;
-    // restructured: pdf was created above the illustrations block.)
 
     // Story pages — illustration on top half, text below.
     for (let i = 0; i < pages.length; i++) {
