@@ -128,6 +128,18 @@ serve(async (req) => {
     if (pErr || !product) return json({ error: "product_not_found" }, 404);
 
     const sku = (product.sku ?? product.id).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 60);
+
+    // Pre-authored PDFs: some products ship with a hand-crafted illustrated PDF
+    // that fully meets the SEL/children's-literature spec. When present, we
+    // serve it directly instead of rendering a fallback. Keyed by normalized sku.
+    const PREAUTHORED_PDFS: Record<string, string> = {
+      "story-misk-mermaid":
+        `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/misk-mermaid/misk-mermaid-full.pdf`,
+    };
+    if (PREAUTHORED_PDFS[sku]) {
+      return json({ pdfUrl: `${PREAUTHORED_PDFS[sku]}?v=${Date.now()}`, reused: true, preauthored: true }, 200);
+    }
+
     const path = `products/${sku}-${language}-illustrated-v5.pdf`;
 
     // Purge any older/legacy PDF variants for this product+language so we
