@@ -96,7 +96,7 @@ const AIStoryteller = () => {
   const lang = i18n.language;
   const isAr = lang?.startsWith("ar");
   const { active: activeChild } = useActiveChild();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const sub = useSubscription();
   const byok = useByokStatus();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -1590,7 +1590,30 @@ const AIStoryteller = () => {
               <PremiumBadge featureKey="illustrations" size="lg" />
             )}
 
-            {!guestMode && story && sub.canExportPdf && (
+            {!guestMode && story && (
+              <button
+                onClick={() => {
+                  const rawTitle = `${t(`ai.themes.${themeId}`)} • ${t(`ai.characters.${characterId}`)}`;
+                  const safe = rawTitle.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story";
+                  const blob = new Blob([story], { type: "text/plain;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `${safe}.txt`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  toast.success(t("page_ai_storyteller.txt_downloaded", "Story .txt downloaded"));
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2"
+              >
+                <BookOpen className="h-4 w-4" />
+                {t("page_ai_storyteller.download_story_txt", "Download story (.txt)")}
+              </button>
+            )}
+
+            {!guestMode && story && (sub.canExportPdf || isAdmin) && (
               <button
                 onClick={handleDownloadPdf}
                 disabled={pdfLoading}
@@ -1600,7 +1623,11 @@ const AIStoryteller = () => {
                 {pdfLoading
                   ? t("page_ai_storyteller.building_pdf", "Building PDF...")
                   : t("page_ai_storyteller.download_story_pdf", "Download story PDF")}
+                {isAdmin && !sub.canExportPdf ? " (owner)" : ""}
               </button>
+            )}
+            {!guestMode && story && !sub.canExportPdf && !isAdmin && (
+              <PremiumBadge featureKey="pdf" size="lg" />
             )}
 
 
