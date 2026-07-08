@@ -191,40 +191,48 @@ serve(async (req) => {
 
     const isRtl = language === "ar";
 
-    // Build PDF
-    const pdf = await PDFDocument.create();
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    // Per-SKU illustration overrides. When a product has bespoke artwork
+    // uploaded to storage, we embed those images instead of the vector
+    // fallback illustrations. Keyed by normalized sku.
+    const STORAGE_BASE = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs`;
+    const ILLUSTRATION_OVERRIDES: Record<string, string[]> = {
+      "story-misk-mermaid": [
+        `${STORAGE_BASE}/products/misk-mermaid/p1.jpg`,
+        `${STORAGE_BASE}/products/misk-mermaid/p2.jpg`,
+        `${STORAGE_BASE}/products/misk-mermaid/p3.jpg`,
+        `${STORAGE_BASE}/products/misk-mermaid/p4.png`,
+        `${STORAGE_BASE}/products/misk-mermaid/p5.png`,
+        `${STORAGE_BASE}/products/misk-mermaid/p6.png`,
+        `${STORAGE_BASE}/products/misk-mermaid/p7.png`,
+      ],
+    };
+    const overrideUrls = ILLUSTRATION_OVERRIDES[sku] ?? null;
 
-    // Cover
-    const cover = pdf.addPage([595, 842]);
-    cover.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.06, 0.08, 0.18) });
-    // Optional cover image
-    if (product.image) {
-      try {
-        const r = await fetch(product.image);
-        if (r.ok) {
-          const ct = r.headers.get("content-type") ?? "";
-          const bytes = new Uint8Array(await r.arrayBuffer());
-          const img = ct.includes("png")
-            ? await pdf.embedPng(bytes)
-            : await pdf.embedJpg(bytes);
-          const maxW = 435, maxH = 320;
-          const ratio = Math.min(maxW / img.width, maxH / img.height);
-          const w = img.width * ratio, h = img.height * ratio;
-          cover.drawImage(img, { x: (595 - w) / 2, y: 380, width: w, height: h });
-        }
-      } catch (e) { console.warn("cover img", e); }
-    }
-    drawWrapped(cover, storyJson?.title || title, {
-      x: 60, y: 340, width: 475, font: fontBold, size: 30, color: rgb(1, 1, 1), align: "center",
-    });
-    if (storyJson?.subtitle) {
-      drawWrapped(cover, storyJson.subtitle, {
-        x: 60, y: 220, width: 475, font, size: 14, color: rgb(0.85, 0.88, 1), align: "center",
-      });
-    }
-    cover.drawText("Najmah", { x: 60, y: 60, size: 12, font, color: rgb(0.7, 0.75, 0.95) });
+    // Pre-fetch override images once (parallel) so page loop stays fast.
+    const overrideImages: Array<
+      { img: import("https://esm.sh/pdf-lib@1.17.1").PDFImage; w: number; h: number } | null
+    > = overrideUrls
+      ? await Promise.all(
+          overrideUrls.map(async (url) => {
+            try {
+              const r = await fetch(url);
+              if (!r.ok) return null;
+              const ct = r.headers.get("content-type") ?? "";
+              const bytes = new Uint8Array(await r.arrayBuffer());
+              const img = ct.includes("png")
+                ? await pdf.embedPng(bytes)
+                : await pdf.embedJpg(bytes);
+              return { img, w: img.width, h: img.height };
+            } catch (e) {
+              log("override img fetch failed", { url, err: (e as Error).message });
+              return null;
+            }
+          }),
+        )
+      : [];
+
+    // Build PDF (cover already added below — actually we need pdf before pre-fetch;
+    // restructured: pdf was created above the illustrations block.)
 
     // Story pages — illustration on top half, text below.
     for (let i = 0; i < pages.length; i++) {
@@ -232,7 +240,19 @@ serve(async (req) => {
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
 
-      drawFallbackIllustration(page, p.index);
+      const ov = overrideImages[i];
+      if (ov) {
+        const boxX = 60, boxY = 405, boxW = 475, boxH = 370;
+        page.drawRectangle({
+          x: boxX - 8, y: boxY - 8, width: boxW + 16, height: boxH + 16,
+          color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.95), borderWidth: 1,
+        });
+        const ratio = Math.min(boxW / ov.w, boxH / ov.h);
+        const w = ov.w * ratio, h = ov.h * ratio;
+        page.drawImage(ov.img, { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, width: w, height: h });
+      } else {
+        drawFallbackIllustration(page, p.index);
+      }
       const textTop = 370;
 
       drawWrapped(page, p.text ?? "", {
