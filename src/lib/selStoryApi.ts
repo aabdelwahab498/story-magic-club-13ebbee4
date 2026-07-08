@@ -60,15 +60,50 @@ export interface SelPlanResponse {
   age_band: "3-5" | "6-8" | "9-12";
 }
 
+/**
+ * Error thrown when compose-story returns a standardized `{success:false}`
+ * payload (HTTP 200). Carries the user-friendly message and a machine code
+ * so callers can branch (e.g. redirect to /auth on "unauthorized").
+ */
+export class ComposeStoryError extends Error {
+  constructor(
+    public code: string,
+    public friendlyMessage: string,
+  ) {
+    super(friendlyMessage);
+    this.name = "ComposeStoryError";
+  }
+}
+
+function detectFriendlyFailure(data: unknown): ComposeStoryError | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as { success?: unknown; code?: unknown; message?: unknown };
+  if (obj.success === false) {
+    const code = typeof obj.code === "string" ? obj.code : "unknown_error";
+    const message = typeof obj.message === "string" && obj.message
+      ? obj.message
+      : "Unable to generate the story right now. Please try again in a few moments.";
+    return new ComposeStoryError(code, message);
+  }
+  return null;
+}
+
 export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
   const { data, error } = await supabase.functions.invoke("compose-story", {
     body: { ...input, mode: "plan" },
   });
   if (error) throw error;
+  const friendly = detectFriendlyFailure(data);
+  if (friendly) throw friendly;
   return data as SelPlanResponse;
 }
 
 async function shouldRetryComposeError(err: unknown): Promise<boolean> {
+  // ComposeStoryError (HTTP 200, success:false) — client-side retry only for
+  // transient AI/network codes. Auth/quota/moderation should not be retried.
+  if (err instanceof ComposeStoryError) {
+    return err.code === "ai_unavailable" || err.code === "rate_limited";
+  }
   const ctx = (err as { context?: Response })?.context;
   if (!(ctx instanceof Response)) return false;
   if (ctx.status !== 502) return false;
@@ -77,7 +112,7 @@ async function shouldRetryComposeError(err: unknown): Promise<boolean> {
     const code = typeof body?.error === "string" ? body.error : "";
     return code === "ai_invalid_json" || code.includes("invalid_json") || code === "";
   } catch {
-    return true; // 502 with non-JSON body — still worth retrying
+    return true;
   }
 }
 
@@ -87,11 +122,16 @@ export async function composeSelStory(input: ComposeStoryInput): Promise<SelStor
   let lastError: unknown = null;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const { data, error } = await supabase.functions.invoke("compose-story", { body: input });
-    if (!error) return data as SelStoryResponse;
-    lastError = error;
-    const retry = await shouldRetryComposeError(error);
+    if (error) {
+      lastError = error;
+    } else {
+      const friendly = detectFriendlyFailure(data);
+      if (!friendly) return data as SelStoryResponse;
+      lastError = friendly;
+    }
+    const retry = await shouldRetryComposeError(lastError);
     if (!retry || attempt === MAX_ATTEMPTS - 1) break;
-    console.warn(`[composeSelStory] retry ${attempt + 1}/${MAX_ATTEMPTS - 1} after invalid AI JSON / 502`);
+    console.warn(`[composeSelStory] retry ${attempt + 1}/${MAX_ATTEMPTS - 1} after transient failure`);
     await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt] ?? 2000));
   }
   throw lastError;
@@ -103,6 +143,9 @@ export async function readComposeErrorDetails(err: unknown): Promise<{
   body?: Record<string, unknown> | string | null;
   requestId?: string;
 }> {
+  if (err instanceof ComposeStoryError) {
+    return { status: 200, body: { code: err.code, message: err.friendlyMessage } };
+  }
   const ctx = (err as { context?: Response })?.context;
   if (!(ctx instanceof Response)) {
     return { status: (err as { status?: number })?.status };

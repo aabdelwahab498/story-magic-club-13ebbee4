@@ -17,8 +17,8 @@ import { judgeQuality, type QualityReport } from "../_shared/sel/quality.ts";
 import { characterVisualHash } from "../_shared/sel/visual.ts";
 import { AIGatewayError } from "../_shared/sel/gateway.ts";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { enforceStoryFairUse, quotaResponse } from "../_shared/quota.ts";
-import { moderateText, moderationRejectedResponse, ModerationGatewayError } from "../_shared/moderation.ts";
+import { enforceStoryFairUse } from "../_shared/quota.ts";
+import { moderateText, ModerationGatewayError } from "../_shared/moderation.ts";
 import { withUserAI } from "../_shared/userKeys.ts";
 
 const DEFAULT_MAX_REGENERATIONS = 2;
@@ -45,6 +45,31 @@ const ALLOWED_LANGS = new Set(["en", "ar", "de", "fr", "it", "es"]);
 const str = (v: unknown, max: number) =>
   typeof v === "string" ? v.slice(0, max).trim() : "";
 
+// Standardized user-facing error payload — always HTTP 200 so the browser
+// never surfaces "non-2xx" / raw Edge Function errors. `code` is for the
+// client to branch on (e.g. show "please sign in"); `message` is the only
+// string ever shown to end users.
+const FRIENDLY_GENERIC = "Unable to generate the story right now. Please try again in a few moments.";
+const FRIENDLY_UNAVAILABLE = "AI service is temporarily unavailable. Please try again later.";
+const FRIENDLY_AUTH = "Please sign in to generate a story.";
+const FRIENDLY_MODERATION = "Your idea couldn't be used. Please try a different topic.";
+const FRIENDLY_QUOTA = "You've reached your story limit for now. Please try again later.";
+const FRIENDLY_RATE = "Too many requests. Please wait a moment and try again.";
+const FRIENDLY_INPUT = "Some details are missing or invalid. Please review your inputs.";
+
+function fail(
+  code: string,
+  message: string,
+  corsHeaders: Record<string, string>,
+  extra: Record<string, unknown> = {},
+): Response {
+  // Always HTTP 200: client reads `success:false` + friendly message.
+  return new Response(
+    JSON.stringify({ success: false, code, message, ...extra }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+}
+
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const pre = handlePreflight(req);
@@ -59,19 +84,47 @@ serve(async (req) => {
 
   // Body size guard (~16KB)
   const cl = Number(req.headers.get("content-length") || "0");
-  if (cl > 16_384) return json({ error: "payload_too_large", requestId }, 413, corsHeaders);
+  if (cl > 16_384) {
+    errLog("payload too large", { contentLength: cl });
+    return fail("payload_too_large", FRIENDLY_INPUT, corsHeaders);
+  }
+
 
   try {
     log("request received");
+
+    // 1) Environment preflight — validate required secrets BEFORE calling AI.
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+      errLog("missing supabase env vars", {
+        hasUrl: !!SUPABASE_URL,
+        hasAnon: !!SUPABASE_ANON_KEY,
+        hasServiceRole: !!SUPABASE_SERVICE_ROLE_KEY,
+      });
+      return fail("service_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+    }
+    if (!GEMINI_API_KEY) {
+      errLog("GEMINI_API_KEY missing — cannot call AI");
+      return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+    }
+
+    // 2) Parse & validate request payload.
     const raw = await req.json().catch(() => ({}));
     const childName = str(raw.childName, 60);
     const theme = str(raw.theme, 80);
     const age = Number(raw.age);
     if (!childName || !theme || !Number.isFinite(age) || age < 3 || age > 12) {
-      return json({ error: "missing_or_invalid_fields", requestId }, 400, corsHeaders);
+      errLog("invalid input", { hasName: !!childName, hasTheme: !!theme, age });
+      return fail("invalid_input", FRIENDLY_INPUT, corsHeaders);
     }
     const language = str(raw.language, 5).toLowerCase() || "en";
-    if (!ALLOWED_LANGS.has(language)) return json({ error: "invalid_language", requestId }, 400, corsHeaders);
+    if (!ALLOWED_LANGS.has(language)) {
+      errLog("invalid language", { language });
+      return fail("invalid_input", FRIENDLY_INPUT, corsHeaders);
+    }
     const customPrompt = str(raw.customPrompt, 500);
     const childProfileId = str(raw.childProfileId, 40);
     const emotionalFocus = Array.isArray(raw.emotionalFocus)
@@ -83,47 +136,51 @@ serve(async (req) => {
       : undefined;
     const body: ComposeRequest = { childName, age, theme, language, customPrompt, childProfileId: childProfileId || undefined, emotionalFocus, mode, presetBlueprint };
 
-    // Auth (we need user_id to persist)
+    // 3) Auth (we need user_id to persist)
     const authHeader = req.headers.get("Authorization") ?? "";
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id ?? null;
-    if (!userId) return json({ error: "unauthorized", requestId }, 401, corsHeaders);
+    if (!userId) {
+      errLog("unauthorized — no valid session");
+      return fail("unauthorized", FRIENDLY_AUTH, corsHeaders);
+    }
     log("auth ok", { userId });
 
-    // Rate limit + quota (server-side, cannot be bypassed) — admins bypass
+    // 4) Rate limit + quota (server-side, cannot be bypassed) — admins bypass
     const identifier = `u:${userId}`;
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: userId, _role: "admin" });
-    // Fair-use story limits (daily + monthly) — admins bypass
     if (!isAdmin) {
       const fair = await enforceStoryFairUse(userId);
-      if (!fair.allowed) return quotaResponse(fair, corsHeaders);
+      if (!fair.allowed) {
+        errLog("quota exceeded", { reason: (fair as { reason?: string }).reason });
+        return fail("quota_exceeded", FRIENDLY_QUOTA, corsHeaders);
+      }
     }
     void identifier;
 
-    // Lovable AI moderation on user-supplied free text
+    // 5) Lovable AI moderation on user-supplied free text
     const toModerate = [childName, theme, customPrompt, ...emotionalFocus].filter(Boolean).join("\n");
     if (toModerate.trim().length > 0) {
       try {
         const verdict = await moderateText(toModerate, { language, childAge: age });
         if (!verdict.allowed || verdict.severity === "medium" || verdict.severity === "high" || verdict.severity === "critical") {
-          console.warn("[compose-story] moderation rejected", { userId, severity: verdict.severity, categories: verdict.categories });
-          return moderationRejectedResponse(verdict, corsHeaders);
+          console.warn(`[compose-story][${requestId}] moderation rejected`, { userId, severity: verdict.severity, categories: verdict.categories });
+          return fail("moderation_rejected", FRIENDLY_MODERATION, corsHeaders);
         }
       } catch (e) {
+        // Moderation is best-effort — log and continue if the moderation gateway itself fails.
         if (e instanceof ModerationGatewayError) {
-          return json({ error: "moderation_unavailable", requestId }, e.status, corsHeaders);
+          errLog("moderation gateway unavailable — continuing", { status: e.status });
+        } else {
+          errLog("moderation threw", { msg: e instanceof Error ? e.message : String(e) });
         }
       }
     }
+
 
     const ageBand = ageToBand(body.age);
     const plannerInput: PlannerInput = {
@@ -206,7 +263,8 @@ serve(async (req) => {
     }
 
     if (!written || !safety || !length) {
-      return json({ error: "pipeline_failed", requestId }, 500, corsHeaders);
+      errLog("pipeline_failed — missing writer/safety/length output");
+      return fail("pipeline_failed", FRIENDLY_GENERIC, corsHeaders);
     }
 
     // Synthetic quality report — judge disabled in single-pass mode.
@@ -300,31 +358,27 @@ serve(async (req) => {
     log("success", { totalMs: Date.now() - t0 });
     return json(responsePayload, 200, corsHeaders);
   } catch (e) {
+    // Never leak raw errors / stacks / requestIds to the client.
+    // Log everything server-side; return HTTP 200 with a friendly message.
     const msg = e instanceof Error ? e.message : String(e);
     if (e instanceof AIGatewayError) {
       errLog("AI gateway failure", { status: e.status, msg });
-      if (e.status === 429) return json({ error: "rate_limited", requestId, detail: msg }, 429, corsHeaders);
-      if (e.status === 402) {
-        // Provider-side capacity exhausted — surface as upstream issue.
-        return json({
-          error: "ai_provider_unavailable",
-          reason: "upstream_capacity",
-          message: "The AI provider is temporarily unavailable. Please try again shortly.",
-          requestId,
-          detail: msg,
-        }, 503, corsHeaders);
-      }
-      if (e.status === 502) return json({ error: "ai_invalid_json", requestId, detail: msg }, 502, corsHeaders);
-      return json({ error: "ai_gateway_failed", requestId, status: e.status, detail: msg }, 502, corsHeaders);
+      if (e.status === 429) return fail("rate_limited", FRIENDLY_RATE, corsHeaders);
+      if (e.status === 402) return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+      if (e.status === 401 || e.status === 403) return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
+      return fail("ai_unavailable", FRIENDLY_UNAVAILABLE, corsHeaders);
     }
     errLog("unhandled error", { msg, stack: e instanceof Error ? e.stack?.slice(0, 600) : undefined });
-    return json({ error: "internal_error", requestId, detail: msg }, 500, corsHeaders);
+    return fail("internal_error", FRIENDLY_GENERIC, corsHeaders);
   }
 });
 
+// Legacy helper — kept for compatibility with any remaining call sites.
+// New failure paths use fail() which always returns HTTP 200.
 function json(obj: unknown, status: number, corsHeaders: Record<string, string>): Response {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
