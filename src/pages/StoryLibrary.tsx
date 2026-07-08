@@ -47,6 +47,33 @@ const StoryLibrary = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lastGenerated, setLastGenerated] = useState<SelStoryResponse | null>(null);
+  const [lastPdfLoading, setLastPdfLoading] = useState(false);
+
+  // Pick up the most recently generated story (persisted from /ai-storyteller) so
+  // users can re-download its .txt / PDF without leaving /stories.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("last-generated-sel-story");
+      if (!raw) {
+        console.log("[StoryLibrary] no last-generated-sel-story in localStorage");
+        return;
+      }
+      const parsed = JSON.parse(raw) as { story: SelStoryResponse; ts: number };
+      if (parsed?.story?.pages?.length) {
+        setLastGenerated(parsed.story);
+        console.log("[StoryLibrary] loaded last generated story → showing download card", {
+          title: parsed.story.title,
+          pages: parsed.story.pages.length,
+          ts: parsed.ts,
+        });
+      }
+    } catch (err) {
+      console.warn("[StoryLibrary] failed to parse last-generated-sel-story", err);
+    }
+  }, []);
+
+
 
   // Per-story narrator selection so each card remembers the child's choice
   const [narratorByStory, setNarratorByStory] = useState<Record<string, NarratorId>>({});
