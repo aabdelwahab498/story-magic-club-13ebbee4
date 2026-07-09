@@ -1,95 +1,74 @@
+# تقرير الإنجازات — منصة نجمة (Najmah / Starry Tales)
 
-## ملخص الوضع
+سأقدم لك في الرد التالي (بعد الموافقة على الخطة) **ملخصاً عربياً شاملاً وتقنياً** يعرض على العميل حجم العمل المنجز في المشروع من البداية حتى الآن، منظماً في الأقسام التالية:
 
-**يعمل الآن:**
-- توليد النص (Gemini عبر `compose-story` / `generate-story`)
-- تحميل TXT (من الواجهة مباشرة)
-- تحميل PDF (عبر `export-story-pdf` و `trial-pdf`)
-- تشغيل الصوت داخل المتصفح فقط (Web Speech API)
+---
 
-**المفقود:** تحميل ملف صوتي (MP3) للقصة.
+## 1. نظرة عامة على المنتج
+- تعريف المنصة: منصة قصص أطفال تفاعلية بالذكاء الاصطناعي (عربي/إنجليزي) مع دعم SEL (التعلم الاجتماعي العاطفي).
+- الجمهور المستهدف، اللغات المدعومة، أنماط الاستخدام (طفل/ولي أمر/مدير).
 
-## الحل: Microsoft Edge TTS (مجاني، بدون مفتاح)
+## 2. الميزات الرئيسية المنجزة
+- **مولد القصص بالذكاء الاصطناعي** (Gemini + محرك SEL): توليد قصص مخصصة بحسب عمر الطفل والحالة العاطفية، مع 4 فصول (4-act) ومعالجة bibliotherapy.
+- **مكتبة القصص الكلاسيكية** المنشورة (Misk, Luma Nova, Sami & Thunder…).
+- **الرسوم التوضيحية بالذكاء الاصطناعي** (illustrate-story) مع حماية idempotency.
+- **الراوي الصوتي (TTS)** الجديد: Edge TTS مجاناً + fallback إلى OpenAI TTS، مع chunking, caching, retries.
+- **تصدير القصص**: PDF, EPUB, TXT, MP3, فيديو مع مسار موسيقى خلفية.
+- **مسابقة الرسم** مع تصويت وHall of Fame وWinner of the Week.
+- **المدونة** مع مراجعة إدارية.
+- **الاشتراكات والدفع** (Paddle) مع Currency Selector وخطط ومنتجات.
+- **حسابات الأطفال المتعددة** ضمن حساب ولي الأمر (Child Profiles).
+- **PWA** قابل للتثبيت مع دعم Offline.
+- **نظام Streak** والمكافآت وSpin Wheel.
 
-مكتبة `rany2/edge-tts` تستخدم خدمة Microsoft Edge Read Aloud مجاناً بدون API key. لا يمكن تشغيلها في المتصفح مباشرة (تعتمد على WebSocket خاص + توقيع)، لذلك سنستدعيها من **Edge Function** ونعيد ملف MP3 للمستخدم.
+## 3. البنية التقنية
+- **الواجهة الأمامية**: React 18 + Vite + TypeScript + Tailwind + shadcn/ui + i18next (6 لغات).
+- **الخلفية**: Lovable Cloud (Supabase) — قاعدة بيانات + Auth + Storage + Edge Functions.
+- **أكثر من 55 Edge Function** (توليد قصص، تصدير، دفع، Webhooks، إشعارات، backups…).
+- **بنية TTS الجديدة**: طبقة موفّرات قابلة للتوسع (edgeProvider, openaiProvider) مع منطق مشترك في `_shared/tts/logic.ts`.
 
-### 1) إنشاء Edge Function جديدة: `narrate-story-edge`
+## 4. الأمان والامتثال
+- RLS مفعّل على كل الجداول العامة مع GRANTs صحيحة.
+- نظام أدوار منفصل (user_roles + has_role security definer).
+- Rate limiting، Secure file upload، ClamAV self-host guide.
+- Audit logs، Payment logs، Webhook logs.
+- Trauma-Informed reject-list لضمان أمان محتوى الأطفال.
 
-- تستقبل: `{ storyId?, text, language, voice? }`
-- تتحقق من:
-  - تسجيل دخول المستخدم (JWT)
-  - طول النص (حد 20KB)
-  - صحة اللغة (ar/en)
-- تختار صوت افتراضي حسب اللغة:
-  - عربي: `ar-EG-SalmaNeural` (أو `ar-SA-HamedNeural`)
-  - إنجليزي: `en-US-AriaNeural`
-- تفتح WebSocket مع `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1`
-- تُرسل SSML وتستقبل chunks بصيغة `audio-24khz-48kbitrate-mono-mp3`
-- تُجمّع chunks وتحفظ الملف في bucket `story-audio` باسم `{userId}/{storyId|hash}.mp3`
-- تُعيد: `{ success: true, url, duration }`
+## 5. الاختبارات وضمان الجودة
+- اختبارات Unit (Vitest): tts-pipeline (19 حالة)، illustration-idempotency، audit-log-rls.
+- اختبارات E2E (Playwright): admin-auth، audit-log، illustrate a11y/retry.
+- CI عبر GitHub Actions.
 
-سيتم تطبيق منطق edge-tts داخل الـ function مباشرة بدون مكتبة خارجية (بروتوكول WebSocket بسيط ومعروف) لضمان التوافق مع Deno runtime وتجنب مشاكل npm packages.
+## 6. لوحة الإدارة (Admin Dashboard)
+- أكثر من 30 صفحة إدارية: قصص، مستخدمون، مدفوعات، اشتراكات، AI Models/Prompts/Agents، تحليلات، RBAC، PDF Templates، Audio Voices، Blog Review، Contact Inbox، Webhooks…
 
-### 2) chunking للنصوص الطويلة
+## 7. التكاملات
+- Paddle (اشتراكات + منتجات + Webhooks).
+- Lovable AI Gateway (Gemini + OpenAI TTS).
+- Edge TTS (Microsoft) — مجاني بدون مفتاح.
+- Email transactional + custom domain support.
 
-القصص قد تكون طويلة. سنقسم النص إلى فقرات ≤3000 حرف، ونولّد كل جزء عبر WebSocket منفصل، ثم نجمع bytes الـ MP3 بالتسلسل (MP3 يدعم concatenation المباشر).
+## 8. الوثائق المُنجزة
+- `docs/CHILDRENS_LITERATURE_KNOWLEDGE_BASE.md` (الدستور المرجعي).
+- `docs/AUDIO_PAUSE_RESUME_QA.md`.
+- `docs/CLAMAV_SELFHOST.md`.
+- `e2e/README.md`.
 
-### 3) معالجة الأخطاء (كما اتفقنا سابقاً)
+## 9. المخرجات القابلة للتسليم للعميل
+- منصة ويب PWA جاهزة للنشر.
+- لوحة إدارة كاملة.
+- Backend كامل مُدار.
+- بنية TTS قابلة للتوسع للمستقبل (ElevenLabs, Azure…).
+- توثيق تقني كامل.
 
-كل الأخطاء تُعاد بـ HTTP 200 + `{ success: false, code, message }`:
-- `unauthorized` — لا يوجد session
-- `text_too_long`
-- `tts_upstream_failed` — مع retry تلقائي 3 مرات مع exponential backoff (1s/2s/4s)
-- `storage_upload_failed`
+## 10. أرقام تلخيصية
+- عدد الصفحات: 50+
+- عدد المكوّنات: 100+
+- عدد Edge Functions: 55+
+- عدد ملفات الاختبار: 10+
+- اللغات المدعومة في الواجهة: 6
+- اللغات المدعومة في القصص: عربي + إنجليزي
 
-### 4) تحديث الواجهة
+---
 
-**`src/lib/storyTtsApi.ts`:**
-- دالة `generateStoryMp3({ storyId, text, language, voice })` تستدعي `narrate-story-edge` وترجع URL
-- دالة `downloadStoryMp3(url, filename)` تُنزل الملف
-
-**`src/pages/AIStoryteller.tsx` و `src/components/SelStoryViewer.tsx`:**
-- إضافة زر **"تحميل صوت MP3"** بجانب أزرار TXT/PDF الحالية
-- عند الضغط: يظهر spinner + رسالة "جاري توليد الصوت..." (قد تستغرق 10–30 ثانية)
-- بعد النجاح: تحميل تلقائي + toast نجاح
-- عند الفشل: toast ودود بالرسالة العربية/الإنجليزية
-
-**`src/components/BrowserNarratorSettings.tsx`:** يبقى كما هو للتشغيل داخل المتصفح.
-
-### 5) اختيار الصوت للمستخدم (اختياري)
-
-في `BrowserNarratorSettings` نضيف قسم "صوت التحميل" مع dropdown للأصوات المتوفرة على Edge TTS:
-- عربي: Salma, Hamed, Zariyah, Shakir
-- إنجليزي: Aria, Guy, Jenny, Christopher
-
-يُحفظ التفضيل في `localStorage` ويُرسل عند التحميل.
-
-### 6) Caching
-
-قبل التوليد، نفحص إذا كان الملف موجوداً في `story-audio/{userId}/{storyId}-{voice}.mp3`. لو موجود → نعيد الـ URL مباشرة بدون إعادة توليد. يوفّر وقت وعرض نطاق.
-
-## تقنية (للمرجع)
-
-بروتوكول Edge TTS المستخدم داخل Function:
-```
-1. GET wss://speech.platform.bing.com/... مع Trusted-Client-Token=6A5AA1D4EAFF4E9FB37E23D68491D6F4
-2. إرسال speech.config JSON
-3. إرسال SSML mkssml
-4. استقبال binary frames: header + MP3 chunks
-5. إغلاق عند "turn.end"
-```
-
-## ما لن يتغير
-
-- `narrate-story-full` القديم (Google TTS) سيبقى محذوف الاستدعاء منه — لا نُعيد مفاتيح Google.
-- Web Speech API يبقى للتشغيل الفوري داخل المتصفح.
-- منطق النص و PDF لا يتغير.
-
-## الملفات المتأثرة
-
-- **جديد:** `supabase/functions/narrate-story-edge/index.ts`
-- **جديد:** `supabase/functions/_shared/edgeTts.ts` (بروتوكول WebSocket)
-- **معدّل:** `src/lib/storyTtsApi.ts`
-- **معدّل:** `src/pages/AIStoryteller.tsx`
-- **معدّل:** `src/components/SelStoryViewer.tsx`
-- **معدّل:** `src/components/BrowserNarratorSettings.tsx` (اختياري: dropdown أصوات التحميل)
+**بعد الموافقة**، سأرسل التقرير كاملاً في المحادثة كنص عربي منظّم جاهز للنسخ واللصق أو إعادة صياغته للعميل. لن يتم إجراء أي تعديلات على الكود.
