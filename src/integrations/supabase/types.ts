@@ -1078,6 +1078,115 @@ export type Database = {
         }
         Relationships: []
       }
+      export_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json
+          export_id: string | null
+          id: string
+          ip_address: unknown
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json
+          export_id?: string | null
+          id?: string
+          ip_address?: unknown
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json
+          export_id?: string | null
+          id?: string
+          ip_address?: unknown
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_logs_export_id_fkey"
+            columns: ["export_id"]
+            isOneToOne: false
+            referencedRelation: "exports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exports: {
+        Row: {
+          child_id: string | null
+          created_at: string
+          dap_score: number | null
+          error_message: string | null
+          expires_at: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          language: string | null
+          metadata: Json
+          provider: string | null
+          signed_url: string | null
+          status: string
+          story_id: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          child_id?: string | null
+          created_at?: string
+          dap_score?: number | null
+          error_message?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          language?: string | null
+          metadata?: Json
+          provider?: string | null
+          signed_url?: string | null
+          status?: string
+          story_id?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          child_id?: string | null
+          created_at?: string
+          dap_score?: number | null
+          error_message?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          language?: string | null
+          metadata?: Json
+          provider?: string | null
+          signed_url?: string | null
+          status?: string
+          story_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exports_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "child_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_scan_jobs: {
         Row: {
           attempts: number
