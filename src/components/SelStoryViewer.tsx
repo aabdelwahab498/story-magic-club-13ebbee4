@@ -359,11 +359,20 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     try {
       const fullText = pages.map((p) => p.text).join("\n\n");
       const isArabic = /[\u0600-\u06FF]/.test(fullText);
-      const res = await generateStoryMp3({
-        text: fullText,
-        language: isArabic ? "ar" : "en",
-        storyId: story.story_id ?? undefined,
-      });
+      const res = await generateStoryMp3(
+        {
+          text: fullText,
+          language: isArabic ? "ar" : "en",
+          storyId: story.story_id ?? undefined,
+        },
+        {
+          onProgress: (evt) => {
+            if (evt.phase === "generating") toast.info(evt.message, { id: "mp3-progress" });
+            if (evt.phase === "retrying") toast.warning(evt.message, { id: "mp3-progress" });
+            if (evt.phase === "cached") toast.success(evt.message, { id: "mp3-progress" });
+          },
+        },
+      );
       const safe = (story.title || "story").replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story";
       await downloadStoryMp3(res.url, `${safe}.mp3`);
       toast.success(t("sel.mp3_ready", "Audio MP3 downloaded 🎧"));

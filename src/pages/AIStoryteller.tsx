@@ -152,10 +152,19 @@ const AIStoryteller = () => {
     setMp3Loading(true);
     try {
       const isArabic = /[\u0600-\u06FF]/.test(story);
-      const res = await generateStoryMp3({
-        text: story,
-        language: isArabic ? "ar" : "en",
-      });
+      const res = await generateStoryMp3(
+        {
+          text: story,
+          language: isArabic ? "ar" : "en",
+        },
+        {
+          onProgress: (evt) => {
+            if (evt.phase === "generating") toast.info(evt.message, { id: "mp3-progress" });
+            if (evt.phase === "retrying") toast.warning(evt.message, { id: "mp3-progress" });
+            if (evt.phase === "cached") toast.success(evt.message, { id: "mp3-progress" });
+          },
+        },
+      );
       const rawTitle = `${t(`ai.themes.${themeId}`)}-${t(`ai.characters.${characterId}`)}`;
       const safe = rawTitle.replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story";
       await downloadStoryMp3(res.url, `${safe}.mp3`);

@@ -87,31 +87,79 @@ export const useGenerateClassicNarration = () => {
 // structured `{ success, code?, message?, url? }` body.
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type StoryMp3Status = "success" | "cached" | "fallback";
+
+/** Coarse-grained phase the caller can render in the UI. */
+export type TtsProgressPhase =
+  | "queued"       // request queued, waiting for server
+  | "generating"   // primary provider synthesizing
+  | "retrying"     // primary failed, fallback provider being tried
+  | "finalizing"   // audio uploaded, URL being returned
+  | "ready"        // audio available
+  | "cached";      // served from cache (no synthesis)
+
+export interface TtsProgressEvent {
+  phase: TtsProgressPhase;
+  /** Human-readable label (already localized-neutral). */
+  message: string;
+  /** Attempt index for the retry phase, if applicable. */
+  attempt?: number;
+}
+
 export interface StoryMp3Result {
   url: string;
   voice: string;
+  provider: string;
+  providersAttempted: string[];
+  status: StoryMp3Status;
   cached: boolean;
   bytes?: number;
+  duration?: number;
+  chunkCount?: number;
+  cacheKey?: string;
 }
 
 export class StoryMp3Error extends Error {
   code: string;
-  constructor(code: string, message: string) {
+  retryable: boolean;
+  provider?: string;
+  constructor(code: string, message: string, opts?: { retryable?: boolean; provider?: string }) {
     super(message);
     this.code = code;
     this.name = "StoryMp3Error";
+    this.retryable = opts?.retryable ?? true;
+    this.provider = opts?.provider;
   }
 }
 
-export async function generateStoryMp3(args: {
-  text: string;
-  language: string;
-  voice?: string;
-  storyId?: string;
-}): Promise<StoryMp3Result> {
+export interface GenerateStoryMp3Options {
+  onProgress?: (evt: TtsProgressEvent) => void;
+  signal?: AbortSignal;
+}
+
+export async function generateStoryMp3(
+  args: {
+    text: string;
+    language: string;
+    voice?: string;
+    storyId?: string;
+  },
+  options: GenerateStoryMp3Options = {},
+): Promise<StoryMp3Result> {
+  const emit = (evt: TtsProgressEvent) => {
+    try { options.onProgress?.(evt); } catch { /* consumer errors must not break TTS */ }
+  };
+  emit({ phase: "queued", message: "Queued for narration…" });
+  // The server call is a single request; we can't stream chunk progress,
+  // but we can drive the phase so the UI never looks frozen.
+  const genTimer = setTimeout(
+    () => emit({ phase: "generating", message: "Generating narration audio…" }),
+    250,
+  );
   const { data, error } = await supabase.functions.invoke("narrate-story-edge", {
     body: args,
   });
+  clearTimeout(genTimer);
   if (error) {
     throw new StoryMp3Error(
       "network_error",
@@ -122,14 +170,35 @@ export async function generateStoryMp3(args: {
     throw new StoryMp3Error(
       data?.code || "unknown",
       data?.message || "Audio generation failed. Please try again.",
+      { retryable: data?.retryable ?? true, provider: data?.provider },
     );
   }
-  return {
-    url: data.url as string,
+  const status = (data.status as StoryMp3Status) ?? "success";
+  const providersAttempted: string[] = data.providersAttempted ?? [data.provider];
+  if (status === "cached") {
+    emit({ phase: "cached", message: "Loaded from cache." });
+  } else if (status === "fallback") {
+    emit({
+      phase: "retrying",
+      message: `Primary voice unavailable — used ${data.provider}.`,
+      attempt: providersAttempted.length,
+    });
+  }
+  emit({ phase: "finalizing", message: "Preparing download…" });
+  const result: StoryMp3Result = {
+    url: data.audioUrl as string,
     voice: data.voice as string,
-    cached: !!data.cached,
-    bytes: data.bytes,
+    provider: data.provider as string,
+    providersAttempted,
+    status,
+    cached: status === "cached",
+    bytes: data.fileSize,
+    duration: data.duration,
+    chunkCount: data.chunkCount,
+    cacheKey: data.cacheKey,
   };
+  emit({ phase: "ready", message: "Audio ready." });
+  return result;
 }
 
 export async function downloadStoryMp3(url: string, filename: string) {

@@ -34,7 +34,7 @@ export interface TtsProvider {
   synthesize(opts: TtsSynthesizeOpts): Promise<Uint8Array>;
 }
 
-export type TtsStatus = "success" | "cached";
+export type TtsStatus = "success" | "cached" | "fallback";
 
 export interface GenerateSpeechResult {
   status: TtsStatus;
@@ -46,12 +46,16 @@ export interface GenerateSpeechResult {
   duration: number;
   /** Voice actually used (after fallback). */
   voice: string;
-  /** Provider id used. */
+  /** Provider id used to produce the returned audio. */
   provider: string;
   /** Detected/normalized language ("ar" or "en"). */
   language: string;
-  /** Number of chunks synthesized (>=1). */
+  /** Number of chunks synthesized (0 when served from cache). */
   chunkCount: number;
+  /** Deterministic sha256 hash of text+voice+language+provider. */
+  cacheKey: string;
+  /** Ordered list of provider ids that were tried this request. */
+  providersAttempted: string[];
 }
 
 export type TtsErrorCode =
