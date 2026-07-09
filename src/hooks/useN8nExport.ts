@@ -127,7 +127,9 @@ export function useN8nExport() {
       try {
         const result = await action();
         setState({
-          status: "ready", busyKind: null, lastResult: result, lastKind: kind,
+          status: "ready", busyKind: null,
+          lastResult: result as unknown as State["lastResult"],
+          lastKind: kind,
           error: null, errorCode: null,
         });
         triggerDownload(pendingWindow.current, result.downloadUrl, result.fileName);
