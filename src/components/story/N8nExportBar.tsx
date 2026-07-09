@@ -1,140 +1,233 @@
 // ============================================================================
-// N8nExportBar — Floating action bar with TXT / MP3 / PDF export buttons.
+// N8nExportBar — Floating action bar with live TXT / MP3 / PDF export buttons.
 // ----------------------------------------------------------------------------
-// The TXT button is wired to the n8n export pipeline. MP3 and PDF slots are
-// present in the UI (disabled with a "coming soon" state) so the layout is
-// stable when their workflows come online later.
+// • TXT   → instant, n8n or local BOM-safe fallback
+// • MP3   → cache-first via SHA-256; n8n TTS pipeline or in-house Edge-TTS
+//           fallback. Voice picker + speed picker exposed inline.
+// • PDF   → n8n picture-book workflow, falls back to the existing
+//           export-story-pdf edge function.
+// Independent loading states per button; shared error surface with retry.
 // ============================================================================
 
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Volume2, BookOpen, Loader2, RefreshCw } from "lucide-react";
+import {
+  FileText, Volume2, BookOpen, Loader2, RefreshCw, ChevronDown, Play,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useN8nExport } from "@/hooks/useN8nExport";
-import type { SupportedLanguage } from "@/lib/n8nExportApi";
+import { listVoicesForLanguage, type SupportedLanguage, type VoiceConfig } from "@/lib/n8nExportApi";
 
 export interface N8nExportBarProps {
-  /** Full story text (concatenated pages). */
   fullText: string;
-  /** Story title used for filenames and headers. */
   title: string;
-  /** Language code (ar/en/fr/de/es/pt). */
   language: SupportedLanguage | string;
-  /** Optional story id when persisted. */
   storyId?: string | null;
-  /** Optional active child id (for audit). */
   childId?: string | null;
-  /** Optional child name for personalization. */
   childName?: string | null;
-  /** Emotion tags (SEL) — used by n8n for future DAP scoring. */
   emotionTags?: string[];
-  /** Total page count when known. */
   pageCount?: number;
-  /** Extra tailwind classes for the outer container. */
+  /** Optional structured pages — enables the PDF button when provided. */
+  pages?: Array<{ pageNumber: number; text: string; illustrationUrl?: string | null; emotionTag?: string | null }>;
   className?: string;
 }
 
+const SPEED_OPTIONS: Array<{ value: 0.8 | 1.0 | 1.2; labelKey: string; fallback: string }> = [
+  { value: 0.8, labelKey: "exports.speed_slow",   fallback: "Slow (kid-friendly)" },
+  { value: 1.0, labelKey: "exports.speed_normal", fallback: "Normal" },
+  { value: 1.2, labelKey: "exports.speed_fast",   fallback: "Fast" },
+];
+
 export default function N8nExportBar({
-  fullText,
-  title,
-  language,
-  storyId = null,
-  childId = null,
-  childName = null,
-  emotionTags = [],
-  pageCount,
-  className,
+  fullText, title, language, storyId = null, childId = null,
+  childName = null, emotionTags = [], pageCount, pages, className,
 }: N8nExportBarProps) {
   const { t } = useTranslation();
-  const { status, error, exportTxt, prepareDownloadWindow, reset, isBusy } = useN8nExport();
+  const {
+    status, error, exportTxt, exportAudio, exportPdf,
+    prepareDownloadWindow, reset, isBusyKind,
+  } = useN8nExport();
+
+  // ── Voice + speed state (audio button) ─────────────────────────────
+  const [voices, setVoices] = useState<VoiceConfig[]>([]);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string | undefined>();
+  const [speed, setSpeed] = useState<0.8 | 1.0 | 1.2>(1.0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const list = await listVoicesForLanguage(language);
+      if (cancelled) return;
+      setVoices(list);
+      setSelectedVoiceId((prev) => prev ?? list.find((v) => v.isDefault)?.voiceId ?? list[0]?.voiceId);
+    })();
+    return () => { cancelled = true; };
+  }, [language]);
+
+  const activeVoice = useMemo(
+    () => voices.find((v) => v.voiceId === selectedVoiceId),
+    [voices, selectedVoiceId],
+  );
 
   const handleTxt = () => {
-    prepareDownloadWindow(); // synchronous — preserves the user gesture
-    void exportTxt({
-      storyId,
-      childId,
-      title,
-      fullText,
-      language,
-      childName,
-      emotionTags,
-      pageCount,
+    prepareDownloadWindow();
+    void exportTxt({ storyId, childId, title, fullText, language, childName, emotionTags, pageCount });
+  };
+
+  const handleAudio = () => {
+    prepareDownloadWindow();
+    void exportAudio({
+      storyId, childId, title, fullText, language,
+      voiceId: selectedVoiceId, speed, childName, emotionTags,
     });
   };
+
+  const handlePdf = () => {
+    if (!pages?.length) return;
+    prepareDownloadWindow();
+    void exportPdf({
+      storyId, childId, title, language, childName,
+      emotionTags,
+      pages,
+    });
+  };
+
+  const busyTxt = isBusyKind("txt");
+  const busyMp3 = isBusyKind("mp3");
+  const busyPdf = isBusyKind("pdf");
+  const pdfDisabled = !pages?.length;
 
   return (
     <div
       className={cn(
-        "sticky bottom-4 z-30 mx-auto flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-border/60 bg-background/95 p-3 shadow-2xl backdrop-blur-md sm:gap-3 sm:p-4",
-        "max-w-2xl",
+        "sticky bottom-4 z-30 mx-auto flex flex-col items-stretch gap-3 rounded-2xl border border-border/60 bg-background/95 p-3 shadow-2xl backdrop-blur-md sm:p-4",
+        "max-w-3xl",
         className,
       )}
       role="toolbar"
       aria-label={t("exports.toolbar_label", "Story export toolbar")}
     >
-      {/* TXT — live via n8n */}
-      <Button
-        type="button"
-        onClick={handleTxt}
-        disabled={isBusy || !fullText}
-        className="gap-2 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-5 py-2 font-bold text-white shadow-md hover:shadow-lg disabled:opacity-60"
-      >
-        {isBusy ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <FileText className="h-4 w-4" aria-hidden="true" />
-        )}
-        <span>
-          {isBusy
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+        {/* ─────────── TXT ─────────── */}
+        <Button
+          type="button"
+          onClick={handleTxt}
+          disabled={busyTxt || !fullText}
+          className="gap-2 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-5 py-2 font-bold text-white shadow-md hover:shadow-lg disabled:opacity-60"
+        >
+          {busyTxt ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+          <span>{busyTxt
             ? t("exports.txt_preparing", "Preparing text...")
             : t("exports.txt_button", "Export text (TXT)")}
-        </span>
-      </Button>
+          </span>
+        </Button>
 
-      {/* MP3 — placeholder for the next n8n workflow */}
-      <Button
-        type="button"
-        disabled
-        title={t("exports.coming_soon", "Coming soon")}
-        className="gap-2 rounded-full bg-muted px-5 py-2 font-bold text-muted-foreground disabled:opacity-70"
-      >
-        <Volume2 className="h-4 w-4" aria-hidden="true" />
-        <span>{t("exports.mp3_button", "Export audio (MP3)")}</span>
-        <span className="ms-1 rounded-full bg-amber-200/60 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
-          {t("exports.soon_pill", "SOON")}
-        </span>
-      </Button>
+        {/* ─────────── MP3 ─────────── */}
+        <div className="flex items-stretch overflow-hidden rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-md">
+          <Button
+            type="button"
+            onClick={handleAudio}
+            disabled={busyMp3 || !fullText}
+            className="gap-2 rounded-none border-0 bg-transparent px-5 py-2 font-bold text-white hover:bg-white/10 disabled:opacity-60"
+          >
+            {busyMp3 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+            <span>{busyMp3
+              ? t("exports.mp3_preparing", "Recording...")
+              : t("exports.mp3_button", "Export audio (MP3)")}
+            </span>
+          </Button>
+          {voices.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  disabled={busyMp3}
+                  aria-label={t("exports.audio_settings", "Audio settings")}
+                  className="rounded-none border-0 border-s border-white/20 bg-transparent px-3 py-2 text-white hover:bg-white/10 disabled:opacity-60"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>{t("exports.voice", "Voice")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={selectedVoiceId ?? ""}
+                  onValueChange={(v) => setSelectedVoiceId(v)}
+                >
+                  {voices.map((v) => (
+                    <DropdownMenuRadioItem key={v.voiceId} value={v.voiceId}>
+                      <span className="flex-1 truncate">{v.displayName ?? v.voiceId}</span>
+                      {v.sampleUrl && (
+                        <a
+                          href={v.sampleUrl} target="_blank" rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="ms-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-primary hover:bg-primary/10"
+                          aria-label={t("exports.play_sample", "Play sample")}
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{t("exports.speed", "Speed")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={String(speed)}
+                  onValueChange={(v) => setSpeed(parseFloat(v) as 0.8 | 1.0 | 1.2)}
+                >
+                  {SPEED_OPTIONS.map((s) => (
+                    <DropdownMenuRadioItem key={s.value} value={String(s.value)}>
+                      {t(s.labelKey, s.fallback)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                {activeVoice && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                      {activeVoice.provider}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
-      {/* PDF — placeholder for the next n8n workflow */}
-      <Button
-        type="button"
-        disabled
-        title={t("exports.coming_soon", "Coming soon")}
-        className="gap-2 rounded-full bg-muted px-5 py-2 font-bold text-muted-foreground disabled:opacity-70"
-      >
-        <BookOpen className="h-4 w-4" aria-hidden="true" />
-        <span>{t("exports.pdf_button", "Export story (PDF)")}</span>
-        <span className="ms-1 rounded-full bg-amber-200/60 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
-          {t("exports.soon_pill", "SOON")}
-        </span>
-      </Button>
+        {/* ─────────── PDF ─────────── */}
+        <Button
+          type="button"
+          onClick={handlePdf}
+          disabled={busyPdf || pdfDisabled}
+          title={pdfDisabled ? t("exports.pdf_needs_pages", "PDF requires structured pages") : undefined}
+          className="gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2 font-bold text-white shadow-md hover:shadow-lg disabled:opacity-60"
+        >
+          {busyPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+          <span>{busyPdf
+            ? t("exports.pdf_preparing", "Drawing your picture book...")
+            : t("exports.pdf_button", "Export story (PDF)")}
+          </span>
+        </Button>
+      </div>
 
       {/* Inline error + retry */}
       {status === "error" && error && (
-        <div className="flex w-full items-center justify-center gap-2 text-sm text-destructive">
+        <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-destructive">
           <span>{error}</span>
           <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              reset();
-              handleTxt();
-            }}
+            type="button" size="sm" variant="outline"
+            onClick={reset}
             className="gap-1 rounded-full"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            {t("exports.retry", "Try again")}
+            {t("exports.dismiss", "Dismiss")}
           </Button>
         </div>
       )}
