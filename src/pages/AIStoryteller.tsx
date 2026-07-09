@@ -1168,12 +1168,11 @@ const AIStoryteller = () => {
           <N8nExportBar
             title={selStory.title}
             fullText={selStory.pages.map((p) => p.text).join("\n\n")}
-            language={(selStory.language as string) || "en"}
+            language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
             storyId={(selStory as unknown as { id?: string }).id ?? null}
             childId={activeChild?.id ?? null}
             childName={activeChild?.name ?? null}
             emotionTags={
-              selStory.sel_outcome?.tags ??
               (selStory.pages.map((p) => p.emotionTag).filter(Boolean) as string[])
             }
             pageCount={selStory.pages.length}
