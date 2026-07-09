@@ -488,6 +488,48 @@ export type Database = {
         }
         Relationships: []
       }
+      audio_cache: {
+        Row: {
+          content_hash: string
+          created_at: string
+          duration_seconds: number | null
+          file_path: string
+          file_size: number | null
+          id: string
+          language: string | null
+          last_used_at: string
+          provider: string
+          used_count: number
+          voice_id: string
+        }
+        Insert: {
+          content_hash: string
+          created_at?: string
+          duration_seconds?: number | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          language?: string | null
+          last_used_at?: string
+          provider: string
+          used_count?: number
+          voice_id: string
+        }
+        Update: {
+          content_hash?: string
+          created_at?: string
+          duration_seconds?: number | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          language?: string | null
+          last_used_at?: string
+          provider?: string
+          used_count?: number
+          voice_id?: string
+        }
+        Relationships: []
+      }
       audio_voice_profiles: {
         Row: {
           active: boolean
@@ -1121,6 +1163,7 @@ export type Database = {
       }
       exports: {
         Row: {
+          audio_metadata: Json | null
           child_id: string | null
           created_at: string
           dap_score: number | null
@@ -1131,6 +1174,7 @@ export type Database = {
           id: string
           language: string | null
           metadata: Json
+          pdf_metadata: Json | null
           provider: string | null
           signed_url: string | null
           status: string
@@ -1140,6 +1184,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          audio_metadata?: Json | null
           child_id?: string | null
           created_at?: string
           dap_score?: number | null
@@ -1150,6 +1195,7 @@ export type Database = {
           id?: string
           language?: string | null
           metadata?: Json
+          pdf_metadata?: Json | null
           provider?: string | null
           signed_url?: string | null
           status?: string
@@ -1159,6 +1205,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          audio_metadata?: Json | null
           child_id?: string | null
           created_at?: string
           dap_score?: number | null
@@ -1169,6 +1216,7 @@ export type Database = {
           id?: string
           language?: string | null
           metadata?: Json
+          pdf_metadata?: Json | null
           provider?: string | null
           signed_url?: string | null
           status?: string
@@ -2884,6 +2932,51 @@ export type Database = {
           updated_at?: string
           video_url?: string | null
           views?: number
+        }
+        Relationships: []
+      }
+      voice_configs: {
+        Row: {
+          age_group: string | null
+          created_at: string
+          display_name: string | null
+          emotion_hint: string | null
+          gender: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          language_code: string
+          provider: string
+          sample_url: string | null
+          voice_id: string
+        }
+        Insert: {
+          age_group?: string | null
+          created_at?: string
+          display_name?: string | null
+          emotion_hint?: string | null
+          gender?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          language_code: string
+          provider: string
+          sample_url?: string | null
+          voice_id: string
+        }
+        Update: {
+          age_group?: string | null
+          created_at?: string
+          display_name?: string | null
+          emotion_hint?: string | null
+          gender?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          language_code?: string
+          provider?: string
+          sample_url?: string | null
+          voice_id?: string
         }
         Relationships: []
       }

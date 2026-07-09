@@ -131,6 +131,220 @@ export async function exportStoryAsTxt(input: ExportTxtInput): Promise<ExportTxt
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Shared helper — normalize supabase.functions.invoke error into N8nExportError
+// ────────────────────────────────────────────────────────────────────────────
+async function readEdgeError(error: unknown): Promise<N8nExportError> {
+  let code = "network_error";
+  let status: number | undefined;
+  let retryAfter: number | undefined;
+  const ctx = (error as { context?: Response })?.context;
+  if (ctx && typeof ctx.text === "function") {
+    status = ctx.status;
+    const body = await ctx.text();
+    try {
+      const parsed = JSON.parse(body) as { error?: string; retry_after?: number };
+      code = parsed.error ?? code;
+      retryAfter = parsed.retry_after;
+    } catch {
+      code = body?.slice(0, 120) || code;
+    }
+  }
+  return new N8nExportError(code, (error as Error)?.message, { status, retryAfter });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Audio (MP3) export
+// ────────────────────────────────────────────────────────────────────────────
+export interface ExportAudioInput {
+  storyId?: string | null;
+  childId?: string | null;
+  title?: string;
+  fullText: string;
+  language: SupportedLanguage | string;
+  voiceId?: string;
+  speed?: 0.8 | 1.0 | 1.2 | number;
+  childName?: string | null;
+  emotionTags?: string[];
+}
+
+export interface ExportAudioResult {
+  exportId: string;
+  downloadUrl: string;
+  fileName: string;
+  fileSize: number;
+  durationSeconds: number | null;
+  provider: string;
+  cacheHit: boolean;
+  expiresAt: string;
+}
+
+export async function exportStoryAsAudio(input: ExportAudioInput): Promise<ExportAudioResult> {
+  if (!input.fullText?.trim()) throw new N8nExportError("empty_text");
+  if (input.fullText.length > 10_000) throw new N8nExportError("text_too_long");
+
+  const { data, error } = await supabase.functions.invoke<{
+    success?: boolean;
+    export_id?: string;
+    download_url?: string;
+    file_name?: string;
+    file_size?: number;
+    duration_seconds?: number | null;
+    provider?: string;
+    cache_hit?: boolean;
+    expires_at?: string;
+    error?: string;
+  }>("n8n-export-audio", {
+    body: {
+      story_id: input.storyId ?? null,
+      child_id: input.childId ?? null,
+      title: input.title ?? "story",
+      full_text: input.fullText,
+      language: input.language,
+      voice_id: input.voiceId,
+      speed: input.speed ?? 1.0,
+      child_name: input.childName ?? null,
+      emotion_tags: input.emotionTags ?? [],
+    },
+  });
+
+  if (error) throw await readEdgeError(error);
+  if (!data?.success || !data.download_url || !data.export_id) {
+    throw new N8nExportError(data?.error ?? "unknown_error");
+  }
+
+  return {
+    exportId: data.export_id,
+    downloadUrl: data.download_url,
+    fileName: data.file_name ?? "story.mp3",
+    fileSize: data.file_size ?? 0,
+    durationSeconds: data.duration_seconds ?? null,
+    provider: data.provider ?? "n8n",
+    cacheHit: data.cache_hit ?? false,
+    expiresAt: data.expires_at ?? new Date(Date.now() + 24 * 3600_000).toISOString(),
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PDF (Picture Book) export
+// ────────────────────────────────────────────────────────────────────────────
+export interface PdfPageInput {
+  pageNumber: number;
+  text: string;
+  illustrationUrl?: string | null;
+  emotionTag?: string | null;
+}
+
+export interface ExportPdfInput {
+  storyId?: string | null;
+  childId?: string | null;
+  title: string;
+  pages: PdfPageInput[];
+  language: SupportedLanguage | string;
+  childName?: string | null;
+  themeColor?: string | null;
+  fontFamily?: string | null;
+  emotionTags?: string[];
+}
+
+export interface ExportPdfResult {
+  exportId: string;
+  downloadUrl: string;
+  previewUrl: string | null;
+  fileName: string;
+  fileSize: number | null;
+  pageCount: number | null;
+  provider: string;
+  expiresAt: string;
+}
+
+export async function exportStoryAsPdf(input: ExportPdfInput): Promise<ExportPdfResult> {
+  if (!input.pages?.length) throw new N8nExportError("pages_required");
+  if (input.pages.length > 30) throw new N8nExportError("too_many_pages");
+
+  const { data, error } = await supabase.functions.invoke<{
+    success?: boolean;
+    export_id?: string;
+    download_url?: string;
+    preview_url?: string | null;
+    file_name?: string;
+    file_size?: number | null;
+    page_count?: number | null;
+    provider?: string;
+    expires_at?: string;
+    error?: string;
+  }>("n8n-export-pdf", {
+    body: {
+      story_id: input.storyId ?? null,
+      child_id: input.childId ?? null,
+      title: input.title,
+      language: input.language,
+      child_name: input.childName ?? null,
+      theme_color: input.themeColor ?? null,
+      font_family: input.fontFamily ?? null,
+      emotion_tags: input.emotionTags ?? [],
+      pages: input.pages.map((p) => ({
+        page_number: p.pageNumber,
+        text: p.text,
+        illustration_url: p.illustrationUrl ?? null,
+        emotion_tag: p.emotionTag ?? null,
+      })),
+    },
+  });
+
+  if (error) throw await readEdgeError(error);
+  if (!data?.success || !data.download_url || !data.export_id) {
+    throw new N8nExportError(data?.error ?? "unknown_error");
+  }
+
+  return {
+    exportId: data.export_id,
+    downloadUrl: data.download_url,
+    previewUrl: data.preview_url ?? null,
+    fileName: data.file_name ?? "story.pdf",
+    fileSize: data.file_size ?? null,
+    pageCount: data.page_count ?? null,
+    provider: data.provider ?? "n8n",
+    expiresAt: data.expires_at ?? new Date(Date.now() + 24 * 3600_000).toISOString(),
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Voice catalog (from voice_configs)
+// ────────────────────────────────────────────────────────────────────────────
+export interface VoiceConfig {
+  id: string;
+  languageCode: string;
+  voiceId: string;
+  displayName: string | null;
+  provider: string;
+  gender: "male" | "female" | "neutral" | null;
+  ageGroup: "child" | "teen" | "adult" | null;
+  isDefault: boolean;
+  sampleUrl: string | null;
+}
+
+export async function listVoicesForLanguage(lang: string): Promise<VoiceConfig[]> {
+  const { data, error } = await supabase
+    .from("voice_configs")
+    .select("id, language_code, voice_id, display_name, provider, gender, age_group, is_default, sample_url")
+    .eq("language_code", lang.toLowerCase().slice(0, 2))
+    .eq("is_active", true)
+    .order("is_default", { ascending: false });
+  if (error || !data) return [];
+  return data.map((r) => ({
+    id: r.id as string,
+    languageCode: r.language_code as string,
+    voiceId: r.voice_id as string,
+    displayName: r.display_name as string | null,
+    provider: r.provider as string,
+    gender: r.gender as VoiceConfig["gender"],
+    ageGroup: r.age_group as VoiceConfig["ageGroup"],
+    isDefault: r.is_default as boolean,
+    sampleUrl: r.sample_url as string | null,
+  }));
+}
+
 /**
  * Client-side audit — records that the user actually initiated the download
  * (edge function already logs generation). Best-effort; never throws.
