@@ -1164,7 +1164,7 @@ const AIStoryteller = () => {
           </div>
           <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
 
-          {/* n8n-powered export toolbar (TXT live; MP3/PDF placeholders) */}
+          {/* n8n-powered export toolbar — TXT + MP3 + PDF all live */}
           <N8nExportBar
             title={selStory.title}
             fullText={selStory.pages.map((p) => p.text).join("\n\n")}
@@ -1176,7 +1176,14 @@ const AIStoryteller = () => {
               (selStory.pages.map((p) => p.emotionTag).filter(Boolean) as string[])
             }
             pageCount={selStory.pages.length}
+            pages={selStory.pages.map((p, i) => ({
+              pageNumber: (p.index ?? i) + 1,
+              text: p.text,
+              illustrationUrl: p.imageUrl ?? null,
+              emotionTag: p.emotionTag ?? null,
+            }))}
           />
+
         </div>
       ) : !story ? (
         <div
