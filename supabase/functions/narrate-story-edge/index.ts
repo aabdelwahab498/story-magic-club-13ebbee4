@@ -61,14 +61,16 @@ serve(async (req) => {
     return jsonOk(
       {
         success: true,
-        status: result.status, // "success" | "cached"
+        status: result.status, // "success" | "cached" | "fallback"
         audioUrl: result.audioUrl,
         duration: result.duration,
         fileSize: result.fileSize,
         voice: result.voice,
         provider: result.provider,
+        providersAttempted: result.providersAttempted,
         language: result.language,
         chunkCount: result.chunkCount,
+        cacheKey: result.cacheKey,
       },
       cors,
     );
