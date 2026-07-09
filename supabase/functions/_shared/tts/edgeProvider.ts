@@ -153,33 +153,8 @@ async function synthesizeOnce(opts: TtsSynthesizeOpts): Promise<Uint8Array> {
   });
 }
 
-/** Split text on sentence boundaries into chunks safe for Edge TTS. */
-export function chunkText(text: string, maxLen = 2800): string[] {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (!clean) return [];
-  if (clean.length <= maxLen) return [clean];
-  const sentences = clean.split(/(?<=[.!?؟\n])\s+/);
-  const parts: string[] = [];
-  let buf = "";
-  for (const s of sentences) {
-    if ((buf + " " + s).trim().length > maxLen && buf) {
-      parts.push(buf.trim());
-      buf = s;
-    } else {
-      buf = buf ? buf + " " + s : s;
-    }
-  }
-  if (buf) parts.push(buf.trim());
-  // Hard-split anything still too long.
-  const final: string[] = [];
-  for (const p of parts) {
-    if (p.length <= maxLen) { final.push(p); continue; }
-    for (let i = 0; i < p.length; i += maxLen) {
-      final.push(p.slice(i, i + maxLen));
-    }
-  }
-  return final;
-}
+// Re-export the shared, unit-tested chunker so all callers use one impl.
+export { chunkText } from "./logic.ts";
 
 export const edgeTtsProvider: TtsProvider = {
   id: "edge-tts",
