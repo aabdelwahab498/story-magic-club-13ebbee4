@@ -16,7 +16,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { generateSpeech } from "../_shared/tts/service.ts";
+// generateSpeech import removed — n8n is the sole provider.
 import { getN8nConfig } from "../_shared/n8nConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
