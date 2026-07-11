@@ -16,7 +16,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { generateSpeech } from "../_shared/tts/service.ts";
+// generateSpeech import removed — n8n is the sole provider.
 import { getN8nConfig } from "../_shared/n8nConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -63,13 +63,15 @@ function slug(s: string, fallback = "story"): string {
   return cleaned || fallback;
 }
 
-/** Call n8n audio webhook, expect { audio_base64, duration_seconds?, provider? }. */
+type N8nAudioResult =
+  | { kind: "url"; downloadUrl: string; duration: number | null; provider: string }
+  | { kind: "bytes"; audio: Uint8Array; duration: number | null; provider: string };
+
 async function callN8n(payload: ExportAudioRequest, admin: SupabaseClient): Promise<
-  | { audio: Uint8Array; duration: number | null; provider: string }
-  | null
+  { ok: true; result: N8nAudioResult } | { ok: false; status: number | null; message: string }
 > {
   const cfg = await getN8nConfig(admin, "mp3");
-  if (!cfg.url) return null;
+  if (!cfg.url) return { ok: false, status: null, message: "n8n webhook not configured" };
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), N8N_TIMEOUT_MS);
   try {
@@ -79,23 +81,30 @@ async function callN8n(payload: ExportAudioRequest, admin: SupabaseClient): Prom
       headers: { "Content-Type": "application/json", "X-Webhook-Secret": cfg.secret },
       body: JSON.stringify(payload),
     });
+    const ctype = res.headers.get("content-type") ?? "";
     if (!res.ok) {
-      console.warn(`[n8n-export-audio] webhook ${res.status}`);
-      return null;
+      const msg = await res.text().catch(() => "");
+      return { ok: false, status: res.status, message: msg.slice(0, 300) || `n8n ${res.status}` };
+    }
+    if (ctype.includes("audio/") || ctype.includes("application/octet-stream")) {
+      const audio = new Uint8Array(await res.arrayBuffer());
+      return { ok: true, result: { kind: "bytes", audio, duration: null, provider: "n8n" } };
     }
     const data = (await res.json().catch(() => null)) as
-      | { audio_base64?: string; duration_seconds?: number; provider?: string }
+      | { download_url?: string; file_url?: string; url?: string; audio_url?: string;
+          audio_base64?: string; duration_seconds?: number; provider?: string }
       | null;
-    if (!data?.audio_base64) return null;
-    const audio = Uint8Array.from(atob(data.audio_base64), (c) => c.charCodeAt(0));
-    return {
-      audio,
-      duration: data.duration_seconds ?? null,
-      provider: data.provider ?? "n8n",
-    };
+    const url = data?.download_url || data?.file_url || data?.audio_url || data?.url || null;
+    if (url) {
+      return { ok: true, result: { kind: "url", downloadUrl: url, duration: data?.duration_seconds ?? null, provider: data?.provider ?? "n8n" } };
+    }
+    if (data?.audio_base64) {
+      const audio = Uint8Array.from(atob(data.audio_base64), (c) => c.charCodeAt(0));
+      return { ok: true, result: { kind: "bytes", audio, duration: data.duration_seconds ?? null, provider: data.provider ?? "n8n" } };
+    }
+    return { ok: false, status: res.status, message: "n8n response missing audio url or data" };
   } catch (err) {
-    console.warn("[n8n-export-audio] webhook failed:", (err as Error).message);
-    return null;
+    return { ok: false, status: null, message: (err as Error).message };
   } finally {
     clearTimeout(t);
   }
@@ -219,54 +228,44 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Miss → n8n → fallback to in-house TTS service ─────────────────
-  let audio: Uint8Array | null = null;
-  let duration: number | null = null;
-  let provider = "unknown";
-
-  const n8n = await callN8n(payload, admin);
-  if (n8n) {
-    audio = n8n.audio;
-    duration = n8n.duration;
-    provider = n8n.provider;
-  } else {
-    // Reuse the shared TTS service: it handles chunking, retries and
-    // provider fallback (Edge-TTS → OpenAI TTS), uploads to story-audio,
-    // and returns a public URL we can re-sign.
-    try {
-      const result = await generateSpeech({
-        text: payload.full_text,
-        language,
-        voice: payload.voice_id,
-        storyId: payload.story_id ?? undefined,
-        userId,
-        admin,
-      });
-      // Download the produced MP3 from the storage bucket so we can also
-      // stamp our own hashed path + audio_cache row.
-      const urlParts = result.audioUrl.split(`/${BUCKET}/`);
-      const producedPath = urlParts[1] ?? "";
-      if (producedPath) {
-        const { data: dl } = await admin.storage.from(BUCKET).download(producedPath);
-        if (dl) {
-          audio = new Uint8Array(await dl.arrayBuffer());
-          duration = result.duration ?? null;
-          provider = result.provider ?? "local-fallback";
-        }
-      }
-    } catch (err) {
-      console.error("[n8n-export-audio] shared TTS failed:", (err as Error).message);
-    }
-  }
-
-  if (!audio) {
-    await admin.from("exports").update({ status: "failed", error_message: "tts_pipeline_failed" }).eq("id", exportId);
+  // ── Miss → n8n only (no local fallback) ───────────────────────────
+  const n8nRes = await callN8n(payload, admin);
+  if (!n8nRes.ok) {
+    await admin.from("exports").update({
+      status: "failed",
+      error_message: `n8n ${n8nRes.status ?? ""}: ${n8nRes.message}`.slice(0, 500),
+    }).eq("id", exportId);
     await admin.from("export_logs").insert({
       export_id: exportId, user_id: userId, action: "failed",
-      details: { stage: "tts" },
+      details: { stage: "n8n", status: n8nRes.status, message: n8nRes.message },
     });
-    return friendly("tts_pipeline_failed", 502);
+    return friendly("tts_pipeline_failed", 502, { status: n8nRes.status, message: n8nRes.message });
   }
+  const result = n8nRes.result;
+
+  // Direct URL — pass through, skip re-upload/cache.
+  if (result.kind === "url") {
+    await admin.from("exports").update({
+      status: "ready", signed_url: result.downloadUrl, provider: result.provider,
+      expires_at: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
+      audio_metadata: { voice_id: voiceId, speed, content_hash: hash, duration: result.duration, remote: true },
+    }).eq("id", exportId);
+    await admin.from("export_logs").insert({
+      export_id: exportId, user_id: userId, action: "generated",
+      details: { provider: result.provider, remote_url: true, duration: result.duration },
+    });
+    return json({
+      success: true, export_id: exportId, download_url: result.downloadUrl,
+      file_name: filename, file_size: null, duration_seconds: result.duration,
+      provider: result.provider,
+      expires_at: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
+      cache_hit: false,
+    });
+  }
+
+  const audio = result.audio;
+  const duration = result.duration;
+  const provider = result.provider;
 
   // ── Upload to storage under hashed path ───────────────────────────
   const up = await admin.storage.from(BUCKET).upload(objectPath, audio, {
