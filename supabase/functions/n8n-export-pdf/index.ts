@@ -121,43 +121,7 @@ async function callN8n(payload: ExportPdfRequest, admin: SupabaseClient): Promis
   }
 }
 
-/**
- * Server-to-server fallback: call the existing `export-story-pdf` edge
- * function which already builds a full picture-book PDF and uploads it to
- * `story-pdfs`. We then re-sign a fresh 24h URL from the returned path.
- */
-async function callFallback(
-  authHeader: string,
-  payload: ExportPdfRequest,
-): Promise<{ pdfUrl: string; pageCount: number | null; provider: string } | null> {
-  if (!payload.story_id) {
-    console.warn("[n8n-export-pdf] fallback skipped: missing story_id");
-    return null;
-  }
-  try {
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data, error } = await client.functions.invoke<{ pdfUrl?: string; error?: string }>(
-      "export-story-pdf",
-      {
-        body: {
-          storyId: payload.story_id,
-          // Keep CPU usage under Edge limit — cap heavy PNG embedding.
-          maxImages: 4,
-        },
-      },
-    );
-    if (error || !data?.pdfUrl) {
-      console.warn("[n8n-export-pdf] fallback error:", error?.message || data?.error);
-      return null;
-    }
-    return { pdfUrl: data.pdfUrl, pageCount: payload.pages.length, provider: "local-fallback" };
-  } catch (err) {
-    console.warn("[n8n-export-pdf] fallback failed:", (err as Error).message);
-    return null;
-  }
-}
+// Local fallback removed — n8n is the sole export provider.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
