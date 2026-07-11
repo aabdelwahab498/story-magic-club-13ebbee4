@@ -138,10 +138,28 @@ export default function AdminN8nIntegrationPage() {
     }
   };
 
+  const saveStoryUrl = () => patch({ story_webhook_url: storyUrl.trim() || null });
+
+  const runStoryTest = async () => {
+    setTestingStory(true);
+    try {
+      const r = await testN8nStoryWebhook();
+      const s = await getN8nSettings();
+      setSettings(s);
+      if (r.status === "ok") toast.success(`✅ Story webhook: ${r.message}`);
+      else toast.error(`❌ Story webhook: ${r.message}`);
+    } catch (e) {
+      toast.error(`فشل الاختبار: ${(e as Error).message}`);
+    } finally {
+      setTestingStory(false);
+    }
+  };
+
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("تم النسخ");
   };
+
 
   return (
     <div className="max-w-4xl mx-auto space-y-6" dir="rtl">
