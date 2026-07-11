@@ -15,6 +15,8 @@ export interface N8nSettings {
   txt_path: string;
   mp3_path: string;
   pdf_path: string;
+  story_webhook_url: string | null;
+  story_enabled: boolean;
   last_tested_at: string | null;
   last_test_status: string | null;
   last_test_message: string | null;
@@ -46,12 +48,15 @@ export interface UpdateN8nInput {
   txt_path?: string;
   mp3_path?: string;
   pdf_path?: string;
+  story_webhook_url?: string | null;
+  story_enabled?: boolean;
 }
 
 export async function updateN8nSettings(patch: UpdateN8nInput): Promise<N8nSettings> {
   const { settings } = await call<{ settings: N8nSettings }>("update", patch as Record<string, unknown>);
   return settings;
 }
+
 
 export async function updateN8nSecret(secret: string | null): Promise<void> {
   await call("set-secret", { secret });
