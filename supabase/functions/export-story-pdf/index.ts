@@ -116,17 +116,19 @@ serve(async (req) => {
     const pages = (story.pages as Array<{ index: number; text: string; emotionTag?: string }>) ?? [];
     pages.sort((a, b) => a.index - b.index);
 
+    let embedded = 0;
     for (const p of pages) {
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
 
       const url = illMap.get(p.index);
-      if (url) {
+      if (url && !skipImages && embedded < maxImages) {
         try {
           const r = await fetch(url);
           if (r.ok) {
             const ct = r.headers.get("content-type") ?? "";
             const bytes = new Uint8Array(await r.arrayBuffer());
+            // pdf-lib PNG decoding is very CPU-heavy; cap total embeds to stay under CPU limit.
             const img = ct.includes("png")
               ? await pdf.embedPng(bytes)
               : await pdf.embedJpg(bytes);
@@ -134,6 +136,7 @@ serve(async (req) => {
             const ratio = Math.min(maxW / img.width, maxH / img.height);
             const w = img.width * ratio, h = img.height * ratio;
             page.drawImage(img, { x: (595 - w) / 2, y: 842 - 60 - h, width: w, height: h });
+            embedded++;
           }
         } catch (e) {
           console.error("img embed failed", e);
