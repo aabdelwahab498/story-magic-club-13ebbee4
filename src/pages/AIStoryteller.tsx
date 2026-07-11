@@ -12,7 +12,7 @@ import { saveAiStory, generateClassicIllustrations, type ClassicIllustration } f
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild } from "@/lib/childProfilesApi";
 import { composeSelStory, planSelStory, readComposeErrorDetails, ComposeStoryError, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
-import { generateStoryViaN8n } from "@/lib/n8nStoryApi";
+
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
 import { BrowserNarratorSettings } from "@/components/BrowserNarratorSettings";
@@ -474,56 +474,8 @@ const AIStoryteller = () => {
     setSelStory(null);
     startProgressTimeline();
 
-    // ── Attempt n8n Story webhook first ────────────────────────────────
-    // If the admin has enabled a Story Generation webhook, we call it via
-    // the `n8n-story-generate` edge function. It sends X-Webhook-Secret;
-    // any failure (disabled, missing URL, 401/403, timeout, bad shape)
-    // returns `{ fallback: true }` and we transparently continue with the
-    // built-in compose-story pipeline. Users never see a hard error from n8n.
-    try {
-      const n8n = await generateStoryViaN8n({
-        idea: (input.customPrompt ?? input.theme ?? "").trim(),
-        childId: input.childProfileId ?? null,
-        childName: input.childName,
-        language: input.language ?? lang,
-        ageGroup: ageId,
-        userId: user?.id ?? null,
-      });
-      if (!n8n.fallback && n8n.story) {
-        stopProgressTimeline("done");
-        const fake: SelStoryResponse = {
-          title: n8n.story.title,
-          pages: n8n.story.pages.map((p) => ({
-            index: p.index,
-            text: p.text,
-            emotionTag: p.emotionTag,
-            illustrationPrompt: p.illustrationPrompt,
-          })),
-          sel_outcome: { skill: "n8n", emotion: "joy", statement: "" },
-          character_visual_hash: "n8n",
-          age_band: ageId,
-          quality: { total: 25, passed: true, scores: {} },
-          safety: { passed: true, violations: [] },
-          length: { passed: true, pageCount: n8n.story.pages.length },
-          passed: true,
-          regeneration_count: 0,
-        };
-        setSelStory(fake);
-        toast.success(`✨ ${n8n.story.title} (via n8n)`);
-        setGenerating(false);
-        return;
-      }
-      if (n8n.fallback && n8n.reason && n8n.reason !== "story_webhook_disabled") {
-        // Non-silent fallback: tell the user we couldn't reach n8n and are
-        // continuing locally, so failures aren't invisible.
-        toast.warning(
-          `n8n unavailable (${n8n.reason}) — using local generator`,
-          { description: n8n.message ?? undefined },
-        );
-      }
-    } catch (err) {
-      console.warn("[n8n-story] proxy failed, falling back", err);
-    }
+    // Internal AI pipeline only — no external workflows.
+
 
     try {
       console.log("[SEL] composeSelStory → start", input);
