@@ -49,7 +49,7 @@ export interface UpdateN8nInput {
 }
 
 export async function updateN8nSettings(patch: UpdateN8nInput): Promise<N8nSettings> {
-  const { settings } = await call<{ settings: N8nSettings }>("update", patch);
+  const { settings } = await call<{ settings: N8nSettings }>("update", patch as Record<string, unknown>);
   return settings;
 }
 
