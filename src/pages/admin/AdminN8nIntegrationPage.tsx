@@ -47,6 +47,15 @@ export default function AdminN8nIntegrationPage() {
   const [testing, setTesting] = useState<N8nWorkflowKind | null>(null);
   const [storyUrl, setStoryUrl] = useState("");
   const [testingStory, setTestingStory] = useState(false);
+  type TestResult = {
+    scope: "story" | N8nWorkflowKind;
+    status: "ok" | "failed";
+    http_status: number | null;
+    message: string;
+    tested_url: string;
+    at: string;
+  };
+  const [lastResult, setLastResult] = useState<TestResult | null>(null);
 
   useEffect(() => {
     (async () => {
