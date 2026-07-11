@@ -440,6 +440,10 @@ export default function AdminN8nIntegrationPage() {
             );
           })}
 
+          {lastResult && lastResult.scope !== "story" && (
+            <TestResultPanel result={lastResult} />
+          )}
+
           {settings.last_tested_at && (
             <div className="text-xs text-muted-foreground flex items-center gap-2 pt-2">
               {settings.last_test_status === "ok" ? (
@@ -447,7 +451,7 @@ export default function AdminN8nIntegrationPage() {
               ) : (
                 <XCircle className="h-4 w-4 text-destructive" />
               )}
-              آخر اختبار: {new Date(settings.last_tested_at).toLocaleString()} —{" "}
+              آخر اختبار (محفوظ): {new Date(settings.last_tested_at).toLocaleString()} —{" "}
               {settings.last_test_message}
             </div>
           )}
