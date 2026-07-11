@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
     await admin.from("exports").update({ status: "failed", error_message: "tts_pipeline_failed" }).eq("id", exportId);
     await admin.from("export_logs").insert({
       export_id: exportId, user_id: userId, action: "failed",
-      details: { stage: "tts", n8n_configured: !!N8N_WEBHOOK_URL },
+      details: { stage: "tts" },
     });
     return friendly("tts_pipeline_failed", 502);
   }
