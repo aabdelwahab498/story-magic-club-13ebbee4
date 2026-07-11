@@ -76,6 +76,8 @@ Deno.serve(async (req) => {
     txt_path?: string;
     mp3_path?: string;
     pdf_path?: string;
+    story_webhook_url?: string | null;
+    story_enabled?: boolean;
     secret?: string | null;
     kind?: WorkflowKind;
   };
@@ -84,6 +86,7 @@ Deno.serve(async (req) => {
   } catch {
     return fail("invalid_json", 400);
   }
+
   const action = body.action;
   if (!action) return fail("action_required", 400);
 
