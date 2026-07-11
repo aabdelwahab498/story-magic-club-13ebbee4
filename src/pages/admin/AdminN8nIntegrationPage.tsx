@@ -138,10 +138,20 @@ export default function AdminN8nIntegrationPage() {
       const r = await testN8nWorkflow(kind);
       const s = await getN8nSettings();
       setSettings(s);
+      setLastResult({
+        scope: kind,
+        status: r.status,
+        http_status: r.http_status,
+        message: r.message,
+        tested_url: r.tested_url,
+        at: new Date().toISOString(),
+      });
       if (r.status === "ok") toast.success(`✅ ${kind.toUpperCase()}: ${r.message}`);
       else toast.error(`❌ ${kind.toUpperCase()}: ${r.message}`);
     } catch (e) {
-      toast.error(`فشل الاختبار: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      setLastResult({ scope: kind, status: "failed", http_status: null, message: msg, tested_url: "", at: new Date().toISOString() });
+      toast.error(`فشل الاختبار: ${msg}`);
     } finally {
       setTesting(null);
     }
@@ -155,10 +165,20 @@ export default function AdminN8nIntegrationPage() {
       const r = await testN8nStoryWebhook();
       const s = await getN8nSettings();
       setSettings(s);
+      setLastResult({
+        scope: "story",
+        status: r.status,
+        http_status: r.http_status,
+        message: r.message,
+        tested_url: r.tested_url,
+        at: new Date().toISOString(),
+      });
       if (r.status === "ok") toast.success(`✅ Story webhook: ${r.message}`);
       else toast.error(`❌ Story webhook: ${r.message}`);
     } catch (e) {
-      toast.error(`فشل الاختبار: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      setLastResult({ scope: "story", status: "failed", http_status: null, message: msg, tested_url: "", at: new Date().toISOString() });
+      toast.error(`فشل الاختبار: ${msg}`);
     } finally {
       setTestingStory(false);
     }
