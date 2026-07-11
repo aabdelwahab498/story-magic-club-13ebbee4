@@ -72,3 +72,8 @@ export interface N8nTestResult {
 export async function testN8nWorkflow(kind: N8nWorkflowKind): Promise<N8nTestResult> {
   return call<N8nTestResult>("test", { kind });
 }
+
+export async function testN8nStoryWebhook(): Promise<N8nTestResult> {
+  return call<N8nTestResult>("test-story");
+}
+
