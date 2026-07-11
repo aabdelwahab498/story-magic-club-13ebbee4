@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
   });
 
   // ── 6. Call n8n (or fall back locally) ────────────────────────────────
-  const { text, dapScore, provider } = await callN8n(payload);
+  const { text, dapScore, provider } = await callN8n(payload, admin);
   const bytes = new TextEncoder().encode(text);
   const filename = `${safeSlug(payload.title)}.txt`;
   const objectPath = `${userId}/${exportId}.txt`;
