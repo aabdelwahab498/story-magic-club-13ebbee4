@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
   let duration: number | null = null;
   let provider = "unknown";
 
-  const n8n = await callN8n(payload);
+  const n8n = await callN8n(payload, admin);
   if (n8n) {
     audio = n8n.audio;
     duration = n8n.duration;
