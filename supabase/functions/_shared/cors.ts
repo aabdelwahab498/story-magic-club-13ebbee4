@@ -68,3 +68,16 @@ export function handlePreflight(req: Request): Response | null {
   const allowed = headers["Access-Control-Allow-Origin"] !== "null";
   return new Response(null, { status: allowed ? 204 : 403, headers });
 }
+
+/**
+ * Permissive fallback headers for functions that don't take an origin-scoped
+ * approach. Uses `*` — safe for read-only public endpoints or endpoints already
+ * gated by Bearer JWT auth. Prefer `buildCorsHeaders(req)` for new code.
+ */
+export const corsHeaders: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
