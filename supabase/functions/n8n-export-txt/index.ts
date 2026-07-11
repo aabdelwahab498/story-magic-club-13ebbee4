@@ -231,75 +231,93 @@ Deno.serve(async (req) => {
     details: { language, chars: payload.full_text.length },
   });
 
-  // ── 6. Call n8n (or fall back locally) ────────────────────────────────
-  const { text, dapScore, provider } = await callN8n(payload, admin);
-  const bytes = new TextEncoder().encode(text);
+  // ── 6. Call n8n (n8n-only, no fallback) ───────────────────────────────
+  const n8nRes = await callN8n(payload, admin);
+  if (!n8nRes.ok) {
+    await admin.from("exports").update({
+      status: "failed",
+      error_message: `n8n ${n8nRes.status ?? ""}: ${n8nRes.message}`.slice(0, 500),
+    }).eq("id", exportId);
+    await admin.from("export_logs").insert({
+      export_id: exportId, user_id: userId, action: "failed",
+      details: { stage: "n8n", status: n8nRes.status, message: n8nRes.message },
+    });
+    return friendly("txt_pipeline_failed", 502, { status: n8nRes.status, message: n8nRes.message });
+  }
+  const result = n8nRes.result;
   const filename = `${safeSlug(payload.title)}.txt`;
+  const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
+
+  // Direct URL from n8n — pass through.
+  if (result.kind === "url") {
+    await admin.from("exports").update({
+      status: "ready",
+      signed_url: result.downloadUrl,
+      provider: result.provider,
+      dap_score: result.dapScore,
+      expires_at: expiresAt,
+      metadata: { title: payload.title, remote: true },
+    }).eq("id", exportId);
+    await admin.from("export_logs").insert({
+      export_id: exportId, user_id: userId, action: "generated",
+      details: { provider: result.provider, remote_url: true },
+    });
+    const response: ExportTxtResponse = {
+      success: true, export_id: exportId, download_url: result.downloadUrl,
+      file_name: filename, file_size: null, expires_at: expiresAt,
+      dap_score: result.dapScore, provider: result.provider,
+    };
+    return json(response, 200);
+  }
+
+  // Inline text — upload to storage and sign.
+  const bytes = new TextEncoder().encode(result.text);
   const objectPath = `${userId}/${exportId}.txt`;
 
-  // ── 7. Upload to Storage ──────────────────────────────────────────────
   const upload = await admin.storage.from(BUCKET).upload(objectPath, bytes, {
     contentType: "text/plain; charset=utf-8",
     upsert: true,
   });
   if (upload.error) {
-    console.error("[n8n-export-txt] upload failed:", upload.error);
     await admin.from("exports").update({
-      status: "failed",
-      error_message: upload.error.message,
+      status: "failed", error_message: upload.error.message,
     }).eq("id", exportId);
     await admin.from("export_logs").insert({
-      export_id: exportId,
-      user_id: userId,
-      action: "failed",
+      export_id: exportId, user_id: userId, action: "failed",
       details: { stage: "upload", message: upload.error.message },
     });
     return friendly("storage_upload_failed", 500);
   }
 
-  // ── 8. Signed URL (24h) ───────────────────────────────────────────────
   const signed = await admin.storage.from(BUCKET).createSignedUrl(
-    objectPath,
-    SIGNED_URL_TTL_SECONDS,
-    { download: filename },
+    objectPath, SIGNED_URL_TTL_SECONDS, { download: filename },
   );
   if (signed.error || !signed.data?.signedUrl) {
-    console.error("[n8n-export-txt] signed url failed:", signed.error);
     await admin.from("exports").update({
-      status: "failed",
-      error_message: signed.error?.message ?? "sign_failed",
+      status: "failed", error_message: signed.error?.message ?? "sign_failed",
     }).eq("id", exportId);
     return friendly("sign_url_failed", 500);
   }
-
-  const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
 
   await admin.from("exports").update({
     status: "ready",
     file_path: objectPath,
     signed_url: signed.data.signedUrl,
     file_size: bytes.byteLength,
-    provider,
-    dap_score: dapScore,
+    provider: result.provider,
+    dap_score: result.dapScore,
     expires_at: expiresAt,
   }).eq("id", exportId);
 
   await admin.from("export_logs").insert({
-    export_id: exportId,
-    user_id: userId,
-    action: "generated",
-    details: { provider, bytes: bytes.byteLength, dap_score: dapScore },
+    export_id: exportId, user_id: userId, action: "generated",
+    details: { provider: result.provider, bytes: bytes.byteLength, dap_score: result.dapScore },
   });
 
   const response: ExportTxtResponse = {
-    success: true,
-    export_id: exportId,
-    download_url: signed.data.signedUrl,
-    file_name: filename,
-    file_size: bytes.byteLength,
-    expires_at: expiresAt,
-    dap_score: dapScore,
-    provider,
+    success: true, export_id: exportId, download_url: signed.data.signedUrl,
+    file_name: filename, file_size: bytes.byteLength, expires_at: expiresAt,
+    dap_score: result.dapScore, provider: result.provider,
   };
   return json(response, 200);
 });
