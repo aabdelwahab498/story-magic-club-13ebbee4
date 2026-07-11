@@ -45,6 +45,8 @@ export default function AdminN8nIntegrationPage() {
   const [secret, setSecret] = useState("");
   const [savingSecret, setSavingSecret] = useState(false);
   const [testing, setTesting] = useState<N8nWorkflowKind | null>(null);
+  const [storyUrl, setStoryUrl] = useState("");
+  const [testingStory, setTestingStory] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -52,6 +54,7 @@ export default function AdminN8nIntegrationPage() {
         const s = await getN8nSettings();
         setSettings(s);
         setBaseUrl(s.webhook_base_url ?? "");
+        setStoryUrl(s.story_webhook_url ?? "");
       } catch (e) {
         toast.error(`فشل تحميل الإعدادات: ${(e as Error).message}`);
       } finally {
@@ -59,6 +62,7 @@ export default function AdminN8nIntegrationPage() {
       }
     })();
   }, []);
+
 
   if (loading) {
     return (
