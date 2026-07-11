@@ -177,71 +177,74 @@ Deno.serve(async (req) => {
   const objectPath = `${userId}/${exportId}.pdf`;
   const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
 
-  // Try n8n first
-  const n8n = await callN8n(payload, admin);
-  if (n8n) {
-    const up = await admin.storage.from(PDF_BUCKET).upload(objectPath, n8n.pdf, {
-      contentType: "application/pdf", upsert: true,
-    });
-    if (up.error) {
-      await admin.from("exports").update({ status: "failed", error_message: up.error.message }).eq("id", exportId);
-      return friendly("storage_upload_failed", 500);
-    }
-    let previewUrl: string | null = null;
-    if (n8n.preview) {
-      const previewPath = `previews/${userId}/${exportId}.png`;
-      const pv = await admin.storage.from(IMG_BUCKET).upload(previewPath, n8n.preview, {
-        contentType: "image/png", upsert: true,
-      });
-      if (!pv.error) {
-        const pvSigned = await admin.storage.from(IMG_BUCKET)
-          .createSignedUrl(previewPath, SIGNED_URL_TTL_SECONDS);
-        previewUrl = pvSigned.data?.signedUrl ?? null;
-      }
-    }
-    const signed = await admin.storage.from(PDF_BUCKET)
-      .createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
-    if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
-
+  const n8nRes = await callN8n(payload, admin);
+  if (!n8nRes.ok) {
     await admin.from("exports").update({
-      status: "ready", file_path: objectPath, signed_url: signed.data.signedUrl,
-      file_size: n8n.pdf.byteLength, provider: n8n.provider, expires_at: expiresAt,
-      pdf_metadata: { page_count: n8n.pageCount ?? payload.pages.length, preview_url: previewUrl, theme_color: payload.theme_color },
+      status: "failed",
+      error_message: `n8n ${n8nRes.status ?? ""}: ${n8nRes.message}`.slice(0, 500),
+    }).eq("id", exportId);
+    await admin.from("export_logs").insert({
+      export_id: exportId, user_id: userId, action: "failed",
+      details: { stage: "n8n", status: n8nRes.status, message: n8nRes.message },
+    });
+    return friendly("pdf_pipeline_failed", 502, { status: n8nRes.status, message: n8nRes.message });
+  }
+  const result = n8nRes.result;
+
+  // Direct URL from n8n — pass through, no re-upload.
+  if (result.kind === "url") {
+    await admin.from("exports").update({
+      status: "ready", signed_url: result.downloadUrl,
+      provider: result.provider, expires_at: expiresAt,
+      pdf_metadata: { page_count: result.pageCount ?? payload.pages.length, preview_url: result.previewUrl, theme_color: payload.theme_color, remote: true },
     }).eq("id", exportId);
     await admin.from("export_logs").insert({
       export_id: exportId, user_id: userId, action: "generated",
-      details: { provider: n8n.provider, bytes: n8n.pdf.byteLength, page_count: n8n.pageCount },
+      details: { provider: result.provider, remote_url: true, page_count: result.pageCount },
     });
     return json({
-      success: true, export_id: exportId, download_url: signed.data.signedUrl,
-      preview_url: previewUrl, file_name: filename, file_size: n8n.pdf.byteLength,
-      page_count: n8n.pageCount ?? payload.pages.length, provider: n8n.provider, expires_at: expiresAt,
+      success: true, export_id: exportId, download_url: result.downloadUrl,
+      preview_url: result.previewUrl, file_name: filename, file_size: null,
+      page_count: result.pageCount ?? payload.pages.length, provider: result.provider, expires_at: expiresAt,
     });
   }
 
-  // Fallback: existing edge PDF builder
-  const fb = await callFallback(authHeader, payload);
-  if (fb?.pdfUrl) {
-    await admin.from("exports").update({
-      status: "ready", file_path: fb.pdfUrl, signed_url: fb.pdfUrl,
-      provider: fb.provider, expires_at: expiresAt,
-      pdf_metadata: { page_count: fb.pageCount, theme_color: payload.theme_color, fallback: true },
-    }).eq("id", exportId);
-    await admin.from("export_logs").insert({
-      export_id: exportId, user_id: userId, action: "generated",
-      details: { provider: fb.provider, fallback: true, page_count: fb.pageCount },
-    });
-    return json({
-      success: true, export_id: exportId, download_url: fb.pdfUrl,
-      preview_url: null, file_name: filename, file_size: null,
-      page_count: fb.pageCount, provider: fb.provider, expires_at: expiresAt,
-    });
-  }
-
-  await admin.from("exports").update({ status: "failed", error_message: "pdf_pipeline_failed" }).eq("id", exportId);
-  await admin.from("export_logs").insert({
-    export_id: exportId, user_id: userId, action: "failed",
-    details: { stage: "pdf" },
+  // Binary/base64 PDF — upload to storage and sign.
+  const up = await admin.storage.from(PDF_BUCKET).upload(objectPath, result.pdf, {
+    contentType: "application/pdf", upsert: true,
   });
-  return friendly("pdf_pipeline_failed", 502);
+  if (up.error) {
+    await admin.from("exports").update({ status: "failed", error_message: up.error.message }).eq("id", exportId);
+    return friendly("storage_upload_failed", 500);
+  }
+  let previewUrl: string | null = null;
+  if (result.preview) {
+    const previewPath = `previews/${userId}/${exportId}.png`;
+    const pv = await admin.storage.from(IMG_BUCKET).upload(previewPath, result.preview, {
+      contentType: "image/png", upsert: true,
+    });
+    if (!pv.error) {
+      const pvSigned = await admin.storage.from(IMG_BUCKET)
+        .createSignedUrl(previewPath, SIGNED_URL_TTL_SECONDS);
+      previewUrl = pvSigned.data?.signedUrl ?? null;
+    }
+  }
+  const signed = await admin.storage.from(PDF_BUCKET)
+    .createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
+  if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
+
+  await admin.from("exports").update({
+    status: "ready", file_path: objectPath, signed_url: signed.data.signedUrl,
+    file_size: result.pdf.byteLength, provider: result.provider, expires_at: expiresAt,
+    pdf_metadata: { page_count: result.pageCount ?? payload.pages.length, preview_url: previewUrl, theme_color: payload.theme_color },
+  }).eq("id", exportId);
+  await admin.from("export_logs").insert({
+    export_id: exportId, user_id: userId, action: "generated",
+    details: { provider: result.provider, bytes: result.pdf.byteLength, page_count: result.pageCount },
+  });
+  return json({
+    success: true, export_id: exportId, download_url: signed.data.signedUrl,
+    preview_url: previewUrl, file_name: filename, file_size: result.pdf.byteLength,
+    page_count: result.pageCount ?? payload.pages.length, provider: result.provider, expires_at: expiresAt,
+  });
 });
