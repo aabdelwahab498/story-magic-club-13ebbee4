@@ -58,18 +58,29 @@ export default function AdminN8nIntegrationPage() {
   const [lastResult, setLastResult] = useState<TestResult | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      // Skip when there's no active session (e.g. right after logout).
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { if (!cancelled) setLoading(false); return; }
       try {
         const s = await getN8nSettings();
+        if (cancelled) return;
         setSettings(s);
         setBaseUrl(s.webhook_base_url ?? "");
         setStoryUrl(s.story_webhook_url ?? "");
       } catch (e) {
-        toast.error(`فشل تحميل الإعدادات: ${(e as Error).message}`);
+        if (cancelled) return;
+        const msg = (e as Error).message || "";
+        // Ignore auth races on unmount/logout — don't spam toasts.
+        if (!/unauthorized|forbidden|jwt/i.test(msg)) {
+          toast.error(`فشل تحميل الإعدادات: ${msg}`);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, []);
 
 
