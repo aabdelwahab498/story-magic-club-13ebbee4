@@ -1628,6 +1628,78 @@ export type Database = {
         }
         Relationships: []
       }
+      n8n_integration_secrets: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      n8n_integration_settings: {
+        Row: {
+          created_at: string
+          id: string
+          last_test_message: string | null
+          last_test_status: string | null
+          last_tested_at: string | null
+          mp3_enabled: boolean
+          mp3_path: string
+          pdf_enabled: boolean
+          pdf_path: string
+          txt_enabled: boolean
+          txt_path: string
+          updated_at: string
+          updated_by: string | null
+          webhook_base_url: string | null
+          webhook_secret_set: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_test_message?: string | null
+          last_test_status?: string | null
+          last_tested_at?: string | null
+          mp3_enabled?: boolean
+          mp3_path?: string
+          pdf_enabled?: boolean
+          pdf_path?: string
+          txt_enabled?: boolean
+          txt_path?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhook_base_url?: string | null
+          webhook_secret_set?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_test_message?: string | null
+          last_test_status?: string | null
+          last_tested_at?: string | null
+          mp3_enabled?: boolean
+          mp3_path?: string
+          pdf_enabled?: boolean
+          pdf_path?: string
+          txt_enabled?: boolean
+          txt_path?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhook_base_url?: string | null
+          webhook_secret_set?: boolean
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
