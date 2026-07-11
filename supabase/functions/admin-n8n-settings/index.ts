@@ -147,6 +147,13 @@ Deno.serve(async (req) => {
         patch[k] = v;
       }
     }
+    if (body.story_webhook_url !== undefined) {
+      const url = (body.story_webhook_url ?? "").trim();
+      if (url && !/^https:\/\//i.test(url)) return fail("story_url_must_be_https", 400);
+      patch.story_webhook_url = url || null;
+    }
+    if (typeof body.story_enabled === "boolean") patch.story_enabled = body.story_enabled;
+
 
     const { data: updated, error } = await admin
       .from("n8n_integration_settings")
