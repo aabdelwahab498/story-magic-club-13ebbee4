@@ -68,6 +68,7 @@ const AdminAudioVoicesPage = lazy(() => import("./pages/admin/AdminAudioVoicesPa
 const AdminRbacPage = lazy(() => import("./pages/admin/AdminRbacPage"));
 const AdminAuditLogsPage = lazy(() => import("./pages/admin/AdminAuditLogsPage"));
 const AdminDownloadsPage = lazy(() => import("./pages/admin/AdminDownloadsPage"));
+const AdminN8nIntegrationPage = lazy(() => import("./pages/admin/AdminN8nIntegrationPage"));
 const CheckoutManual = lazy(() => import("./pages/CheckoutManual"));
 const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
