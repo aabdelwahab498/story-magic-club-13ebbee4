@@ -99,29 +99,29 @@ async function callFallback(
   authHeader: string,
   payload: ExportPdfRequest,
 ): Promise<{ pdfUrl: string; pageCount: number | null; provider: string } | null> {
+  if (!payload.story_id) {
+    console.warn("[n8n-export-pdf] fallback skipped: missing story_id");
+    return null;
+  }
   try {
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data, error } = await client.functions.invoke<{ pdf_url?: string; pageCount?: number }>(
+    const { data, error } = await client.functions.invoke<{ pdfUrl?: string; error?: string }>(
       "export-story-pdf",
       {
         body: {
           storyId: payload.story_id,
-          title: payload.title,
-          language: payload.language,
-          childName: payload.child_name,
-          pages: payload.pages.map((p) => ({
-            index: p.page_number,
-            text: p.text,
-            imageUrl: p.illustration_url ?? null,
-            emotionTag: p.emotion_tag ?? null,
-          })),
+          // Keep CPU usage under Edge limit — cap heavy PNG embedding.
+          maxImages: 4,
         },
       },
     );
-    if (error || !data?.pdf_url) return null;
-    return { pdfUrl: data.pdf_url, pageCount: data.pageCount ?? payload.pages.length, provider: "local-fallback" };
+    if (error || !data?.pdfUrl) {
+      console.warn("[n8n-export-pdf] fallback error:", error?.message || data?.error);
+      return null;
+    }
+    return { pdfUrl: data.pdfUrl, pageCount: payload.pages.length, provider: "local-fallback" };
   } catch (err) {
     console.warn("[n8n-export-pdf] fallback failed:", (err as Error).message);
     return null;

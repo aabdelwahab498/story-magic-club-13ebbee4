@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 
-interface ReqBody { storyId: string; force?: boolean }
+interface ReqBody { storyId: string; force?: boolean; skipImages?: boolean; maxImages?: number }
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -29,6 +29,8 @@ serve(async (req) => {
     const raw = (await req.json().catch(() => ({}))) as Partial<ReqBody>;
     const storyId = typeof raw.storyId === "string" ? raw.storyId.slice(0, 64) : "";
     const force = raw.force === true;
+    const skipImages = raw.skipImages === true;
+    const maxImages = typeof raw.maxImages === "number" ? Math.max(0, Math.min(10, raw.maxImages)) : 4;
     if (!storyId) return json({ error: "missing_storyId" }, 400);
 
 
@@ -114,17 +116,19 @@ serve(async (req) => {
     const pages = (story.pages as Array<{ index: number; text: string; emotionTag?: string }>) ?? [];
     pages.sort((a, b) => a.index - b.index);
 
+    let embedded = 0;
     for (const p of pages) {
       const page = pdf.addPage([595, 842]);
       page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.99, 0.98, 0.95) });
 
       const url = illMap.get(p.index);
-      if (url) {
+      if (url && !skipImages && embedded < maxImages) {
         try {
           const r = await fetch(url);
           if (r.ok) {
             const ct = r.headers.get("content-type") ?? "";
             const bytes = new Uint8Array(await r.arrayBuffer());
+            // pdf-lib PNG decoding is very CPU-heavy; cap total embeds to stay under CPU limit.
             const img = ct.includes("png")
               ? await pdf.embedPng(bytes)
               : await pdf.embedJpg(bytes);
@@ -132,6 +136,7 @@ serve(async (req) => {
             const ratio = Math.min(maxW / img.width, maxH / img.height);
             const w = img.width * ratio, h = img.height * ratio;
             page.drawImage(img, { x: (595 - w) / 2, y: 842 - 60 - h, width: w, height: h });
+            embedded++;
           }
         } catch (e) {
           console.error("img embed failed", e);
