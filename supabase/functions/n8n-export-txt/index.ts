@@ -135,24 +135,25 @@ function renderPlainText(payload: ExportTxtRequest): string {
  * Expected n8n response body: { file_content_base64: string, dap_score?: number }.
  * Any non-2xx or timeout falls back to the local renderer.
  */
-async function callN8n(payload: ExportTxtRequest): Promise<{ text: string; dapScore: number | null; provider: "n8n" | "local-fallback" }> {
+async function callN8n(payload: ExportTxtRequest, admin: SupabaseClient): Promise<{ text: string; dapScore: number | null; provider: "n8n" | "local-fallback" }> {
   const fallback = () => ({
     text: renderPlainText(payload),
     dapScore: null,
     provider: "local-fallback" as const,
   });
 
-  if (!N8N_WEBHOOK_URL) return fallback();
+  const cfg = await getN8nConfig(admin, "txt");
+  if (!cfg.url) return fallback();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS);
   try {
-    const res = await fetch(`${N8N_WEBHOOK_URL.replace(/\/$/, "")}/export-txt`, {
+    const res = await fetch(cfg.url, {
       method: "POST",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        "X-Webhook-Secret": N8N_WEBHOOK_SECRET,
+        "X-Webhook-Secret": cfg.secret,
       },
       body: JSON.stringify(payload),
     });
