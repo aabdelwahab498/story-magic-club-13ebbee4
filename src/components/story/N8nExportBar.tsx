@@ -62,8 +62,19 @@ export default function N8nExportBar({
   const { t } = useTranslation();
   const {
     status, error, exportTxt, exportAudio, exportPdf,
-    prepareDownloadWindow, reset, isBusyKind,
+    prepareDownloadWindow, reset, isBusyKind, kinds,
   } = useN8nExport();
+
+  // ── Live integration status (used to render the "n8n / local" badge) ──
+  const [integration, setIntegration] = useState<N8nIntegrationStatus | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const s = await getN8nIntegrationStatus();
+      if (!cancelled) setIntegration(s);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Voice + speed state (audio button) ─────────────────────────────
   const [voices, setVoices] = useState<VoiceConfig[]>([]);
