@@ -187,6 +187,7 @@ const App = () => (
                       <Route path="contact-inbox" element={<AdminContactInboxPage />} />
                       <Route path="languages" element={<AdminLanguagesPage />} />
                       <Route path="settings" element={<AdminSettingsPage />} />
+                      <Route path="integrations/n8n" element={<PermissionGuard adminOnly sectionLabel="n8n Integration"><AdminN8nIntegrationPage /></PermissionGuard>} />
                     </Route>
                   </Route>
                   <Route path="/test/illustrate-harness" element={<IllustrateHarness />} />
