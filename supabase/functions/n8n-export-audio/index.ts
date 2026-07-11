@@ -228,54 +228,44 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Miss → n8n → fallback to in-house TTS service ─────────────────
-  let audio: Uint8Array | null = null;
-  let duration: number | null = null;
-  let provider = "unknown";
-
-  const n8n = await callN8n(payload, admin);
-  if (n8n) {
-    audio = n8n.audio;
-    duration = n8n.duration;
-    provider = n8n.provider;
-  } else {
-    // Reuse the shared TTS service: it handles chunking, retries and
-    // provider fallback (Edge-TTS → OpenAI TTS), uploads to story-audio,
-    // and returns a public URL we can re-sign.
-    try {
-      const result = await generateSpeech({
-        text: payload.full_text,
-        language,
-        voice: payload.voice_id,
-        storyId: payload.story_id ?? undefined,
-        userId,
-        admin,
-      });
-      // Download the produced MP3 from the storage bucket so we can also
-      // stamp our own hashed path + audio_cache row.
-      const urlParts = result.audioUrl.split(`/${BUCKET}/`);
-      const producedPath = urlParts[1] ?? "";
-      if (producedPath) {
-        const { data: dl } = await admin.storage.from(BUCKET).download(producedPath);
-        if (dl) {
-          audio = new Uint8Array(await dl.arrayBuffer());
-          duration = result.duration ?? null;
-          provider = result.provider ?? "local-fallback";
-        }
-      }
-    } catch (err) {
-      console.error("[n8n-export-audio] shared TTS failed:", (err as Error).message);
-    }
-  }
-
-  if (!audio) {
-    await admin.from("exports").update({ status: "failed", error_message: "tts_pipeline_failed" }).eq("id", exportId);
+  // ── Miss → n8n only (no local fallback) ───────────────────────────
+  const n8nRes = await callN8n(payload, admin);
+  if (!n8nRes.ok) {
+    await admin.from("exports").update({
+      status: "failed",
+      error_message: `n8n ${n8nRes.status ?? ""}: ${n8nRes.message}`.slice(0, 500),
+    }).eq("id", exportId);
     await admin.from("export_logs").insert({
       export_id: exportId, user_id: userId, action: "failed",
-      details: { stage: "tts" },
+      details: { stage: "n8n", status: n8nRes.status, message: n8nRes.message },
     });
-    return friendly("tts_pipeline_failed", 502);
+    return friendly("tts_pipeline_failed", 502, { status: n8nRes.status, message: n8nRes.message });
   }
+  const result = n8nRes.result;
+
+  // Direct URL — pass through, skip re-upload/cache.
+  if (result.kind === "url") {
+    await admin.from("exports").update({
+      status: "ready", signed_url: result.downloadUrl, provider: result.provider,
+      expires_at: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
+      audio_metadata: { voice_id: voiceId, speed, content_hash: hash, duration: result.duration, remote: true },
+    }).eq("id", exportId);
+    await admin.from("export_logs").insert({
+      export_id: exportId, user_id: userId, action: "generated",
+      details: { provider: result.provider, remote_url: true, duration: result.duration },
+    });
+    return json({
+      success: true, export_id: exportId, download_url: result.downloadUrl,
+      file_name: filename, file_size: null, duration_seconds: result.duration,
+      provider: result.provider,
+      expires_at: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
+      cache_hit: false,
+    });
+  }
+
+  const audio = result.audio;
+  const duration = result.duration;
+  const provider = result.provider;
 
   // ── Upload to storage under hashed path ───────────────────────────
   const up = await admin.storage.from(BUCKET).upload(objectPath, audio, {
