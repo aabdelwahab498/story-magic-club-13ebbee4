@@ -17,9 +17,10 @@
 // endpoint for a different automation platform requires no client changes.
 // ============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { getN8nConfig } from "../_shared/n8nConfig.ts";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Config
@@ -27,8 +28,6 @@ import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL") ?? "";
-const N8N_WEBHOOK_SECRET = Deno.env.get("N8N_WEBHOOK_SECRET") ?? "";
 
 const BUCKET = "story-exports";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24; // 24h
@@ -136,24 +135,25 @@ function renderPlainText(payload: ExportTxtRequest): string {
  * Expected n8n response body: { file_content_base64: string, dap_score?: number }.
  * Any non-2xx or timeout falls back to the local renderer.
  */
-async function callN8n(payload: ExportTxtRequest): Promise<{ text: string; dapScore: number | null; provider: "n8n" | "local-fallback" }> {
+async function callN8n(payload: ExportTxtRequest, admin: SupabaseClient): Promise<{ text: string; dapScore: number | null; provider: "n8n" | "local-fallback" }> {
   const fallback = () => ({
     text: renderPlainText(payload),
     dapScore: null,
     provider: "local-fallback" as const,
   });
 
-  if (!N8N_WEBHOOK_URL) return fallback();
+  const cfg = await getN8nConfig(admin, "txt");
+  if (!cfg.url) return fallback();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS);
   try {
-    const res = await fetch(`${N8N_WEBHOOK_URL.replace(/\/$/, "")}/export-txt`, {
+    const res = await fetch(cfg.url, {
       method: "POST",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        "X-Webhook-Secret": N8N_WEBHOOK_SECRET,
+        "X-Webhook-Secret": cfg.secret,
       },
       body: JSON.stringify(payload),
     });
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
   });
 
   // ── 6. Call n8n (or fall back locally) ────────────────────────────────
-  const { text, dapScore, provider } = await callN8n(payload);
+  const { text, dapScore, provider } = await callN8n(payload, admin);
   const bytes = new TextEncoder().encode(text);
   const filename = `${safeSlug(payload.title)}.txt`;
   const objectPath = `${userId}/${exportId}.txt`;

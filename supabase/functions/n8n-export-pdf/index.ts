@@ -12,15 +12,14 @@
 //   5. Return { download_url (signed 24h), preview_url, page_count, file_size }.
 // ============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { getN8nConfig } from "../_shared/n8nConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL") ?? "";
-const N8N_WEBHOOK_SECRET = Deno.env.get("N8N_WEBHOOK_SECRET") ?? "";
 
 const PDF_BUCKET = "story-pdfs";
 const IMG_BUCKET = "story-images";
@@ -58,18 +57,19 @@ function slug(s: string, fb = "story"): string {
   return c || fb;
 }
 
-async function callN8n(payload: ExportPdfRequest): Promise<
+async function callN8n(payload: ExportPdfRequest, admin: SupabaseClient): Promise<
   | { pdf: Uint8Array; preview: Uint8Array | null; pageCount: number | null; provider: string }
   | null
 > {
-  if (!N8N_WEBHOOK_URL) return null;
+  const cfg = await getN8nConfig(admin, "pdf");
+  if (!cfg.url) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), N8N_TIMEOUT_MS);
   try {
-    const res = await fetch(`${N8N_WEBHOOK_URL.replace(/\/$/, "")}/export-pdf`, {
+    const res = await fetch(cfg.url, {
       method: "POST",
       signal: ctrl.signal,
-      headers: { "Content-Type": "application/json", "X-Webhook-Secret": N8N_WEBHOOK_SECRET },
+      headers: { "Content-Type": "application/json", "X-Webhook-Secret": cfg.secret },
       body: JSON.stringify(payload),
     });
     if (!res.ok) return null;
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
   const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
 
   // Try n8n first
-  const n8n = await callN8n(payload);
+  const n8n = await callN8n(payload, admin);
   if (n8n) {
     const up = await admin.storage.from(PDF_BUCKET).upload(objectPath, n8n.pdf, {
       contentType: "application/pdf", upsert: true,
@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
   await admin.from("exports").update({ status: "failed", error_message: "pdf_pipeline_failed" }).eq("id", exportId);
   await admin.from("export_logs").insert({
     export_id: exportId, user_id: userId, action: "failed",
-    details: { stage: "pdf", n8n_configured: !!N8N_WEBHOOK_URL },
+    details: { stage: "pdf" },
   });
   return friendly("pdf_pipeline_failed", 502);
 });

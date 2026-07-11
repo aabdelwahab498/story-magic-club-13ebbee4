@@ -68,6 +68,7 @@ const AdminAudioVoicesPage = lazy(() => import("./pages/admin/AdminAudioVoicesPa
 const AdminRbacPage = lazy(() => import("./pages/admin/AdminRbacPage"));
 const AdminAuditLogsPage = lazy(() => import("./pages/admin/AdminAuditLogsPage"));
 const AdminDownloadsPage = lazy(() => import("./pages/admin/AdminDownloadsPage"));
+const AdminN8nIntegrationPage = lazy(() => import("./pages/admin/AdminN8nIntegrationPage"));
 const CheckoutManual = lazy(() => import("./pages/CheckoutManual"));
 const IllustrateHarness = lazy(() => import("./pages/test/IllustrateHarness"));
 const CheckoutOrder = lazy(() => import("./pages/CheckoutOrder"));
@@ -186,6 +187,7 @@ const App = () => (
                       <Route path="contact-inbox" element={<AdminContactInboxPage />} />
                       <Route path="languages" element={<AdminLanguagesPage />} />
                       <Route path="settings" element={<AdminSettingsPage />} />
+                      <Route path="integrations/n8n" element={<PermissionGuard adminOnly sectionLabel="n8n Integration"><AdminN8nIntegrationPage /></PermissionGuard>} />
                     </Route>
                   </Route>
                   <Route path="/test/illustrate-harness" element={<IllustrateHarness />} />

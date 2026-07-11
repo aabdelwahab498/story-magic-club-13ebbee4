@@ -89,6 +89,7 @@ const navItems: Array<{
   { titleKey: "admin_dashboard.nav.ai_rbac", url: "/admin/dashboard/ai/rbac", icon: ShieldCheck, gradient: "from-teal-500 to-emerald-500", labelFallback: "RBAC", permission: "manage_rbac" },
   { titleKey: "admin_dashboard.nav.ai_audit", url: "/admin/dashboard/ai/audit", icon: ScrollText, gradient: "from-slate-500 to-zinc-600", labelFallback: "Audit Logs", permission: "view_audit_logs" },
   { titleKey: "admin_dashboard.nav.downloads", url: "/admin/dashboard/downloads", icon: Download, gradient: "from-blue-500 to-indigo-500", labelFallback: "Downloads" },
+  { titleKey: "admin_dashboard.nav.n8n", url: "/admin/dashboard/integrations/n8n", icon: Webhook, gradient: "from-fuchsia-500 to-purple-600", labelFallback: "n8n Integration" },
 ];
 
 const AdminSidebar = () => {

@@ -13,16 +13,15 @@
 //   7. Return { download_url (signed), file_name, provider, duration }
 // ============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 import { generateSpeech } from "../_shared/tts/service.ts";
+import { getN8nConfig } from "../_shared/n8nConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL") ?? "";
-const N8N_WEBHOOK_SECRET = Deno.env.get("N8N_WEBHOOK_SECRET") ?? "";
 
 const BUCKET = "story-audio";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24; // 24h
@@ -65,18 +64,19 @@ function slug(s: string, fallback = "story"): string {
 }
 
 /** Call n8n audio webhook, expect { audio_base64, duration_seconds?, provider? }. */
-async function callN8n(payload: ExportAudioRequest): Promise<
+async function callN8n(payload: ExportAudioRequest, admin: SupabaseClient): Promise<
   | { audio: Uint8Array; duration: number | null; provider: string }
   | null
 > {
-  if (!N8N_WEBHOOK_URL) return null;
+  const cfg = await getN8nConfig(admin, "mp3");
+  if (!cfg.url) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), N8N_TIMEOUT_MS);
   try {
-    const res = await fetch(`${N8N_WEBHOOK_URL.replace(/\/$/, "")}/export-audio`, {
+    const res = await fetch(cfg.url, {
       method: "POST",
       signal: ctrl.signal,
-      headers: { "Content-Type": "application/json", "X-Webhook-Secret": N8N_WEBHOOK_SECRET },
+      headers: { "Content-Type": "application/json", "X-Webhook-Secret": cfg.secret },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
   let duration: number | null = null;
   let provider = "unknown";
 
-  const n8n = await callN8n(payload);
+  const n8n = await callN8n(payload, admin);
   if (n8n) {
     audio = n8n.audio;
     duration = n8n.duration;
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
     await admin.from("exports").update({ status: "failed", error_message: "tts_pipeline_failed" }).eq("id", exportId);
     await admin.from("export_logs").insert({
       export_id: exportId, user_id: userId, action: "failed",
-      details: { stage: "tts", n8n_configured: !!N8N_WEBHOOK_URL },
+      details: { stage: "tts" },
     });
     return friendly("tts_pipeline_failed", 502);
   }
