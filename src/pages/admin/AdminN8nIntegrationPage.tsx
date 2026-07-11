@@ -47,6 +47,15 @@ export default function AdminN8nIntegrationPage() {
   const [testing, setTesting] = useState<N8nWorkflowKind | null>(null);
   const [storyUrl, setStoryUrl] = useState("");
   const [testingStory, setTestingStory] = useState(false);
+  type TestResult = {
+    scope: "story" | N8nWorkflowKind;
+    status: "ok" | "failed";
+    http_status: number | null;
+    message: string;
+    tested_url: string;
+    at: string;
+  };
+  const [lastResult, setLastResult] = useState<TestResult | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -129,10 +138,20 @@ export default function AdminN8nIntegrationPage() {
       const r = await testN8nWorkflow(kind);
       const s = await getN8nSettings();
       setSettings(s);
+      setLastResult({
+        scope: kind,
+        status: r.status,
+        http_status: r.http_status,
+        message: r.message,
+        tested_url: r.tested_url,
+        at: new Date().toISOString(),
+      });
       if (r.status === "ok") toast.success(`✅ ${kind.toUpperCase()}: ${r.message}`);
       else toast.error(`❌ ${kind.toUpperCase()}: ${r.message}`);
     } catch (e) {
-      toast.error(`فشل الاختبار: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      setLastResult({ scope: kind, status: "failed", http_status: null, message: msg, tested_url: "", at: new Date().toISOString() });
+      toast.error(`فشل الاختبار: ${msg}`);
     } finally {
       setTesting(null);
     }
@@ -146,10 +165,20 @@ export default function AdminN8nIntegrationPage() {
       const r = await testN8nStoryWebhook();
       const s = await getN8nSettings();
       setSettings(s);
+      setLastResult({
+        scope: "story",
+        status: r.status,
+        http_status: r.http_status,
+        message: r.message,
+        tested_url: r.tested_url,
+        at: new Date().toISOString(),
+      });
       if (r.status === "ok") toast.success(`✅ Story webhook: ${r.message}`);
       else toast.error(`❌ Story webhook: ${r.message}`);
     } catch (e) {
-      toast.error(`فشل الاختبار: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      setLastResult({ scope: "story", status: "failed", http_status: null, message: msg, tested_url: "", at: new Date().toISOString() });
+      toast.error(`فشل الاختبار: ${msg}`);
     } finally {
       setTestingStory(false);
     }
@@ -330,6 +359,10 @@ export default function AdminN8nIntegrationPage() {
               اختبار الاتصال
             </Button>
           </div>
+
+          {lastResult && lastResult.scope === "story" && (
+            <TestResultPanel result={lastResult} />
+          )}
         </CardContent>
       </Card>
 
@@ -407,6 +440,10 @@ export default function AdminN8nIntegrationPage() {
             );
           })}
 
+          {lastResult && lastResult.scope !== "story" && (
+            <TestResultPanel result={lastResult} />
+          )}
+
           {settings.last_tested_at && (
             <div className="text-xs text-muted-foreground flex items-center gap-2 pt-2">
               {settings.last_test_status === "ok" ? (
@@ -414,7 +451,7 @@ export default function AdminN8nIntegrationPage() {
               ) : (
                 <XCircle className="h-4 w-4 text-destructive" />
               )}
-              آخر اختبار: {new Date(settings.last_tested_at).toLocaleString()} —{" "}
+              آخر اختبار (محفوظ): {new Date(settings.last_tested_at).toLocaleString()} —{" "}
               {settings.last_test_message}
             </div>
           )}
@@ -442,6 +479,58 @@ export default function AdminN8nIntegrationPage() {
           </ol>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ── Inline result panel for the "اختبار الاتصال" buttons ────────────────
+function TestResultPanel({
+  result,
+}: {
+  result: {
+    scope: "story" | "txt" | "mp3" | "pdf";
+    status: "ok" | "failed";
+    http_status: number | null;
+    message: string;
+    tested_url: string;
+    at: string;
+  };
+}) {
+  const ok = result.status === "ok";
+  return (
+    <div
+      className={`rounded-lg border p-3 space-y-2 text-sm ${
+        ok
+          ? "bg-emerald-500/10 border-emerald-500/30"
+          : "bg-destructive/10 border-destructive/30"
+      }`}
+    >
+      <div className="flex items-center gap-2 font-semibold">
+        {ok ? (
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        ) : (
+          <XCircle className="h-4 w-4 text-destructive" />
+        )}
+        <span>
+          نتيجة الاختبار [{result.scope.toUpperCase()}]:{" "}
+          {ok ? "نجح الاتصال" : "فشل الاتصال"}
+        </span>
+        {result.http_status !== null && (
+          <Badge variant={ok ? "default" : "destructive"}>HTTP {result.http_status}</Badge>
+        )}
+      </div>
+      <div className="text-xs" dir="ltr">
+        <div><span className="text-muted-foreground">Message: </span>{result.message || "—"}</div>
+        {result.tested_url && (
+          <div className="truncate"><span className="text-muted-foreground">URL: </span>{result.tested_url}</div>
+        )}
+        <div><span className="text-muted-foreground">At: </span>{new Date(result.at).toLocaleString()}</div>
+      </div>
+      {!ok && (
+        <div className="text-xs text-muted-foreground">
+          سيتم تفعيل وضع الفولباك المحلي تلقائياً عند التصدير حتى يتم إصلاح الاتصال.
+        </div>
+      )}
     </div>
   );
 }
