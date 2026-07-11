@@ -1,31 +1,20 @@
-// ============================================================================
-// n8n-export-pdf  —  Picture-book PDF proxy to the n8n PDF workflow
-// ----------------------------------------------------------------------------
-// Flow:
-//   1. Auth + rate-limit (5/hour/user, 180s SLA)
-//   2. POST payload to n8n `/export-pdf` webhook (expects { pdf_base64, page_count?, preview_base64? })
-//   3. If n8n unavailable/fails ⇒ fall back to existing `export-story-pdf`
-//      Lovable edge function via functions.invoke() (server-to-server, keeps
-//      the caller's JWT).
-//   4. Upload PDF to `story-pdfs` bucket, upload thumbnail (if provided) to
-//      `story-images/previews/`, record exports + export_logs.
-//   5. Return { download_url (signed 24h), preview_url, page_count, file_size }.
-// ============================================================================
-
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// n8n-export-pdf — Fully in-app PDF export (no external workflows).
+// Renders a simple picture-book PDF from the request payload with pdf-lib
+// and returns a signed URL to `story-pdfs`. Illustrations are embedded when
+// available and small enough (PNG or JPEG); otherwise the page is text-only.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { getN8nConfig } from "../_shared/n8nConfig.ts";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const PDF_BUCKET = "story-pdfs";
-const IMG_BUCKET = "story-images";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
-const N8N_TIMEOUT_MS = 180_000;
 const MAX_PAGES = 30;
+const MAX_IMAGES = 4;
 
 interface PageInput {
   page_number: number;
@@ -33,7 +22,6 @@ interface PageInput {
   illustration_url?: string | null;
   emotion_tag?: string | null;
 }
-
 interface ExportPdfRequest {
   story_id?: string | null;
   child_id?: string | null;
@@ -42,86 +30,37 @@ interface ExportPdfRequest {
   language: string;
   child_name?: string | null;
   theme_color?: string | null;
-  font_family?: string | null;
   emotion_tags?: string[];
 }
 
 function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
-function friendly(code: string, status = 400, extra: Record<string, unknown> = {}): Response {
+function friendly(code: string, status = 400, extra: Record<string, unknown> = {}) {
   return json({ success: false, error: code, ...extra }, status);
 }
-function slug(s: string, fb = "story"): string {
+function slug(s: string, fb = "story") {
   const c = (s || "").replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60);
   return c || fb;
 }
 
-type N8nPdfResult =
-  | { kind: "url"; downloadUrl: string; previewUrl: string | null; pageCount: number | null; provider: string }
-  | { kind: "bytes"; pdf: Uint8Array; preview: Uint8Array | null; pageCount: number | null; provider: string };
-
-async function callN8n(payload: ExportPdfRequest, admin: SupabaseClient): Promise<
-  { ok: true; result: N8nPdfResult } | { ok: false; status: number | null; message: string }
-> {
-  const cfg = await getN8nConfig(admin, "pdf");
-  if (!cfg.url) return { ok: false, status: null, message: "n8n webhook not configured" };
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), N8N_TIMEOUT_MS);
-  try {
-    const res = await fetch(cfg.url, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "Content-Type": "application/json", "X-Webhook-Secret": cfg.secret },
-      body: JSON.stringify(payload),
-    });
-    const ctype = res.headers.get("content-type") ?? "";
-    if (!res.ok) {
-      const msg = await res.text().catch(() => "");
-      return { ok: false, status: res.status, message: msg.slice(0, 300) || `n8n ${res.status}` };
+function wrap(text: string, font: unknown, size: number, maxWidth: number): string[] {
+  const f = font as { widthOfTextAtSize: (t: string, s: number) => number };
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let line = "";
+  for (const w of words) {
+    const tentative = line ? `${line} ${w}` : w;
+    if (f.widthOfTextAtSize(tentative, size) > maxWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = tentative;
     }
-    // Raw PDF binary response
-    if (ctype.includes("application/pdf")) {
-      const pdf = new Uint8Array(await res.arrayBuffer());
-      return { ok: true, result: { kind: "bytes", pdf, preview: null, pageCount: null, provider: "n8n" } };
-    }
-    // JSON response — URL or base64
-    const data = (await res.json().catch(() => null)) as
-      | {
-          download_url?: string; file_url?: string; url?: string; pdf_url?: string;
-          preview_url?: string;
-          pdf_base64?: string; preview_base64?: string;
-          page_count?: number; provider?: string;
-        }
-      | null;
-    const url = data?.download_url || data?.file_url || data?.pdf_url || data?.url || null;
-    if (url) {
-      return {
-        ok: true,
-        result: {
-          kind: "url", downloadUrl: url,
-          previewUrl: data?.preview_url ?? null,
-          pageCount: data?.page_count ?? null,
-          provider: data?.provider ?? "n8n",
-        },
-      };
-    }
-    if (data?.pdf_base64) {
-      const pdf = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
-      const preview = data.preview_base64
-        ? Uint8Array.from(atob(data.preview_base64), (c) => c.charCodeAt(0))
-        : null;
-      return { ok: true, result: { kind: "bytes", pdf, preview, pageCount: data.page_count ?? null, provider: data.provider ?? "n8n" } };
-    }
-    return { ok: false, status: res.status, message: "n8n response missing pdf url or data" };
-  } catch (err) {
-    return { ok: false, status: null, message: (err as Error).message };
-  } finally {
-    clearTimeout(t);
   }
+  if (line) lines.push(line);
+  return lines;
 }
-
-// Local fallback removed — n8n is the sole export provider.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -138,15 +77,10 @@ Deno.serve(async (req) => {
   const userId = uData.user.id;
 
   let payload: ExportPdfRequest;
-  try {
-    payload = (await req.json()) as ExportPdfRequest;
-  } catch {
-    return friendly("invalid_json", 400);
-  }
+  try { payload = (await req.json()) as ExportPdfRequest; }
+  catch { return friendly("invalid_json", 400); }
   if (!payload?.title) return friendly("title_required", 400);
-  if (!Array.isArray(payload.pages) || payload.pages.length === 0) {
-    return friendly("pages_required", 400);
-  }
+  if (!Array.isArray(payload.pages) || payload.pages.length === 0) return friendly("pages_required", 400);
   if (payload.pages.length > MAX_PAGES) return friendly("too_many_pages", 400, { max_pages: MAX_PAGES });
 
   const rl = await checkRateLimit(`u:${userId}`, "export-pdf", { windowSec: 3600, max: 5, blockSec: 600 });
@@ -154,13 +88,9 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  // Insert generating row + requested log
   const { data: exportRow, error: insErr } = await admin.from("exports").insert({
-    user_id: userId,
-    story_id: payload.story_id ?? null,
-    child_id: payload.child_id ?? null,
-    type: "pdf",
-    language: (payload.language || "en").toLowerCase(),
+    user_id: userId, story_id: payload.story_id ?? null, child_id: payload.child_id ?? null,
+    type: "pdf", language: (payload.language || "en").toLowerCase(),
     status: "generating",
     metadata: { title: payload.title, child_name: payload.child_name, emotion_tags: payload.emotion_tags },
     pdf_metadata: { page_count: payload.pages.length, theme_color: payload.theme_color },
@@ -168,83 +98,96 @@ Deno.serve(async (req) => {
   if (insErr || !exportRow) return friendly("db_insert_failed", 500);
   const exportId = exportRow.id as string;
 
-  await admin.from("export_logs").insert({
-    export_id: exportId, user_id: userId, action: "requested",
-    details: { pages: payload.pages.length, language: payload.language },
-  });
+  try {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const pageW = 595, pageH = 842, margin = 50, textSize = 14;
 
-  const filename = `${slug(payload.title)}.pdf`;
-  const objectPath = `${userId}/${exportId}.pdf`;
-  const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
+    // Cover
+    const cover = doc.addPage([pageW, pageH]);
+    cover.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(0.06, 0.1, 0.25) });
+    const titleLines = wrap(payload.title, bold, 28, pageW - margin * 2);
+    let y = pageH - 200;
+    for (const line of titleLines) {
+      cover.drawText(line, { x: margin, y, size: 28, font: bold, color: rgb(1, 0.95, 0.7) });
+      y -= 40;
+    }
+    if (payload.child_name) {
+      cover.drawText(`for ${payload.child_name}`, { x: margin, y: y - 20, size: 18, font, color: rgb(1, 1, 1) });
+    }
 
-  const n8nRes = await callN8n(payload, admin);
-  if (!n8nRes.ok) {
-    await admin.from("exports").update({
-      status: "failed",
-      error_message: `n8n ${n8nRes.status ?? ""}: ${n8nRes.message}`.slice(0, 500),
-    }).eq("id", exportId);
-    await admin.from("export_logs").insert({
-      export_id: exportId, user_id: userId, action: "failed",
-      details: { stage: "n8n", status: n8nRes.status, message: n8nRes.message },
+    let embedded = 0;
+    for (const p of payload.pages) {
+      const page = doc.addPage([pageW, pageH]);
+      let cursorY = pageH - margin;
+
+      // Optional illustration (cap to avoid CPU/memory spikes)
+      if (p.illustration_url && embedded < MAX_IMAGES) {
+        try {
+          const imgRes = await fetch(p.illustration_url);
+          if (imgRes.ok) {
+            const buf = new Uint8Array(await imgRes.arrayBuffer());
+            const ct = imgRes.headers.get("content-type") ?? "";
+            const img = ct.includes("png") ? await doc.embedPng(buf) : await doc.embedJpg(buf);
+            const maxImgW = pageW - margin * 2;
+            const scale = Math.min(maxImgW / img.width, 300 / img.height);
+            const w = img.width * scale, h = img.height * scale;
+            page.drawImage(img, { x: (pageW - w) / 2, y: cursorY - h, width: w, height: h });
+            cursorY -= h + 20;
+            embedded++;
+          }
+        } catch (e) {
+          console.warn("[pdf] image embed skipped", e);
+        }
+      }
+
+      page.drawText(`Page ${p.page_number}`, { x: margin, y: cursorY, size: 10, font, color: rgb(0.4, 0.4, 0.5) });
+      cursorY -= 20;
+
+      const lines = wrap(p.text || "", font, textSize, pageW - margin * 2);
+      for (const line of lines) {
+        if (cursorY < margin) break;
+        page.drawText(line, { x: margin, y: cursorY, size: textSize, font, color: rgb(0.1, 0.1, 0.15) });
+        cursorY -= textSize + 6;
+      }
+    }
+
+    const pdfBytes = await doc.save();
+    const filename = `${slug(payload.title)}.pdf`;
+    const objectPath = `${userId}/${exportId}.pdf`;
+    const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
+
+    const up = await admin.storage.from(PDF_BUCKET).upload(objectPath, pdfBytes, {
+      contentType: "application/pdf", upsert: true,
     });
-    return friendly("pdf_pipeline_failed", 502, { status: n8nRes.status, message: n8nRes.message });
-  }
-  const result = n8nRes.result;
+    if (up.error) {
+      await admin.from("exports").update({ status: "failed", error_message: up.error.message }).eq("id", exportId);
+      return friendly("storage_upload_failed", 500);
+    }
+    const signed = await admin.storage.from(PDF_BUCKET).createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
+    if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
 
-  // Direct URL from n8n — pass through, no re-upload.
-  if (result.kind === "url") {
     await admin.from("exports").update({
-      status: "ready", signed_url: result.downloadUrl,
-      provider: result.provider, expires_at: expiresAt,
-      pdf_metadata: { page_count: result.pageCount ?? payload.pages.length, preview_url: result.previewUrl, theme_color: payload.theme_color, remote: true },
+      status: "ready", file_path: objectPath, signed_url: signed.data.signedUrl,
+      file_size: pdfBytes.byteLength, provider: "local", expires_at: expiresAt,
+      pdf_metadata: { page_count: payload.pages.length, theme_color: payload.theme_color },
     }).eq("id", exportId);
     await admin.from("export_logs").insert({
       export_id: exportId, user_id: userId, action: "generated",
-      details: { provider: result.provider, remote_url: true, page_count: result.pageCount },
+      details: { provider: "local", bytes: pdfBytes.byteLength, page_count: payload.pages.length },
     });
+
     return json({
-      success: true, export_id: exportId, download_url: result.downloadUrl,
-      preview_url: result.previewUrl, file_name: filename, file_size: null,
-      page_count: result.pageCount ?? payload.pages.length, provider: result.provider, expires_at: expiresAt,
+      success: true, export_id: exportId, download_url: signed.data.signedUrl,
+      preview_url: null, file_name: filename, file_size: pdfBytes.byteLength,
+      page_count: payload.pages.length, provider: "local", expires_at: expiresAt,
     });
+  } catch (err) {
+    console.error("[n8n-export-pdf] render failed", err);
+    await admin.from("exports").update({
+      status: "failed", error_message: (err as Error).message.slice(0, 500),
+    }).eq("id", exportId);
+    return friendly("pdf_render_failed", 500, { message: (err as Error).message });
   }
-
-  // Binary/base64 PDF — upload to storage and sign.
-  const up = await admin.storage.from(PDF_BUCKET).upload(objectPath, result.pdf, {
-    contentType: "application/pdf", upsert: true,
-  });
-  if (up.error) {
-    await admin.from("exports").update({ status: "failed", error_message: up.error.message }).eq("id", exportId);
-    return friendly("storage_upload_failed", 500);
-  }
-  let previewUrl: string | null = null;
-  if (result.preview) {
-    const previewPath = `previews/${userId}/${exportId}.png`;
-    const pv = await admin.storage.from(IMG_BUCKET).upload(previewPath, result.preview, {
-      contentType: "image/png", upsert: true,
-    });
-    if (!pv.error) {
-      const pvSigned = await admin.storage.from(IMG_BUCKET)
-        .createSignedUrl(previewPath, SIGNED_URL_TTL_SECONDS);
-      previewUrl = pvSigned.data?.signedUrl ?? null;
-    }
-  }
-  const signed = await admin.storage.from(PDF_BUCKET)
-    .createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
-  if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
-
-  await admin.from("exports").update({
-    status: "ready", file_path: objectPath, signed_url: signed.data.signedUrl,
-    file_size: result.pdf.byteLength, provider: result.provider, expires_at: expiresAt,
-    pdf_metadata: { page_count: result.pageCount ?? payload.pages.length, preview_url: previewUrl, theme_color: payload.theme_color },
-  }).eq("id", exportId);
-  await admin.from("export_logs").insert({
-    export_id: exportId, user_id: userId, action: "generated",
-    details: { provider: result.provider, bytes: result.pdf.byteLength, page_count: result.pageCount },
-  });
-  return json({
-    success: true, export_id: exportId, download_url: signed.data.signedUrl,
-    preview_url: previewUrl, file_name: filename, file_size: result.pdf.byteLength,
-    page_count: result.pageCount ?? payload.pages.length, provider: result.provider, expires_at: expiresAt,
-  });
 });
