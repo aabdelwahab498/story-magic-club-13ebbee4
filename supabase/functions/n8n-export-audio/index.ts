@@ -64,18 +64,19 @@ function slug(s: string, fallback = "story"): string {
 }
 
 /** Call n8n audio webhook, expect { audio_base64, duration_seconds?, provider? }. */
-async function callN8n(payload: ExportAudioRequest): Promise<
+async function callN8n(payload: ExportAudioRequest, admin: SupabaseClient): Promise<
   | { audio: Uint8Array; duration: number | null; provider: string }
   | null
 > {
-  if (!N8N_WEBHOOK_URL) return null;
+  const cfg = await getN8nConfig(admin, "mp3");
+  if (!cfg.url) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), N8N_TIMEOUT_MS);
   try {
-    const res = await fetch(`${N8N_WEBHOOK_URL.replace(/\/$/, "")}/export-audio`, {
+    const res = await fetch(cfg.url, {
       method: "POST",
       signal: ctrl.signal,
-      headers: { "Content-Type": "application/json", "X-Webhook-Secret": N8N_WEBHOOK_SECRET },
+      headers: { "Content-Type": "application/json", "X-Webhook-Secret": cfg.secret },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
