@@ -24,9 +24,11 @@ import {
   updateN8nSettings,
   updateN8nSecret,
   testN8nWorkflow,
+  testN8nStoryWebhook,
   type N8nSettings,
   type N8nWorkflowKind,
 } from "@/lib/adminN8nApi";
+
 
 const WORKFLOWS: { kind: N8nWorkflowKind; label: string; pathField: keyof N8nSettings; enabledField: keyof N8nSettings }[] = [
   { kind: "txt", label: "TXT (Plain text)", pathField: "txt_path", enabledField: "txt_enabled" },
