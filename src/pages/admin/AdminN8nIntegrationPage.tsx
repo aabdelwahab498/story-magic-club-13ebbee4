@@ -28,6 +28,7 @@ import {
   type N8nSettings,
   type N8nWorkflowKind,
 } from "@/lib/adminN8nApi";
+import { supabase } from "@/integrations/supabase/client";
 
 
 const WORKFLOWS: { kind: N8nWorkflowKind; label: string; pathField: keyof N8nSettings; enabledField: keyof N8nSettings }[] = [
