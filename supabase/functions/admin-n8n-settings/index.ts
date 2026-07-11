@@ -250,5 +250,53 @@ Deno.serve(async (req) => {
     return json({ success: status === "ok", status, http_status: httpStatus, message, tested_url: url });
   }
 
+  // ── TEST STORY WEBHOOK ───────────────────────────────────────────────
+  if (action === "test-story") {
+    const row = await loadRow();
+    const url = (row.story_webhook_url as string | null) ?? "";
+    if (!url) return fail("no_story_webhook_url", 400);
+
+    const { data: secretRow } = await admin
+      .from("n8n_integration_secrets")
+      .select("value")
+      .eq("key", SECRET_KEY)
+      .maybeSingle();
+    const secret = (secretRow?.value as string | undefined) ?? "";
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TEST_TIMEOUT_MS);
+    let status = "failed";
+    let message = "";
+    let httpStatus: number | null = null;
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", "X-Webhook-Secret": secret },
+        body: JSON.stringify({ ping: true, kind: "story", message: "test", ts: Date.now() }),
+      });
+      httpStatus = res.status;
+      status = res.ok ? "ok" : "failed";
+      message = `HTTP ${res.status}`;
+    } catch (err) {
+      message = (err as Error).message || "network_error";
+    } finally {
+      clearTimeout(timer);
+    }
+
+    await admin
+      .from("n8n_integration_settings")
+      .update({
+        last_tested_at: new Date().toISOString(),
+        last_test_status: status,
+        last_test_message: `[story] ${message}`,
+        updated_by: userId,
+      })
+      .eq("id", row.id);
+
+    return json({ success: status === "ok", status, http_status: httpStatus, message, tested_url: url });
+  }
+
   return fail("unknown_action", 400);
 });
+
