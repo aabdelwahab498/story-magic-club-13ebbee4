@@ -363,3 +363,32 @@ export async function logExportDownloaded(exportId: string): Promise<void> {
     /* best-effort */
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Integration status (public, safe for the export bar)
+// ────────────────────────────────────────────────────────────────────────────
+export interface WorkflowStatus {
+  enabled: boolean;
+  configured: boolean;
+  using_n8n: boolean;
+}
+
+export interface N8nIntegrationStatus {
+  secret_set: boolean;
+  workflows: { txt: WorkflowStatus; mp3: WorkflowStatus; pdf: WorkflowStatus };
+  last_tested_at: string | null;
+  last_test_status: string | null;
+}
+
+export async function getN8nIntegrationStatus(): Promise<N8nIntegrationStatus | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke<
+      N8nIntegrationStatus & { success?: boolean }
+    >("n8n-integration-status", { body: {} });
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+

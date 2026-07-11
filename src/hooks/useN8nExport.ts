@@ -26,6 +26,25 @@ import {
 export type ExportKind = "txt" | "mp3" | "pdf";
 export type ExportStatus = "idle" | "preparing" | "ready" | "error";
 
+/** Per-kind runtime info shown as a badge on each export button. */
+export interface KindInfo {
+  /** Which backend actually served the last successful export. */
+  lastProvider: string | null;
+  /** Whether that export bypassed n8n and used the local fallback. */
+  lastUsedFallback: boolean;
+  /** Machine-readable error code from the last failure (null when clear). */
+  lastErrorCode: string | null;
+  /** Localized error message from the last failure. */
+  lastError: string | null;
+}
+
+const EMPTY_KIND: KindInfo = {
+  lastProvider: null,
+  lastUsedFallback: false,
+  lastErrorCode: null,
+  lastError: null,
+};
+
 interface State {
   status: ExportStatus;
   busyKind: ExportKind | null;
@@ -34,6 +53,7 @@ interface State {
   error: string | null;
   errorCode: string | null;
   retryAfter?: number;
+  kinds: Record<ExportKind, KindInfo>;
 }
 
 const INITIAL: State = {
@@ -43,6 +63,7 @@ const INITIAL: State = {
   lastKind: null,
   error: null,
   errorCode: null,
+  kinds: { txt: { ...EMPTY_KIND }, mp3: { ...EMPTY_KIND }, pdf: { ...EMPTY_KIND } },
 };
 
 function useFriendlyError() {
@@ -126,12 +147,24 @@ export function useN8nExport() {
 
       try {
         const result = await action();
-        setState({
+        const provider = result.provider ?? null;
+        const usedFallback = !!provider && provider.toLowerCase().includes("fallback");
+        setState((s) => ({
+          ...s,
           status: "ready", busyKind: null,
           lastResult: result as unknown as State["lastResult"],
           lastKind: kind,
           error: null, errorCode: null,
-        });
+          kinds: {
+            ...s.kinds,
+            [kind]: {
+              lastProvider: provider,
+              lastUsedFallback: usedFallback,
+              lastErrorCode: null,
+              lastError: null,
+            },
+          },
+        }));
         triggerDownload(pendingWindow.current, result.downloadUrl, result.fileName);
         pendingWindow.current = null;
         void logExportDownloaded(result.exportId);
@@ -145,10 +178,19 @@ export function useN8nExport() {
         const code = err instanceof N8nExportError ? err.code : "generic";
         const retryAfter = err instanceof N8nExportError ? err.retryAfter : undefined;
         const message = friendly(code);
-        setState({
+        setState((s) => ({
+          ...s,
           status: "error", busyKind: null, lastResult: null, lastKind: kind,
           error: message, errorCode: code, retryAfter,
-        });
+          kinds: {
+            ...s.kinds,
+            [kind]: {
+              ...s.kinds[kind],
+              lastErrorCode: code,
+              lastError: message,
+            },
+          },
+        }));
         toast.error(message);
         console.error(`[useN8nExport:${kind}] failed`, err);
         return null;
