@@ -482,3 +482,55 @@ export default function AdminN8nIntegrationPage() {
     </div>
   );
 }
+
+// ── Inline result panel for the "اختبار الاتصال" buttons ────────────────
+function TestResultPanel({
+  result,
+}: {
+  result: {
+    scope: "story" | "txt" | "mp3" | "pdf";
+    status: "ok" | "failed";
+    http_status: number | null;
+    message: string;
+    tested_url: string;
+    at: string;
+  };
+}) {
+  const ok = result.status === "ok";
+  return (
+    <div
+      className={`rounded-lg border p-3 space-y-2 text-sm ${
+        ok
+          ? "bg-emerald-500/10 border-emerald-500/30"
+          : "bg-destructive/10 border-destructive/30"
+      }`}
+    >
+      <div className="flex items-center gap-2 font-semibold">
+        {ok ? (
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        ) : (
+          <XCircle className="h-4 w-4 text-destructive" />
+        )}
+        <span>
+          نتيجة الاختبار [{result.scope.toUpperCase()}]:{" "}
+          {ok ? "نجح الاتصال" : "فشل الاتصال"}
+        </span>
+        {result.http_status !== null && (
+          <Badge variant={ok ? "default" : "destructive"}>HTTP {result.http_status}</Badge>
+        )}
+      </div>
+      <div className="text-xs" dir="ltr">
+        <div><span className="text-muted-foreground">Message: </span>{result.message || "—"}</div>
+        {result.tested_url && (
+          <div className="truncate"><span className="text-muted-foreground">URL: </span>{result.tested_url}</div>
+        )}
+        <div><span className="text-muted-foreground">At: </span>{new Date(result.at).toLocaleString()}</div>
+      </div>
+      {!ok && (
+        <div className="text-xs text-muted-foreground">
+          سيتم تفعيل وضع الفولباك المحلي تلقائياً عند التصدير حتى يتم إصلاح الاتصال.
+        </div>
+      )}
+    </div>
+  );
+}
