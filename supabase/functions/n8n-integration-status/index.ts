@@ -35,7 +35,9 @@ interface StatusResponse {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const corsHeaders = buildCorsHeaders(req);
+  const pre = handlePreflight(req);
+  if (pre) return pre;
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
