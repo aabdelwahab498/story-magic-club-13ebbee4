@@ -1657,6 +1657,8 @@ export type Database = {
           mp3_path: string
           pdf_enabled: boolean
           pdf_path: string
+          story_enabled: boolean
+          story_webhook_url: string | null
           txt_enabled: boolean
           txt_path: string
           updated_at: string
@@ -1674,6 +1676,8 @@ export type Database = {
           mp3_path?: string
           pdf_enabled?: boolean
           pdf_path?: string
+          story_enabled?: boolean
+          story_webhook_url?: string | null
           txt_enabled?: boolean
           txt_path?: string
           updated_at?: string
@@ -1691,6 +1695,8 @@ export type Database = {
           mp3_path?: string
           pdf_enabled?: boolean
           pdf_path?: string
+          story_enabled?: boolean
+          story_webhook_url?: string | null
           txt_enabled?: boolean
           txt_path?: string
           updated_at?: string

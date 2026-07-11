@@ -24,9 +24,11 @@ import {
   updateN8nSettings,
   updateN8nSecret,
   testN8nWorkflow,
+  testN8nStoryWebhook,
   type N8nSettings,
   type N8nWorkflowKind,
 } from "@/lib/adminN8nApi";
+
 
 const WORKFLOWS: { kind: N8nWorkflowKind; label: string; pathField: keyof N8nSettings; enabledField: keyof N8nSettings }[] = [
   { kind: "txt", label: "TXT (Plain text)", pathField: "txt_path", enabledField: "txt_enabled" },
@@ -43,6 +45,8 @@ export default function AdminN8nIntegrationPage() {
   const [secret, setSecret] = useState("");
   const [savingSecret, setSavingSecret] = useState(false);
   const [testing, setTesting] = useState<N8nWorkflowKind | null>(null);
+  const [storyUrl, setStoryUrl] = useState("");
+  const [testingStory, setTestingStory] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -50,6 +54,7 @@ export default function AdminN8nIntegrationPage() {
         const s = await getN8nSettings();
         setSettings(s);
         setBaseUrl(s.webhook_base_url ?? "");
+        setStoryUrl(s.story_webhook_url ?? "");
       } catch (e) {
         toast.error(`فشل تحميل الإعدادات: ${(e as Error).message}`);
       } finally {
@@ -57,6 +62,7 @@ export default function AdminN8nIntegrationPage() {
       }
     })();
   }, []);
+
 
   if (loading) {
     return (
@@ -132,10 +138,28 @@ export default function AdminN8nIntegrationPage() {
     }
   };
 
+  const saveStoryUrl = () => patch({ story_webhook_url: storyUrl.trim() || null });
+
+  const runStoryTest = async () => {
+    setTestingStory(true);
+    try {
+      const r = await testN8nStoryWebhook();
+      const s = await getN8nSettings();
+      setSettings(s);
+      if (r.status === "ok") toast.success(`✅ Story webhook: ${r.message}`);
+      else toast.error(`❌ Story webhook: ${r.message}`);
+    } catch (e) {
+      toast.error(`فشل الاختبار: ${(e as Error).message}`);
+    } finally {
+      setTestingStory(false);
+    }
+  };
+
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("تم النسخ");
   };
+
 
   return (
     <div className="max-w-4xl mx-auto space-y-6" dir="rtl">
@@ -217,6 +241,98 @@ export default function AdminN8nIntegrationPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Story Generation Webhook ─────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PlayCircle className="h-5 w-5 text-primary" />
+            Webhook توليد القصة (Generate Story)
+            {settings.story_enabled ? (
+              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">مفعّل</Badge>
+            ) : (
+              <Badge variant="secondary">معطّل</Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            رابط الويب هوك الكامل الذي يُستدعى فور ضغط المستخدم على "Generate Story" في صفحة القصص.
+            يُرسَل نص فكرة المستخدم إلى n8n ثم يُتوقّع رجوع قصة كاملة (title + pages[]) في الاستجابة.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <Label className="text-sm">تفعيل الاستخدام في الواجهة</Label>
+            <Switch
+              checked={settings.story_enabled}
+              onCheckedChange={(v) => patch({ story_enabled: v })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Story Webhook URL (Full URL)</Label>
+            <div className="flex gap-2">
+              <Input
+                dir="ltr"
+                placeholder="https://n8n.example.com/webhook/xxxxxxxx/chat"
+                value={storyUrl}
+                onChange={(e) => setStoryUrl(e.target.value)}
+              />
+              <Button onClick={saveStoryUrl} disabled={saving} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                حفظ
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              رابط كامل يبدأ بـ <code>https://</code>. يُرسل مع header اسمه <code>X-Webhook-Secret</code>
+              بنفس قيمة السر أعلاه.
+            </p>
+          </div>
+
+          {settings.story_webhook_url && (
+            <div className="flex gap-2 items-center bg-muted/50 rounded-lg p-2">
+              <code dir="ltr" className="text-xs flex-1 truncate">{settings.story_webhook_url}</code>
+              <Button size="sm" variant="ghost" onClick={() => copy(settings.story_webhook_url!)} className="gap-1">
+                <Copy className="h-3 w-3" /> نسخ
+              </Button>
+            </div>
+          )}
+
+          <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1" dir="ltr">
+            <div className="font-semibold text-foreground">📥 Request body (POST → n8n):</div>
+            <pre className="text-[11px] overflow-x-auto">{`{
+  "idea": "user's story idea text",
+  "child_id": "uuid | null",
+  "child_name": "string | null",
+  "language": "ar | en | ...",
+  "age_group": "3-5 | 6-8 | 9-12",
+  "user_id": "uuid"
+}`}</pre>
+            <div className="font-semibold text-foreground pt-1">📤 Expected response (n8n → app):</div>
+            <pre className="text-[11px] overflow-x-auto">{`{
+  "title": "عنوان القصة",
+  "language": "ar",
+  "pages": [
+    { "index": 1, "text": "...", "illustration_prompt": "..." },
+    { "index": 2, "text": "...", "illustration_prompt": "..." }
+  ],
+  "provider": "n8n"
+}`}</pre>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={runStoryTest}
+              disabled={testingStory || !settings.story_webhook_url}
+              className="gap-2"
+            >
+              {testingStory ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+              اختبار الاتصال
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
 
       {/* ── Workflows ────────────────────────────────────────────────── */}
       <Card>
