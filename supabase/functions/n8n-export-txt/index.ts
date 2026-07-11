@@ -53,10 +53,10 @@ interface ExportTxtResponse {
   export_id: string;
   download_url: string;
   file_name: string;
-  file_size: number;
+  file_size: number | null;
   expires_at: string;
   dap_score?: number | null;
-  provider: "n8n" | "local-fallback";
+  provider: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
