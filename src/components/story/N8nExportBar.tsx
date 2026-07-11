@@ -13,16 +13,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FileText, Volume2, BookOpen, Loader2, RefreshCw, ChevronDown, Play,
+  CheckCircle2, AlertTriangle, Cloud, HardDrive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
   DropdownMenuRadioGroup, DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useN8nExport } from "@/hooks/useN8nExport";
-import { listVoicesForLanguage, type SupportedLanguage, type VoiceConfig } from "@/lib/n8nExportApi";
+import { useN8nExport, type ExportKind } from "@/hooks/useN8nExport";
+import {
+  listVoicesForLanguage,
+  getN8nIntegrationStatus,
+  type SupportedLanguage,
+  type VoiceConfig,
+  type N8nIntegrationStatus,
+} from "@/lib/n8nExportApi";
 
 export interface N8nExportBarProps {
   fullText: string;
