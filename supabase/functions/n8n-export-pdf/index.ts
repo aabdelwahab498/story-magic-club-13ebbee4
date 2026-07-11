@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
   const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
 
   // Try n8n first
-  const n8n = await callN8n(payload);
+  const n8n = await callN8n(payload, admin);
   if (n8n) {
     const up = await admin.storage.from(PDF_BUCKET).upload(objectPath, n8n.pdf, {
       contentType: "application/pdf", upsert: true,
