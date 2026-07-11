@@ -12,7 +12,7 @@ import { saveAiStory, generateClassicIllustrations, type ClassicIllustration } f
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild } from "@/lib/childProfilesApi";
 import { composeSelStory, planSelStory, readComposeErrorDetails, ComposeStoryError, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
-import { generateStoryViaN8n } from "@/lib/n8nStoryApi";
+
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
 import { BrowserNarratorSettings } from "@/components/BrowserNarratorSettings";
