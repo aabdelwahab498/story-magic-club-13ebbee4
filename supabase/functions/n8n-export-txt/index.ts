@@ -17,9 +17,10 @@
 // endpoint for a different automation platform requires no client changes.
 // ============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { getN8nConfig } from "../_shared/n8nConfig.ts";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Config
@@ -27,8 +28,6 @@ import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL") ?? "";
-const N8N_WEBHOOK_SECRET = Deno.env.get("N8N_WEBHOOK_SECRET") ?? "";
 
 const BUCKET = "story-exports";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24; // 24h
