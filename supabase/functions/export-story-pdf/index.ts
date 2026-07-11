@@ -29,6 +29,8 @@ serve(async (req) => {
     const raw = (await req.json().catch(() => ({}))) as Partial<ReqBody>;
     const storyId = typeof raw.storyId === "string" ? raw.storyId.slice(0, 64) : "";
     const force = raw.force === true;
+    const skipImages = raw.skipImages === true;
+    const maxImages = typeof raw.maxImages === "number" ? Math.max(0, Math.min(10, raw.maxImages)) : 4;
     if (!storyId) return json({ error: "missing_storyId" }, 400);
 
 
