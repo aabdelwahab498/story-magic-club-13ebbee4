@@ -359,6 +359,10 @@ export default function AdminN8nIntegrationPage() {
               اختبار الاتصال
             </Button>
           </div>
+
+          {lastResult && lastResult.scope === "story" && (
+            <TestResultPanel result={lastResult} />
+          )}
         </CardContent>
       </Card>
 
