@@ -57,12 +57,15 @@ function slug(s: string, fb = "story"): string {
   return c || fb;
 }
 
+type N8nPdfResult =
+  | { kind: "url"; downloadUrl: string; previewUrl: string | null; pageCount: number | null; provider: string }
+  | { kind: "bytes"; pdf: Uint8Array; preview: Uint8Array | null; pageCount: number | null; provider: string };
+
 async function callN8n(payload: ExportPdfRequest, admin: SupabaseClient): Promise<
-  | { pdf: Uint8Array; preview: Uint8Array | null; pageCount: number | null; provider: string }
-  | null
+  { ok: true; result: N8nPdfResult } | { ok: false; status: number | null; message: string }
 > {
   const cfg = await getN8nConfig(admin, "pdf");
-  if (!cfg.url) return null;
+  if (!cfg.url) return { ok: false, status: null, message: "n8n webhook not configured" };
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), N8N_TIMEOUT_MS);
   try {
@@ -72,19 +75,47 @@ async function callN8n(payload: ExportPdfRequest, admin: SupabaseClient): Promis
       headers: { "Content-Type": "application/json", "X-Webhook-Secret": cfg.secret },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) return null;
+    const ctype = res.headers.get("content-type") ?? "";
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      return { ok: false, status: res.status, message: msg.slice(0, 300) || `n8n ${res.status}` };
+    }
+    // Raw PDF binary response
+    if (ctype.includes("application/pdf")) {
+      const pdf = new Uint8Array(await res.arrayBuffer());
+      return { ok: true, result: { kind: "bytes", pdf, preview: null, pageCount: null, provider: "n8n" } };
+    }
+    // JSON response — URL or base64
     const data = (await res.json().catch(() => null)) as
-      | { pdf_base64?: string; preview_base64?: string; page_count?: number; provider?: string }
+      | {
+          download_url?: string; file_url?: string; url?: string; pdf_url?: string;
+          preview_url?: string;
+          pdf_base64?: string; preview_base64?: string;
+          page_count?: number; provider?: string;
+        }
       | null;
-    if (!data?.pdf_base64) return null;
-    const pdf = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
-    const preview = data.preview_base64
-      ? Uint8Array.from(atob(data.preview_base64), (c) => c.charCodeAt(0))
-      : null;
-    return { pdf, preview, pageCount: data.page_count ?? null, provider: data.provider ?? "n8n" };
+    const url = data?.download_url || data?.file_url || data?.pdf_url || data?.url || null;
+    if (url) {
+      return {
+        ok: true,
+        result: {
+          kind: "url", downloadUrl: url,
+          previewUrl: data?.preview_url ?? null,
+          pageCount: data?.page_count ?? null,
+          provider: data?.provider ?? "n8n",
+        },
+      };
+    }
+    if (data?.pdf_base64) {
+      const pdf = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
+      const preview = data.preview_base64
+        ? Uint8Array.from(atob(data.preview_base64), (c) => c.charCodeAt(0))
+        : null;
+      return { ok: true, result: { kind: "bytes", pdf, preview, pageCount: data.page_count ?? null, provider: data.provider ?? "n8n" } };
+    }
+    return { ok: false, status: res.status, message: "n8n response missing pdf url or data" };
   } catch (err) {
-    console.warn("[n8n-export-pdf] webhook failed:", (err as Error).message);
-    return null;
+    return { ok: false, status: null, message: (err as Error).message };
   } finally {
     clearTimeout(t);
   }
