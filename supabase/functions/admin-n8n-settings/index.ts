@@ -18,7 +18,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders } from "../_shared/cors.ts";
+import { buildCorsHeaders, handlePreflight } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -29,27 +29,21 @@ const TEST_TIMEOUT_MS = 10_000;
 
 type WorkflowKind = "txt" | "mp3" | "pdf";
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function fail(code: string, status = 400, extra: Record<string, unknown> = {}) {
-  return json({ success: false, error: code, ...extra }, status);
-}
-
-function pathFor(kind: WorkflowKind, row: {
-  txt_path: string;
-  mp3_path: string;
-  pdf_path: string;
-}): string {
-  return kind === "txt" ? row.txt_path : kind === "mp3" ? row.mp3_path : row.pdf_path;
-}
-
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const corsHeaders = buildCorsHeaders(req);
+  const pre = handlePreflight(req);
+  if (pre) return pre;
+
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  const fail = (code: string, status = 400, extra: Record<string, unknown> = {}) =>
+    json({ success: false, error: code, ...extra }, status);
+  const pathFor = (kind: WorkflowKind, row: { txt_path: string; mp3_path: string; pdf_path: string }) =>
+    kind === "txt" ? row.txt_path : kind === "mp3" ? row.mp3_path : row.pdf_path;
+
   if (req.method !== "POST") return fail("method_not_allowed", 405);
 
   // ── Auth ─────────────────────────────────────────────────────────────
