@@ -35,7 +35,7 @@ import {
   type TrialStoryResponse,
 } from "@/lib/trialStoryApi";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
-import N8nExportBar from "@/components/story/N8nExportBar";
+import StoryExportBar from "@/components/story/StoryExportBar";
 
 
 
@@ -1169,12 +1169,11 @@ const AIStoryteller = () => {
           </div>
           <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
 
-          {/* n8n-powered export toolbar — TXT + MP3 + PDF all live */}
-          <N8nExportBar
+          <StoryExportBar
             title={selStory.title}
             fullText={selStory.pages.map((p) => p.text).join("\n\n")}
             language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
-            storyId={(selStory as unknown as { id?: string }).id ?? null}
+            storyId={selStory.story_id ?? null}
             childId={activeChild?.id ?? null}
             childName={activeChild?.name ?? null}
             emotionTags={

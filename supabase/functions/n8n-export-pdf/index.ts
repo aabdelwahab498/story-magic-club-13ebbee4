@@ -1,4 +1,4 @@
-// n8n-export-pdf — Fully in-app PDF export (no external workflows).
+// n8n-export-pdf — Compatibility endpoint. The UI now calls export-story-pdf.
 // Renders a simple picture-book PDF from the request payload with pdf-lib
 // and returns a signed URL to `story-pdfs`. Illustrations are embedded when
 // available and small enough (PNG or JPEG); otherwise the page is text-only.

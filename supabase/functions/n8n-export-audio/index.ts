@@ -1,4 +1,4 @@
-// n8n-export-audio — Fully in-app audio export using Google Cloud TTS.
+// n8n-export-audio — Compatibility wrapper for legacy callers.
 // No external workflows. Cache-first via SHA-256; on miss it synthesizes MP3
 // with the shared TTS module, uploads to `story-audio`, and returns a signed URL.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   catch { return friendly("invalid_json", 400); }
   if (!payload?.full_text?.trim()) return friendly("full_text_required", 400);
   if (payload.full_text.length > MAX_TEXT_CHARS) return friendly("text_too_long", 400, { max_chars: MAX_TEXT_CHARS });
-  if (!Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY")) return friendly("tts_not_configured", 500);
+  if (!Deno.env.get("LOVABLE_API_KEY") && !Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY")) return friendly("tts_not_configured", 500);
 
   const language = (payload.language || "en").toLowerCase().slice(0, 5);
   const speed = payload.speed && payload.speed >= 0.5 && payload.speed <= 1.5 ? payload.speed : 1.0;
@@ -128,13 +128,13 @@ Deno.serve(async (req) => {
       return friendly("storage_upload_failed", 500);
     }
     await admin.from("audio_cache").upsert({
-      content_hash: hash, file_path: objectPath, provider: "google-tts",
+      content_hash: hash, file_path: objectPath, provider: "openai",
       voice_id: voiceId, language, file_size: audio.byteLength,
       used_count: 1, last_used_at: new Date().toISOString(),
     }, { onConflict: "content_hash" });
     const signed = await admin.storage.from(BUCKET).createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
     if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
-    return finalize({ signedUrl: signed.data.signedUrl, size: audio.byteLength, provider: "google-tts", cacheHit: false });
+    return finalize({ signedUrl: signed.data.signedUrl, size: audio.byteLength, provider: "openai", cacheHit: false });
   } catch (err) {
     console.error("[n8n-export-audio] tts failed", err);
     await admin.from("exports").update({

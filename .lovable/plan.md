@@ -1,46 +1,91 @@
-## n8n Integration Settings — Admin Dashboard Page
+## الهدف
+تحويل محور التصدير في Najmah Story Studio إلى مسار إنتاجي ثابت لملفات TXT/PDF/MP3 داخل التطبيق فقط، بدون n8n، مع تحميل تلقائي، حالات انتظار، أخطاء واضحة، واختبارات فعلية.
 
-Add a dedicated admin page where the owner can manage the n8n webhook connection (URL + shared secret) for all three export environments (TXT / MP3 / PDF), without needing to touch environment variables.
+## التشخيص الحالي
+- الواجهة ما زالت تستخدم أسماء وبادجات n8n (`N8nExportBar`, `useN8nExport`, `n8nExportApi`) رغم أن المطلوب إلغاء n8n بالكامل.
+- زر التصدير الجديد يرسل `storyId` خطأ: يستخدم `selStory.id` بينما القصة ترجع `story_id`، لذلك الصادرات قد تُسجل بدون ربط صحيح بالقصة.
+- PDF الحالي يعتمد على `Helvetica` القياسي في `pdf-lib`، وهذا يفشل أو يشوّه العربية/Unicode، وهو سبب محتمل لأخطاء `pdf_pipeline_failed`.
+- MP3 الحالي يرسل النص كاملًا في طلب TTS واحد؛ القصص الطويلة غالبًا تتجاوز حدود مزود الصوت وتنتج `tts_pipeline_failed` أو 502.
+- كاش الصوت يكتب provider باسم غير مطابق لقيد قاعدة البيانات (`google-tts` بدل القيم المسموحة)، ما يجعل الكاش غير موثوق.
+- وظيفة حالة n8n القديمة قد تعرض للمستخدم أن n8n مستخدم/مفعّل، وهذا يناقض القرار النهائي.
+- توجد مسارات تصدير مزدوجة: أزرار داخل `SelStoryViewer` ومسار toolbar منفصل، ما يسبب اختلاف السلوك بين PDF/MP3.
 
-### 1. Database
-New table `n8n_integration_settings` (single-row config):
-- `id uuid pk`
-- `webhook_base_url text` — e.g. `https://xxx.app.n8n.cloud/webhook/starry-tales`
-- `webhook_secret_set boolean` — true if a secret exists (secret itself never returned to client)
-- `txt_enabled`, `mp3_enabled`, `pdf_enabled` boolean (default true) — toggle each workflow
-- `last_tested_at`, `last_test_status` (`ok` / `failed` / `null`), `last_test_message`
-- `updated_by uuid`, `updated_at timestamptz`
+## خطة الإصلاح
 
-RLS: only `admin` role can `SELECT` / `UPDATE`. Grants for `authenticated` + `service_role`.
+### 1) تنظيف الواجهة من n8n وتوحيد أزرار التصدير
+- إعادة تسمية الطبقة الأمامية إلى أسماء محايدة مثل `StoryExportBar`, `useStoryExport`, `storyExportApi`.
+- إزالة استدعاء `n8n-integration-status` والباجات التي تعرض n8n/local.
+- الإبقاء على أزرار TXT/PDF/MP3 فقط بحالات واضحة:
+  - جاري تجهيز TXT
+  - جاري إنشاء PDF
+  - جاري تسجيل MP3
+  - فشل مع زر إعادة المحاولة
+- إصلاح `storyId` ليستخدم `selStory.story_id`.
+- توحيد download handling بحيث أي `download_url` يرجع من الخلفية يتم تنزيله تلقائيًا.
 
-The actual `N8N_WEBHOOK_SECRET` value stays in Supabase Edge Function Secrets (never exposed to the browser); the table only tracks whether it's set + metadata.
+### 2) إصلاح TXT export
+- إبقاء TXT سريعًا ومباشرًا داخل الخلفية.
+- التحقق من وجود نص وعنوان ولغة.
+- ربط السجل بـ `story_id` الصحيح عند توفره.
+- إرجاع response موحد:
+```json
+{
+  "success": true,
+  "export_id": "...",
+  "download_url": "...",
+  "file_name": "...txt",
+  "file_size": 123,
+  "provider": "local"
+}
+```
 
-### 2. Edge Functions
-- **`admin-n8n-settings`** (new): admin-only. `GET` returns current row. `PUT` updates URL + toggles. `POST /set-secret` writes the secret into a `n8n_webhook_secret` row in a private `secrets` table read by the export functions (or updates a KV row). `POST /test` pings `{base_url}/health` (or a configurable path) with the secret header and stores the result.
-- **`n8n-export-txt` / `n8n-export-audio` / `n8n-export-pdf`** (existing): switch from reading `Deno.env.get("N8N_WEBHOOK_URL")` to reading `n8n_integration_settings` (base URL + per-kind toggle) + the stored secret. Fallbacks (local renderer / Edge-TTS / `export-story-pdf`) stay unchanged when disabled or unset.
+### 3) إصلاح PDF export جذريًا
+- جعل PDF Unicode-safe بدل `Helvetica` فقط، خصوصًا العربية.
+- إضافة fallback آمن لو فشل تضمين الصور: لا يفشل التصدير كله بسبب صورة واحدة.
+- تقليل مخاطر resource limits:
+  - حد أقصى لعدد الصور.
+  - تخطي الصور الكبيرة جدًا تلقائيًا.
+  - جعل PDF النصي يعمل دائمًا حتى بدون صور.
+- توحيد الأخطاء إلى أكواد واضحة مثل:
+  - `pdf_render_failed`
+  - `pdf_font_failed`
+  - `storage_upload_failed`
+- التأكد من أن اللغة العربية تظهر باتجاه صحيح قدر الإمكان، أو على الأقل لا تكسر إنشاء الملف.
 
-### 3. Admin UI — `src/pages/admin/AdminN8nIntegrationPage.tsx`
-Sections:
-1. **Connection** — URL input, "Save", masked "Secret" input with "Update secret" (writes via edge fn; never re-fetches).
-2. **Workflows** — three toggles: TXT / MP3 / PDF, each with the exact webhook path the user must configure in n8n (`/export-txt`, `/export-audio`, `/export-pdf`) and a copy button.
-3. **Test Connection** — button per workflow → calls the test edge function → shows ✅/❌ + last tested timestamp.
-4. **Status banner** — "Currently using: n8n" vs "Currently using: local fallback" per workflow.
-5. **Help card** — short Arabic + English steps: create webhook node in n8n → set path → set header `x-n8n-secret` → save the same secret here.
+### 4) إصلاح MP3 export
+- تقسيم النص إلى chunks حسب الجمل/الفقرات بدل طلب TTS واحد للنص كاملًا.
+- توليد الصوت لكل chunk ثم دمجه بترتيبه.
+- إصلاح provider في `audio_cache` إلى قيمة متوافقة مع قاعدة البيانات (`google`).
+- التقاط أخطاء cache/upsert بدل تجاهلها.
+- استخدام cache hash مبني على النص + اللغة + الصوت + السرعة.
+- إرجاع أخطاء مفهومة عند عدم ضبط TTS أو تجاوز الحدود.
 
-Route: `/admin/integrations/n8n`, added to `AdminDashboardLayout` sidebar under a new "Integrations" group, gated by `requireAdmin`.
+### 5) توحيد مسارات التصدير في التطبيق
+- جعل أزرار التصدير داخل `SelStoryViewer` تستخدم نفس API الموحد أو إزالة التكرار السلوكي.
+- منع وجود مسارين مختلفين لـ PDF/MP3 ينتجان نتائج مختلفة.
+- الحفاظ على gating الحالي للاشتراكات إن كان مطلوبًا، لكن مع رسالة واضحة بدل فشل تقني.
 
-### 4. Frontend client
-- `src/lib/adminN8nApi.ts` — `getSettings()`, `updateSettings()`, `updateSecret()`, `testWorkflow(kind)`.
-- No changes needed in `N8nExportBar` / `useN8nExport` / `n8nExportApi.ts` — the switch happens server-side in the edge functions.
+### 6) تحديث وظائف الخلفية بدون n8n
+- إما إنشاء وظائف بأسماء إنتاجية جديدة:
+  - `export-story-txt`
+  - `export-story-audio`
+  - استخدام/تحديث `export-story-pdf`
+- أو إبقاء أسماء الوظائف القديمة مؤقتًا كـ compatibility فقط، لكن الواجهة لن تعرض أو تستخدم أي مفهوم n8n.
+- لا استخدام webhooks ولا mock ولا external workflow.
 
-### 5. Migration order
-1. Create table + RLS + grants.
-2. Insert default row.
-3. Deploy `admin-n8n-settings` edge function.
-4. Update 3 export edge functions to read settings from DB (with env-var fallback for backwards compatibility during rollout).
-5. Add admin page + route + sidebar link.
+### 7) الاختبار والتحقق
+- تشغيل فحص TypeScript.
+- اختبار وظائف الخلفية مباشرة بمدخلات صغيرة:
+  - TXT لقصة قصيرة.
+  - PDF لقصة عربية/إنجليزية قصيرة.
+  - MP3 لنص قصير ثم نص أطول مقسم.
+- فحص سجلات الخلفية بعد الاختبار.
+- اختبار واجهة المستخدم عبر المتصفح:
+  - توليد/فتح قصة.
+  - ظهور أزرار TXT/PDF/MP3.
+  - loading state لكل زر.
+  - تحميل الملف تلقائيًا عند النجاح.
+  - ظهور رسالة مفهومة عند الفشل.
 
-### Acceptance
-- Owner logs in → navigates to Admin → Integrations → n8n → pastes URL + secret → toggles workflows → clicks Test → sees ✅.
-- Exports on the client automatically start routing through n8n; disabling a toggle falls back to local generator with zero code change.
-- Non-admins get 403 on both the page and the edge function.
+## الناتج المتوقع
+بعد التنفيذ، يصبح مسار التصدير مستقلًا بالكامل داخل Lovable Cloud، بدون n8n، ويدعم TXT/PDF/MP3 بطريقة موحدة وقابلة للاختبار، مع تقليل أخطاء 502 وresource limit خصوصًا في PDF وMP3.
