@@ -79,10 +79,69 @@ function hasArabic(text: string) {
   return /[\u0600-\u06FF]/.test(text);
 }
 
+const ARABIC_FORMS: Record<string, [string, string, string?, string?]> = {
+  "ء": ["ﺀ", "ﺀ"], "آ": ["ﺁ", "ﺂ"], "أ": ["ﺃ", "ﺄ"], "ؤ": ["ﺅ", "ﺆ"], "إ": ["ﺇ", "ﺈ"], "ئ": ["ﺉ", "ﺊ", "ﺋ", "ﺌ"],
+  "ا": ["ﺍ", "ﺎ"], "ب": ["ﺏ", "ﺐ", "ﺑ", "ﺒ"], "ة": ["ﺓ", "ﺔ"], "ت": ["ﺕ", "ﺖ", "ﺗ", "ﺘ"], "ث": ["ﺙ", "ﺚ", "ﺛ", "ﺜ"],
+  "ج": ["ﺝ", "ﺞ", "ﺟ", "ﺠ"], "ح": ["ﺡ", "ﺢ", "ﺣ", "ﺤ"], "خ": ["ﺥ", "ﺦ", "ﺧ", "ﺨ"], "د": ["ﺩ", "ﺪ"], "ذ": ["ﺫ", "ﺬ"],
+  "ر": ["ﺭ", "ﺮ"], "ز": ["ﺯ", "ﺰ"], "س": ["ﺱ", "ﺲ", "ﺳ", "ﺴ"], "ش": ["ﺵ", "ﺶ", "ﺷ", "ﺸ"], "ص": ["ﺹ", "ﺺ", "ﺻ", "ﺼ"],
+  "ض": ["ﺽ", "ﺾ", "ﺿ", "ﻀ"], "ط": ["ﻁ", "ﻂ", "ﻃ", "ﻄ"], "ظ": ["ﻅ", "ﻆ", "ﻇ", "ﻈ"], "ع": ["ﻉ", "ﻊ", "ﻋ", "ﻌ"], "غ": ["ﻍ", "ﻎ", "ﻏ", "ﻐ"],
+  "ف": ["ﻑ", "ﻒ", "ﻓ", "ﻔ"], "ق": ["ﻕ", "ﻖ", "ﻗ", "ﻘ"], "ك": ["ﻙ", "ﻚ", "ﻛ", "ﻜ"], "ل": ["ﻝ", "ﻞ", "ﻟ", "ﻠ"], "م": ["ﻡ", "ﻢ", "ﻣ", "ﻤ"],
+  "ن": ["ﻥ", "ﻦ", "ﻧ", "ﻨ"], "ه": ["ﻩ", "ﻪ", "ﻫ", "ﻬ"], "و": ["ﻭ", "ﻮ"], "ى": ["ﻯ", "ﻰ"], "ي": ["ﻱ", "ﻲ", "ﻳ", "ﻴ"],
+  "لا": ["ﻻ", "ﻼ"], "لآ": ["ﻵ", "ﻶ"], "لأ": ["ﻷ", "ﻸ"], "لإ": ["ﻹ", "ﻺ"],
+};
+
+function canJoinBefore(ch: string): boolean {
+  const forms = ARABIC_FORMS[ch];
+  return !!forms && !!forms[1];
+}
+
+function canJoinAfter(ch: string): boolean {
+  const forms = ARABIC_FORMS[ch];
+  return !!forms && !!forms[2];
+}
+
+function stripArabicMarks(text: string): string {
+  return text.replace(/[\u064B-\u065F\u0670]/g, "");
+}
+
+function shapeArabicRun(run: string): string {
+  const chars = Array.from(stripArabicMarks(run));
+  const shaped: string[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const next = chars[i + 1];
+    if (ch === "ل" && next && ["ا", "أ", "إ", "آ"].includes(next)) {
+      const prev = chars[i - 1];
+      const joinsPrev = !!prev && canJoinAfter(prev);
+      const ligatureKey = `ل${next}`;
+      const forms = ARABIC_FORMS[ligatureKey] ?? ARABIC_FORMS["لا"];
+      shaped.push(joinsPrev ? forms[1] : forms[0]);
+      i++;
+      continue;
+    }
+    const forms = ARABIC_FORMS[ch];
+    if (!forms) {
+      shaped.push(ch);
+      continue;
+    }
+    const prev = chars[i - 1];
+    const nextCh = chars[i + 1];
+    const joinsPrev = !!prev && canJoinAfter(prev) && canJoinBefore(ch);
+    const joinsNext = !!nextCh && canJoinAfter(ch) && canJoinBefore(nextCh);
+    if (joinsPrev && joinsNext && forms[3]) shaped.push(forms[3]);
+    else if (joinsPrev) shaped.push(forms[1]);
+    else if (joinsNext && forms[2]) shaped.push(forms[2]);
+    else shaped.push(forms[0]);
+  }
+  return shaped.join("");
+}
+
 function shapeForPdf(text: string): string {
-  // pdf-lib does not do Arabic shaping/bidi. This keeps generation reliable and
-  // makes Arabic readable enough by reversing Arabic-dominant lines before draw.
-  return hasArabic(text) ? Array.from(text).reverse().join("") : text;
+  // pdf-lib does not run Arabic shaping/bidi. Convert Arabic letters into their
+  // presentation forms, then reverse the visual run for left-to-right drawing.
+  if (!hasArabic(text)) return text;
+  const shaped = text.replace(/[\u0600-\u06FF\u064B-\u065F\u0670]+/g, (run) => shapeArabicRun(run));
+  return Array.from(shaped).reverse().join("");
 }
 
 function normalizePages(input: unknown): NormalizedPage[] {
