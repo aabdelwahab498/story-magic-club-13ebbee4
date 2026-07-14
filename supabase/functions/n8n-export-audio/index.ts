@@ -1,4 +1,4 @@
-// n8n-export-audio — Fully in-app audio export using Google Cloud TTS.
+// n8n-export-audio — Compatibility wrapper for legacy callers.
 // No external workflows. Cache-first via SHA-256; on miss it synthesizes MP3
 // with the shared TTS module, uploads to `story-audio`, and returns a signed URL.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -128,13 +128,13 @@ Deno.serve(async (req) => {
       return friendly("storage_upload_failed", 500);
     }
     await admin.from("audio_cache").upsert({
-      content_hash: hash, file_path: objectPath, provider: "google-tts",
+      content_hash: hash, file_path: objectPath, provider: "google",
       voice_id: voiceId, language, file_size: audio.byteLength,
       used_count: 1, last_used_at: new Date().toISOString(),
     }, { onConflict: "content_hash" });
     const signed = await admin.storage.from(BUCKET).createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
     if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
-    return finalize({ signedUrl: signed.data.signedUrl, size: audio.byteLength, provider: "google-tts", cacheHit: false });
+    return finalize({ signedUrl: signed.data.signedUrl, size: audio.byteLength, provider: "google", cacheHit: false });
   } catch (err) {
     console.error("[n8n-export-audio] tts failed", err);
     await admin.from("exports").update({
