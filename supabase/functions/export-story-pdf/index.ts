@@ -14,8 +14,10 @@ const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const MAX_PAGES = 30;
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 2_500_000;
-const FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
-const FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
+const ARABIC_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
+const ARABIC_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
+const LATIN_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf";
+const LATIN_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf";
 
 interface PageInput {
   page_number?: number;
@@ -319,10 +321,19 @@ Deno.serve(async (req) => {
     doc.registerFontkit(fontkit);
     let font;
     let bold;
+    let latinFont;
+    let latinBold;
     try {
-      const [fontBytes, boldBytes] = await Promise.all([fetchBytes(FONT_URL), fetchBytes(FONT_BOLD_URL)]);
+      const [fontBytes, boldBytes, latinBytes, latinBoldBytes] = await Promise.all([
+        fetchBytes(ARABIC_FONT_URL),
+        fetchBytes(ARABIC_FONT_BOLD_URL),
+        fetchBytes(LATIN_FONT_URL),
+        fetchBytes(LATIN_FONT_BOLD_URL),
+      ]);
       font = await doc.embedFont(fontBytes, { subset: true });
       bold = await doc.embedFont(boldBytes, { subset: true });
+      latinFont = await doc.embedFont(latinBytes, { subset: true });
+      latinBold = await doc.embedFont(latinBoldBytes, { subset: true });
     } catch (fontErr) {
       console.error("[export-story-pdf] font load failed", fontErr);
       return friendly("pdf_font_failed", 500);
@@ -338,14 +349,18 @@ Deno.serve(async (req) => {
     const titleLines = wrap(title, bold, 28, pageW - margin * 2).slice(0, 6);
     let coverY = pageH - 190;
     for (const line of titleLines) {
-      cover.drawText(shapeForPdf(line), { x: margin, y: coverY, size: 28, font: bold, color: rgb(1, 0.95, 0.72) });
+      const shaped = shapeForPdf(line);
+      const x = hasArabic(line) ? pageW - margin - bold.widthOfTextAtSize(shaped, 28) : margin;
+      cover.drawText(shaped, { x, y: coverY, size: 28, font: bold, color: rgb(1, 0.95, 0.72) });
       coverY -= 40;
     }
     if (payload.child_name) {
       const childLine = hasArabic(payload.child_name) ? payload.child_name : `for ${payload.child_name}`;
-      cover.drawText(shapeForPdf(childLine), { x: margin, y: coverY - 20, size: 18, font, color: rgb(1, 1, 1) });
+      const shaped = shapeForPdf(childLine);
+      const x = hasArabic(childLine) ? pageW - margin - font.widthOfTextAtSize(shaped, 18) : margin;
+      cover.drawText(shaped, { x, y: coverY - 20, size: 18, font, color: rgb(1, 1, 1) });
     }
-    cover.drawText("Najmah Story Studio", { x: margin, y: 58, size: 11, font, color: rgb(0.78, 0.84, 1) });
+    cover.drawText("Najmah Story Studio", { x: margin, y: 58, size: 11, font: latinFont, color: rgb(0.78, 0.84, 1) });
 
     let embedded = 0;
     for (const p of pages) {
@@ -371,17 +386,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      page.drawText(`Page ${p.pageNumber}`, { x: margin, y: cursorY, size: 10, font, color: rgb(0.38, 0.38, 0.45) });
+      page.drawText(`Page ${p.pageNumber}`, { x: margin, y: cursorY, size: 10, font: latinFont, color: rgb(0.38, 0.38, 0.45) });
       if (p.emotionTag) {
-        const label = shapeForPdf(p.emotionTag.toUpperCase());
-        page.drawText(label, { x: pageW - margin - Math.min(180, font.widthOfTextAtSize(label, 10)), y: cursorY, size: 10, font, color: rgb(0.35, 0.25, 0.62) });
+        const label = p.emotionTag.toUpperCase();
+        page.drawText(label, { x: pageW - margin - Math.min(180, latinBold.widthOfTextAtSize(label, 10)), y: cursorY, size: 10, font: latinBold, color: rgb(0.35, 0.25, 0.62) });
       }
       cursorY -= 28;
 
       const lines = wrap(p.text, font, textSize, pageW - margin * 2);
       for (const line of lines) {
         if (cursorY < margin) break;
-        page.drawText(shapeForPdf(line), { x: margin, y: cursorY, size: textSize, font, color: rgb(0.1, 0.1, 0.15) });
+        const shaped = shapeForPdf(line);
+        const x = hasArabic(line) ? pageW - margin - font.widthOfTextAtSize(shaped, textSize) : margin;
+        page.drawText(shaped, { x, y: cursorY, size: textSize, font, color: rgb(0.1, 0.1, 0.15) });
         cursorY -= textSize + 7;
       }
     }
