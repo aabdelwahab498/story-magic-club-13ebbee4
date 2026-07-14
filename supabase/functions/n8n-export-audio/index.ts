@@ -128,13 +128,13 @@ Deno.serve(async (req) => {
       return friendly("storage_upload_failed", 500);
     }
     await admin.from("audio_cache").upsert({
-      content_hash: hash, file_path: objectPath, provider: "google",
+      content_hash: hash, file_path: objectPath, provider: "openai",
       voice_id: voiceId, language, file_size: audio.byteLength,
       used_count: 1, last_used_at: new Date().toISOString(),
     }, { onConflict: "content_hash" });
     const signed = await admin.storage.from(BUCKET).createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS, { download: filename });
     if (!signed.data?.signedUrl) return friendly("sign_url_failed", 500);
-    return finalize({ signedUrl: signed.data.signedUrl, size: audio.byteLength, provider: "google", cacheHit: false });
+    return finalize({ signedUrl: signed.data.signedUrl, size: audio.byteLength, provider: "openai", cacheHit: false });
   } catch (err) {
     console.error("[n8n-export-audio] tts failed", err);
     await admin.from("exports").update({

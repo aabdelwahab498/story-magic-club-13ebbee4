@@ -12,7 +12,7 @@ const BUCKET = "story-audio";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const MAX_TEXT_CHARS = 20_000;
 const CHUNK_MAX_WORDS = 260;
-const PROVIDER = "google";
+const PROVIDER = "openai";
 
 interface ExportAudioRequest {
   story_id?: string | null;

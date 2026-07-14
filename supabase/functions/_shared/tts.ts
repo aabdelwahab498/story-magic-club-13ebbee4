@@ -1,6 +1,6 @@
-// Google Cloud Text-to-Speech provider (modular).
-// The only TTS provider used by the app. All narrate-* functions call
-// `synthesizeSpeech()` and get back MP3 bytes.
+// Text-to-Speech provider (modular).
+// Prefer Lovable AI Gateway for production MP3 output; fall back to Google
+// Cloud TTS only when a valid Google key exists and Lovable AI is unavailable.
 //
 // To swap providers in the future, implement the same `TtsProvider` interface
 // and register it in `getTtsProvider()`.
@@ -99,6 +99,47 @@ class GoogleCloudTtsProvider implements TtsProvider {
   }
 }
 
+class LovableAiTtsProvider implements TtsProvider {
+  name = "lovable-ai-openai-tts";
+  constructor(private apiKey: string) {}
+
+  async synthesize(req: TtsRequest): Promise<Uint8Array> {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini-tts",
+        input: req.text,
+        voice: "alloy",
+        response_format: "mp3",
+        stream_format: "audio",
+        speed: req.ageId === "3-5" ? 0.9 : 1,
+        instructions: toneInstructions(req),
+      }),
+    });
+
+    if (!resp.ok) {
+      const errTxt = await resp.text().catch(() => "");
+      throw new TtsError(resp.status, `lovable_ai_tts_failed: ${errTxt.slice(0, 300)}`);
+    }
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    if (bytes.byteLength === 0) throw new TtsError(502, "lovable_ai_tts_empty_audio");
+    return bytes;
+  }
+}
+
+function toneInstructions(req: TtsRequest): string {
+  const lang = (req.language || "en").toLowerCase().slice(0, 2);
+  const base = lang === "ar"
+    ? "اقرأ بصوت دافئ وهادئ مناسب للأطفال، مع إيقاع واضح ومطمئن."
+    : "Read warmly and calmly for children, with clear pacing and a reassuring tone.";
+  if (req.character) return `${base} Keep the narrator persona gentle and expressive: ${req.character}.`;
+  return base;
+}
+
 export class TtsError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -113,6 +154,11 @@ let cached: TtsProvider | null = null;
 
 export function getTtsProvider(): TtsProvider {
   if (cached) return cached;
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    cached = new LovableAiTtsProvider(lovableKey);
+    return cached;
+  }
   const key = Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY");
   if (!key) throw new TtsError(500, "tts_not_configured");
   cached = new GoogleCloudTtsProvider(key);
