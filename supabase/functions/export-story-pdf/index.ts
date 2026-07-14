@@ -14,8 +14,8 @@ const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const MAX_PAGES = 30;
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 2_500_000;
-const FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf";
-const FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf";
+const FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
+const FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
 
 interface PageInput {
   page_number?: number;
