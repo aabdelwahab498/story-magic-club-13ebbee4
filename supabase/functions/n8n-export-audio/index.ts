@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   catch { return friendly("invalid_json", 400); }
   if (!payload?.full_text?.trim()) return friendly("full_text_required", 400);
   if (payload.full_text.length > MAX_TEXT_CHARS) return friendly("text_too_long", 400, { max_chars: MAX_TEXT_CHARS });
-  if (!Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY")) return friendly("tts_not_configured", 500);
+  if (!Deno.env.get("LOVABLE_API_KEY") && !Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY")) return friendly("tts_not_configured", 500);
 
   const language = (payload.language || "en").toLowerCase().slice(0, 5);
   const speed = payload.speed && payload.speed >= 0.5 && payload.speed <= 1.5 ? payload.speed : 1.0;
