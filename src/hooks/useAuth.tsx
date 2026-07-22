@@ -1,15 +1,19 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { authApi } from "@/api/auth.api";
+import { MeResponse } from "@/api/auth.api";
+import { AppRole, PermissionKey } from "@/lib/rbac";
 
-export type AppRole = "admin" | "editor" | "user";
-
+/**
+ * Authentication context providing session, user, and RBAC helpers.
+ * Refactored to use NestJS API /auth/me instead of Supabase Auth.
+ */
 interface AuthCtx {
-  session: Session | null;
-  user: User | null;
+  session: any | null; // Kept for backwards compatibility
+  user: any | null; // Kept for backwards compatibility
   roles: AppRole[];
-  permissions: string[];
-  hasPermission: (key: string) => boolean;
+  permissions: PermissionKey[];
+  hasPermission: (key: PermissionKey) => boolean;
+  hasRole: (role: AppRole) => boolean;
   isAdmin: boolean;
   isEditor: boolean;
   isStaff: boolean;
@@ -21,79 +25,69 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [meData, setMeData] = useState<MeResponse | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
 
-  const checkRoles = async (userId: string | undefined) => {
-    if (!userId) {
-      setRoles([]);
-      setPermissions([]);
-      return;
+  const fetchMe = async () => {
+    try {
+      const data = await authApi.getMe();
+      setMeData(data);
+    } catch (err) {
+      setMeData(null);
+    } finally {
+      setAuthLoading(false);
     }
-    const { data: roleRows } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    const userRoles = ((roleRows ?? []) as { role: AppRole }[]).map((r) => r.role);
-    setRoles(userRoles);
-
-    if (userRoles.length === 0) {
-      setPermissions([]);
-      return;
-    }
-    const { data: permRows } = await supabase
-      .from("rbac_permissions")
-      .select("permission_key, granted, role")
-      .in("role", userRoles as unknown as ("admin" | "editor" | "user")[])
-      .eq("granted", true);
-    const perms = Array.from(
-      new Set(((permRows ?? []) as { permission_key: string }[]).map((p) => p.permission_key))
-    );
-    setPermissions(perms);
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess);
-      setTimeout(() => checkRoles(sess?.user?.id), 0);
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      checkRoles(data.session?.user?.id).finally(() => setLoading(false));
-    });
-
-    return () => sub.subscription.unsubscribe();
+    fetchMe();
   }, []);
 
+  const roles = meData?.roles || [];
+  const permissions = meData?.permissions || [];
+
+  const hasRole = (role: AppRole) => roles.includes(role);
+  const hasPermission = (key: PermissionKey) => permissions.includes(key);
+
+  const isAdmin = hasRole("admin");
+  const isEditor = hasRole("editor");
+  const isStaff = isAdmin || isEditor;
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await authApi.signOut();
+    } finally {
+      setMeData(null);
+    }
   };
 
   const refreshAdmin = async () => {
-    await checkRoles(session?.user?.id);
+    await fetchMe();
   };
 
-  const isAdmin = roles.includes("admin");
-  const isEditor = roles.includes("editor");
-  const isStaff = isAdmin || isEditor;
+  // Map MeResponse to legacy user object format to avoid breaking UI components
+  const user = meData ? {
+    id: meData.id,
+    email: meData.email,
+    user_metadata: { display_name: meData.email?.split("@")[0] || "" }
+  } : null;
 
-  const hasPermission = (key: string) => isAdmin || permissions.includes(key);
+  // Mock session object
+  const session = user ? { user } : null;
 
   return (
     <Ctx.Provider
       value={{
         session,
-        user: session?.user ?? null,
+        user,
         roles,
         permissions,
         hasPermission,
+        hasRole,
         isAdmin,
         isEditor,
         isStaff,
-        loading,
+        loading: authLoading,
         signOut,
         refreshAdmin,
       }}

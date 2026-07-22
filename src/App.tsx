@@ -34,11 +34,12 @@ const Store = lazy(() => import("./pages/Store"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Family = lazy(() => import("./pages/Family"));
+const ChildProfile = lazy(() => import("./pages/ChildProfile"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const ParentDashboard = lazy(() => import("./pages/ParentDashboard"));
 const AdminDashboardLayout = lazy(() => import("./pages/admin/AdminDashboardLayout"));
-const AdminDashboardOverview = lazy(() => import("./pages/admin/AdminDashboardOverview"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminStoriesPage = lazy(() => import("./pages/admin/AdminStoriesPage"));
 const AdminVideosPage = lazy(() => import("./pages/admin/AdminVideosPage"));
 const AdminBlogPage = lazy(() => import("./pages/admin/AdminBlogPage"));
@@ -83,6 +84,7 @@ const AccountProfile = lazy(() => import("./pages/AccountProfile"));
 const About = lazy(() => import("./pages/About"));
 const Install = lazy(() => import("./pages/Install"));
 const Offline = lazy(() => import("./pages/Offline"));
+const PaymentResult = lazy(() => import("./pages/PaymentResult"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -131,12 +133,14 @@ const App = () => (
                     <Route path="contact" element={<Contact />} />
                     <Route path="pricing" element={<Pricing />} />
                     <Route path="family" element={<Family />} />
+                    <Route path="family/:id" element={<ChildProfile />} />
                     <Route path="about" element={<About />} />
                     <Route path="install" element={<Install />} />
                     <Route path="offline" element={<Offline />} />
                     <Route path="download-test" element={<DownloadTest />} />
                     <Route path="privacy" element={<Privacy />} />
                     <Route path="terms" element={<Terms />} />
+                    <Route path="payment/result" element={<PaymentResult />} />
                     <Route element={<ProtectedRoute />}>
                       <Route path="blog/submit" element={<BlogSubmit />} />
                       <Route path="parent" element={<ParentDashboard />} />
@@ -156,7 +160,7 @@ const App = () => (
                   </Route>
                   <Route element={<ProtectedRoute requireStaff />}>
                     <Route path="/admin/dashboard" element={<AdminDashboardLayout />}>
-                      <Route index element={<AdminDashboardOverview />} />
+                      <Route index element={<AdminDashboard />} />
                       <Route path="stories" element={<AdminStoriesPage />} />
                       <Route path="story-engine" element={<AdminStoryEnginePage />} />
                       <Route path="ai-models" element={<AdminAiModelsPage />} />

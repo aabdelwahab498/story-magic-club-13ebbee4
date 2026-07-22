@@ -34,22 +34,34 @@ interface ErrorWithContext {
   message?: string;
 }
 
+interface EdgeErrorBody {
+  retryAfter?: unknown;
+  error?: unknown;
+  code?: unknown;
+  message?: unknown;
+  categories?: unknown;
+  severity?: unknown;
+  requestId?: unknown;
+  reason?: unknown;
+}
+
 /** Try to extract a Response from FunctionsHttpError-style errors. */
 async function extractInfo(err: unknown): Promise<EdgeErrorInfo> {
   const e = err as ErrorWithContext;
   const ctx = e?.context;
   let status = 0;
-  let body: any = null;
+  let body: EdgeErrorBody | null = null;
   let retryAfterHeader: string | null = null;
 
   if (ctx instanceof Response) {
     status = ctx.status;
     retryAfterHeader = ctx.headers.get("retry-after");
     try {
-      body = await ctx.clone().json();
+      body = await ctx.clone().json() as EdgeErrorBody;
     } catch {
       try {
-        body = await ctx.clone().text();
+        const txt = await ctx.clone().text();
+        body = { message: txt };
       } catch {
         body = null;
       }
@@ -70,7 +82,7 @@ async function extractInfo(err: unknown): Promise<EdgeErrorInfo> {
     code: typeof body?.error === "string" ? body.error : typeof body?.code === "string" ? body.code : undefined,
     message: typeof body?.message === "string" ? body.message : e?.message,
     retryAfterSec: Number.isFinite(retryAfterSec) ? retryAfterSec : undefined,
-    categories: Array.isArray(body?.categories) ? body.categories : undefined,
+    categories: Array.isArray(body?.categories) ? (body.categories as string[]) : undefined,
     severity: typeof body?.severity === "string" ? body.severity : undefined,
     requestId: typeof body?.requestId === "string" ? body.requestId : undefined,
     reason: typeof body?.reason === "string" ? body.reason : undefined,
@@ -214,12 +226,12 @@ export async function handleEdgeFetchResponse(
   opts: { context?: string } = {},
 ): Promise<EdgeErrorInfo | null> {
   if (resp.ok) return null;
-  let body: any = null;
+  let body: EdgeErrorBody | null = null;
   try {
-    body = await resp.clone().json();
+    body = await resp.clone().json() as EdgeErrorBody;
   } catch {
     /* ignore */
   }
-  const fakeErr = { context: resp, message: body?.message } as unknown;
+  const fakeErr = { context: resp, message: typeof body?.message === "string" ? body.message : undefined } as unknown;
   return handleEdgeError(fakeErr, t, opts);
 }

@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Headphones, Film, Sparkles, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMyAiStories, type AiStoryRow } from "@/lib/aiStoryApi";
 import { useGenerateFullNarration } from "@/lib/storyTtsApi";
 import StoryVideoPlayer, { type StoryVideoPage } from "@/components/story/StoryVideoPlayer";
@@ -32,7 +33,7 @@ const MyAiStories = () => {
     }
     const txt = String((s.generated_story as { text?: string })?.text ?? "");
     return txt
-      .split(/\n{2,}|(?<=[\.!\?])\s+(?=[A-Z\u0600-\u06FF])/)
+      .split(/\n{2,}|(?<=([.!?]))\s+(?=[A-Z\u0600-\u06FF])/)
       .map((s) => s.trim())
       .filter((s) => s.length > 10)
       .slice(0, 12)
@@ -48,6 +49,91 @@ const MyAiStories = () => {
     await refetch();
     openVideo({ ...s, audio_url: res.audio_url }, res.page_weights);
   };
+
+  const completedStories = stories.filter(s => s.status === "generated" || !s.status);
+  const failedStories = stories.filter(s => s.status === "failed");
+  const inProgressStories = stories.filter(s => s.status && s.status !== "generated" && s.status !== "failed");
+
+  const StoryList = ({ items, emptyMsg, icon: Icon }: { items: AiStoryRow[], emptyMsg: string, icon: React.ElementType }) => {
+    if (items.length === 0) {
+      return (
+        <div className="text-center py-16 text-muted-foreground bg-card rounded-2xl border border-border">
+          <Icon className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          {emptyMsg}
+        </div>
+      );
+    }
+    return (
+      <ul className="grid gap-3">
+        {items.map((s) => (
+          <li
+            key={s.id}
+            className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-card rounded-2xl border border-border"
+          >
+            <Link to={`/my-stories/${s.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
+              <p className="font-bold text-foreground truncate">
+                {s.title || t("my_stories.untitled", { defaultValue: "Untitled story" })}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {new Date(s.created_at).toLocaleDateString()} • {s.language.toUpperCase()}
+                {s.status && (
+                  <span className="ms-2 font-semibold">
+                    • Status: {s.status.toUpperCase()}
+                  </span>
+                )}
+                {s.audio_url && (
+                  <span className="ms-2 inline-flex items-center gap-1 text-primary font-semibold">
+                    <Headphones className="h-3 w-3" />
+                    {t("my_stories.has_audio", { defaultValue: "Audio ready" })}
+                  </span>
+                )}
+              </p>
+            </Link>
+
+            <div className="flex gap-2 flex-wrap">
+              <Button asChild size="sm" variant="outline" className="rounded-full">
+                <Link to={`/my-stories/${s.id}`}>
+                  {t("my_stories.open", { defaultValue: "Open" })}
+                </Link>
+              </Button>
+              {s.status !== "failed" && (
+                <DownloadNowButton
+                  storyId={s.id}
+                  title={s.title ?? "Story"}
+                  pdfUrl={(s as unknown as { pdf_url?: string | null }).pdf_url ?? null}
+                />
+              )}
+              {s.audio_url ? (
+                <Button
+                  size="sm"
+                  onClick={() => openVideo(s)}
+                  className="rounded-full"
+                >
+                  <Film className="h-4 w-4 me-1.5" />
+                  {t("my_stories.watch_video", { defaultValue: "Watch Video" })}
+                </Button>
+              ) : s.status !== "failed" && (
+                <Button
+                  size="sm"
+                  onClick={() => handleGenerate(s)}
+                  disabled={generate.isPending}
+                  className="rounded-full"
+                >
+                  {generate.isPending && generate.variables?.storyId === s.id ? (
+                    <Loader2 className="h-4 w-4 me-1.5 animate-spin" />
+                  ) : (
+                    <Headphones className="h-4 w-4 me-1.5" />
+                  )}
+                  {t("my_stories.generate", { defaultValue: "Generate Narration" })}
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
 
   return (
     <div className="py-6 max-w-5xl mx-auto px-4">
@@ -97,66 +183,23 @@ const MyAiStories = () => {
           {t("my_stories.empty", { defaultValue: "You haven't created any stories yet." })}
         </div>
       ) : (
-        <ul className="grid gap-3">
-          {stories.map((s) => (
-            <li
-              key={s.id}
-              className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-card rounded-2xl border border-border"
-            >
-              <Link to={`/my-stories/${s.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
-                <p className="font-bold text-foreground truncate">
-                  {s.title || t("my_stories.untitled", { defaultValue: "Untitled story" })}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(s.created_at).toLocaleDateString()} • {s.language.toUpperCase()}
-                  {s.audio_url && (
-                    <span className="ms-2 inline-flex items-center gap-1 text-primary font-semibold">
-                      <Headphones className="h-3 w-3" />
-                      {t("my_stories.has_audio", { defaultValue: "Audio ready" })}
-                    </span>
-                  )}
-                </p>
-              </Link>
-
-              <div className="flex gap-2 flex-wrap">
-                <Button asChild size="sm" variant="outline" className="rounded-full">
-                  <Link to={`/my-stories/${s.id}`}>
-                    {t("my_stories.open", { defaultValue: "Open" })}
-                  </Link>
-                </Button>
-                <DownloadNowButton
-                  storyId={s.id}
-                  title={s.title ?? "Story"}
-                  pdfUrl={(s as unknown as { pdf_url?: string | null }).pdf_url ?? null}
-                />
-                {s.audio_url ? (
-                  <Button
-                    size="sm"
-                    onClick={() => openVideo(s)}
-                    className="rounded-full"
-                  >
-                    <Film className="h-4 w-4 me-1.5" />
-                    {t("my_stories.watch_video", { defaultValue: "Watch Video" })}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => handleGenerate(s)}
-                    disabled={generate.isPending}
-                    className="rounded-full"
-                  >
-                    {generate.isPending && generate.variables?.storyId === s.id ? (
-                      <Loader2 className="h-4 w-4 me-1.5 animate-spin" />
-                    ) : (
-                      <Headphones className="h-4 w-4 me-1.5" />
-                    )}
-                    {t("my_stories.generate", { defaultValue: "Generate Narration" })}
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <Tabs defaultValue="completed" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="completed">Completed ({completedStories.length})</TabsTrigger>
+            <TabsTrigger value="recent">In Progress ({inProgressStories.length})</TabsTrigger>
+            <TabsTrigger value="failed">Failed ({failedStories.length})</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="completed">
+            <StoryList items={completedStories} emptyMsg="No completed stories." icon={BookOpen} />
+          </TabsContent>
+          <TabsContent value="recent">
+            <StoryList items={inProgressStories} emptyMsg="No stories currently generating." icon={Sparkles} />
+          </TabsContent>
+          <TabsContent value="failed">
+            <StoryList items={failedStories} emptyMsg="No failed stories." icon={Film} />
+          </TabsContent>
+        </Tabs>
       )}
 
       {active && (

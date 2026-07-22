@@ -113,7 +113,7 @@ const AccountProfile = () => {
       .eq("user_id", user.id)
       .in("provider", ["openai", "openrouter"]);
     const next: Record<ProviderId, KeyRow | null> = { openai: null, openrouter: null };
-    (data ?? []).forEach((row: any) => {
+    (data ?? []).forEach((row) => {
       if (row.provider === "openai" || row.provider === "openrouter") {
         next[row.provider as ProviderId] = row as KeyRow;
       }
@@ -160,69 +160,16 @@ const AccountProfile = () => {
     toast.success(t("profile.saved", "Profile updated"));
   };
 
-  const handleSaveKey = async (provider: ProviderId) => {
-    const apiKey = inputs[provider].trim();
-    if (apiKey.length < 20) {
-      toast.error("That API key looks too short — double-check and try again.");
-      return;
-    }
-    setPending((p) => ({ ...p, [provider]: true }));
-    try {
-      const { data, error } = await supabase.functions.invoke("manage-user-api-key", {
-        body: { action: "save", provider, apiKey },
-      });
-      if (error || (data as any)?.error) {
-        const code = (data as any)?.error ?? error?.message;
-        if (code === "tier_required") {
-          toast.error("Personal API keys require the Pro Creator or Elite Publisher plan.");
-        } else if (code === "invalid_api_key") {
-          toast.error("That API key was rejected by the provider.");
-        } else {
-          toast.error("Could not save key. Please try again.");
-        }
-        return;
-      }
-      // Clear the input + reveal flag the instant the request resolves.
-      setInputs((p) => ({ ...p, [provider]: "" }));
-      setReveal((p) => ({ ...p, [provider]: false }));
-      toast.success("Key saved securely and validated.");
-      await loadKeys();
-    } finally {
-      setPending((p) => ({ ...p, [provider]: false }));
-    }
+  const handleSaveKey = async (_provider: ProviderId) => {
+    toast.error("Developer API keys are not yet migrated to Backend Core");
   };
 
-  const handleDeleteKey = async (provider: ProviderId) => {
-    setPending((p) => ({ ...p, [provider]: true }));
-    try {
-      const { error } = await supabase.functions.invoke("manage-user-api-key", {
-        body: { action: "delete", provider },
-      });
-      if (error) {
-        toast.error("Could not remove key.");
-        return;
-      }
-      toast.success("Key removed.");
-      await loadKeys();
-    } finally {
-      setPending((p) => ({ ...p, [provider]: false }));
-    }
+  const handleDeleteKey = async (_provider: ProviderId) => {
+    toast.error("Developer API keys are not yet migrated to Backend Core");
   };
 
-  const handleToggleKey = async (provider: ProviderId, enabled: boolean) => {
-    setPending((p) => ({ ...p, [provider]: true }));
-    try {
-      const { error } = await supabase.functions.invoke("manage-user-api-key", {
-        body: { action: "toggle", provider, enabled },
-      });
-      if (error) {
-        toast.error("Could not update key.");
-        return;
-      }
-      await loadKeys();
-    } finally {
-      setPending((p) => ({ ...p, [provider]: false }));
-    }
+  const handleToggleKey = async (_provider: ProviderId, _enabled: boolean) => {
+    toast.error("Developer API keys are not yet migrated to Backend Core");
   };
 
   return (

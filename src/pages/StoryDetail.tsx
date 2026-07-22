@@ -16,6 +16,7 @@ import Seo from "@/components/Seo";
 import StoryVideoPlayer from "@/components/story/StoryVideoPlayer";
 import { useGenerateClassicNarration } from "@/lib/storyTtsApi";
 import { useAuth } from "@/hooks/useAuth";
+import { useStory } from "@/hooks/useStories";
 import { Film, Wand2 } from "lucide-react";
 import DownloadNowButton from "@/components/story/DownloadNowButton";
 
@@ -63,8 +64,7 @@ const DEFAULT_NARRATOR: NarratorId = "wizard";
 const StoryDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const [story, setStory] = useState<DBStory | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: story, isLoading: loading } = useStory(id);
   const [storyLang, setStoryLang] = useState<StoryLang>(() => (i18n.language?.startsWith("ar") ? "ar" : "en"));
   const [narrator, setNarrator] = useState<NarratorId>(DEFAULT_NARRATOR);
   const [chapterIdx, setChapterIdx] = useState(0);
@@ -79,28 +79,7 @@ const StoryDetail = () => {
   const isStaff = isAdmin || isEditor;
   const generateNarration = useGenerateClassicNarration();
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const { data, error } = await supabase
-        .from("stories")
-        .select("id,title,description,content,image,age_range,duration,gallery,video_embed_url,pdf_url,audio_url,category")
-        .eq("id", id)
-        .maybeSingle();
-      if (!active) return;
-      if (error || !data) {
-        toast.error(t("common.error"));
-      } else {
-        setStory(data as unknown as DBStory);
-      }
-      setLoading(false);
-    })();
-    return () => {
-      active = false;
-      stopNarration();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+
 
   const gallery = story?.gallery ?? [];
   const chapterCount = gallery.length || 0;
@@ -132,6 +111,10 @@ const StoryDetail = () => {
     setIsPaused(false);
     setNarrating(false);
   };
+
+  useEffect(() => {
+    return () => stopNarration();
+  }, [id]);
 
   const playChapter = async () => {
     if (!story) return;

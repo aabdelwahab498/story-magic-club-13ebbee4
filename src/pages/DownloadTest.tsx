@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, ExternalLink, CheckCircle2, AlertCircle, Smartphone, Monitor, Tablet, Share2, FolderOpen } from "lucide-react";
+import { Download, ExternalLink, CheckCircle2, AlertCircle, Smartphone, Monitor, Share2 } from "lucide-react";
 
 const PDF_URL = "/test-download.pdf";
 const FILE_NAME = "starry-tales-test.pdf";
@@ -38,8 +38,9 @@ const DownloadTest = () => {
         setStatus("✔ تم بدء التنزيل — تحقق من مجلد التنزيلات على جهازك.");
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e: any) {
-      setStatus(`فشل التنزيل: ${e?.message ?? e}`);
+    } catch (e) {
+      const err = e as { message?: string } | null;
+      setStatus(`فشل التنزيل: ${err?.message ?? String(e)}`);
     }
   };
 

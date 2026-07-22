@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Save, Crown, Image as ImageIcon, FileText, Headphones, Power, Zap, Plus, Trash2, AlertTriangle, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -29,21 +29,10 @@ export default function AdminPlansPage() {
   const [seeding, setSeeding] = useState(false);
 
   const seedPaddle = async () => {
-    setSeeding(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("paddle-seed-products", { method: "POST" });
-      if (error) throw error;
-      toast.success("Paddle products synced");
-      console.log("paddle-seed-products result", data);
-      await load();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Sync failed");
-    } finally {
-      setSeeding(false);
-    }
+    toast.error("Paddle product seeding is not yet migrated to Backend Core");
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setPlans(await fetchAllPlans());
@@ -53,9 +42,9 @@ export default function AdminPlansPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const patch = (id: string, p: Partial<SubscriptionPlan>) =>
     setPlans((prev) => prev.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -82,9 +71,10 @@ export default function AdminPlansPage() {
         is_featured: !!plan.is_featured,
       });
       toast.success(t("admin_plans.saved", "Saved — changes are live on /pricing"));
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast.error(e?.message ?? t("admin_plans.save_failed", "Save failed"));
+      const err = e as { message?: string } | null;
+      toast.error(err?.message ?? t("admin_plans.save_failed", "Save failed"));
     } finally {
       setSaving(null);
     }

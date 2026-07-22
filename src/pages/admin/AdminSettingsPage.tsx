@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import SocialLinksManager from "@/components/admin/SocialLinksManager";
 
 export default function AdminSettingsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user, roles, signOut, isAdmin } = useAuth();
   const { isMock, setSource } = useAdminDataSource();
   const { overrides, update } = useAdminTrialOverrides();

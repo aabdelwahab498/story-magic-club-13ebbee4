@@ -5,9 +5,11 @@ import { ShieldAlert, ArrowLeft, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
+import { PermissionKey } from "@/lib/rbac";
+
 interface Props {
   /** Required permission key. Admins always pass. */
-  permission?: string;
+  permission?: PermissionKey;
   /** If true, only full admins pass (editors blocked). */
   adminOnly?: boolean;
   /** Friendly section label for the error UI. */

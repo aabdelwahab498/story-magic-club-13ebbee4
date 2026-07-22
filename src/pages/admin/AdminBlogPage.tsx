@@ -121,7 +121,7 @@ export default function AdminBlogPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAr]);
+  }, [isAr, t]);
 
   const filtered = useMemo(() => {
     return posts.filter((p) => {
@@ -146,9 +146,10 @@ export default function AdminBlogPage() {
       const saved = await approveBlogPost(id);
       setPosts((prev) => prev.map((p) => (p.id === id ? saved : p)));
       toast.success(t("admin_blog.approved", "Approved and published"));
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message ?? t("admin_blog.action_failed", "Action failed"));
+      const e = err as { message?: string } | null;
+      toast.error(e?.message ?? t("admin_blog.action_failed", "Action failed"));
     }
   };
 
@@ -158,9 +159,10 @@ export default function AdminBlogPage() {
       const saved = await rejectBlogPost(id, note);
       setPosts((prev) => prev.map((p) => (p.id === id ? saved : p)));
       toast.success(t("admin_blog.rejected", "Rejected"));
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message ?? t("admin_blog.action_failed", "Action failed"));
+      const e = err as { message?: string } | null;
+      toast.error(e?.message ?? t("admin_blog.action_failed", "Action failed"));
     }
   };
 
@@ -187,9 +189,10 @@ export default function AdminBlogPage() {
       toast.success(t("admin_blog.saved", "Saved"));
       setEditing(null);
       setTagInput("");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message ?? (t("admin_blog.save_failed", "Save failed")));
+      const e = err as { message?: string } | null;
+      toast.error(e?.message ?? (t("admin_blog.save_failed", "Save failed")));
     } finally {
       setSaving(false);
     }

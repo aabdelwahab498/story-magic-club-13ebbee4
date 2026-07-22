@@ -1,5 +1,4 @@
 // Free-trial story (anonymous, 3-page preview, one-shot per browser).
-import { supabase } from "@/integrations/supabase/client";
 import {
   downloadBlob,
   prepareDownloadTarget,
@@ -112,30 +111,8 @@ export class TrialServerError extends Error {
   }
 }
 
-export async function generateTrialStory(input: TrialInput): Promise<TrialStoryResponse> {
-  const fingerprint = await getBrowserFingerprint();
-  const { data, error } = await supabase.functions.invoke("trial-story", {
-    body: { ...input, fingerprint },
-  });
-  if (error) {
-    const ctx = (error as { context?: Response }).context;
-    if (ctx instanceof Response) {
-      let body: { error?: string; message?: string; retry_after?: number; requestId?: string } = {};
-      try { body = await ctx.clone().json(); } catch { /* ignore */ }
-      if (ctx.status === 429) {
-        const retry = Number(body.retry_after ?? ctx.headers.get("retry-after") ?? 60);
-        throw new TrialRateLimitedError(retry, body.error === "blocked" ? "blocked" : "rate_limited");
-      }
-      if (body.error === "content_rejected") {
-        throw new TrialContentRejectedError(body.message ?? "Content not suitable.");
-      }
-      if (ctx.status >= 400) {
-        throw new TrialServerError(ctx.status, body.message ?? "Failed to generate trial story.", body.requestId);
-      }
-    }
-    throw error;
-  }
-  return data as TrialStoryResponse;
+export async function generateTrialStory(_input: TrialInput): Promise<TrialStoryResponse> {
+  throw new Error("Guest trials are not yet migrated to Backend Core");
 }
 // ---- Step 2: trial illustrations (anonymous, no auth) ----
 export interface TrialIllustration {
@@ -151,28 +128,14 @@ export interface TrialIllustrateResponse {
 }
 
 export async function generateTrialIllustrations(
-  input: {
+  _input: {
     pages: { index: number; illustrationPrompt: string; emotionTag?: string }[];
     childName?: string;
     theme?: string;
   },
-  meta: { trigger?: "user" | "auto"; source?: string } = {},
+  _meta: { trigger?: "user" | "auto"; source?: string } = {},
 ): Promise<TrialIllustrateResponse> {
-  const trigger = meta.trigger ?? "auto";
-  const source = meta.source ?? "unknown";
-  if (trigger !== "user") {
-    console.error("[trial-illustrate] BLOCKED auto/unattributed invoke", { source, stack: new Error().stack });
-    throw new Error("trial-illustrate must be user-triggered (pass { trigger: 'user' })");
-  }
-  console.info("[trial-illustrate] user-triggered invoke", { source, pages: input.pages.length });
-  const { data, error } = await supabase.functions.invoke("trial-illustrate", {
-    body: { ...input, trigger: "user", triggerSource: source },
-  });
-  if (error) {
-    console.warn("[trial-illustrate] soft-fail:", error);
-    return { illustrations: [], total: 0, ready: 0 };
-  }
-  return data as TrialIllustrateResponse;
+  throw new Error("Guest trial illustrations are not yet migrated to Backend Core");
 }
 
 // ---- Step 3: trial PDF (anonymous, no auth, returns base64) ----
@@ -185,25 +148,13 @@ export interface TrialPdfResponse {
 
 export const prepareTrialPdfDownloadTarget = prepareDownloadTarget;
 
-export async function generateTrialPdf(input: {
+export async function generateTrialPdf(_input: {
   title: string;
   pages: { index: number; text: string; emotionTag?: string; imageUrl?: string | null }[];
   childName?: string;
   selStatement?: string;
 }): Promise<TrialPdfResponse> {
-  const { data, error } = await supabase.functions.invoke("trial-pdf", { body: input });
-  if (error) {
-    const ctx = (error as { context?: Response }).context;
-    let msg = "Could not build PDF.";
-    if (ctx instanceof Response) {
-      try {
-        const body = await ctx.clone().json();
-        if (body?.message) msg = body.message;
-      } catch { /* ignore */ }
-    }
-    throw new Error(msg);
-  }
-  return data as TrialPdfResponse;
+  throw new Error("Guest trial PDF exports are not yet migrated to Backend Core");
 }
 
 /** Trigger a browser download of the base64 PDF returned by generateTrialPdf.

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Recharts library passes loose 'any' typed payloads in tooltips/legends, disabling explicit-any for this wrapper.
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 

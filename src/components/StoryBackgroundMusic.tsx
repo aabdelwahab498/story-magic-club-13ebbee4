@@ -3,7 +3,6 @@ import { Music, MusicIcon, Loader2, VolumeX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Props {
@@ -49,23 +48,7 @@ export default function StoryBackgroundMusic({ theme = "friendship", mood = "cal
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-story-music", {
-        body: { theme, mood, durationSeconds: 60 },
-      });
-      if (error) throw error;
-      if (data?.fallback || !data?.audioUrl) {
-        toast.info(
-          data?.error === "subscription_required"
-            ? t("story_music.subscription_required", "Background music is available on paid plans")
-            : t("story_music.generation_failed", "Could not generate music right now"),
-        );
-        return;
-      }
-      setAudioUrl(data.audioUrl as string);
-      setEnabled(true);
-    } catch (e) {
-      console.error(e);
-      toast.error(t("story_music.load_failed", "Failed to load music"));
+      toast.info(t("story_music.generation_failed", "Background music generation is not yet migrated to Backend Core"));
     } finally {
       setLoading(false);
     }

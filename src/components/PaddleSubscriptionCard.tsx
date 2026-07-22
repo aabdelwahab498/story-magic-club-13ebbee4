@@ -38,20 +38,7 @@ export default function PaddleSubscriptionCard() {
   }, [user]);
 
   const openPortal = async () => {
-    setOpening(true);
-    try {
-      const { data, error } = await supabase.functions.invoke<{ url?: string; error?: string }>(
-        "paddle-portal",
-        { method: "POST" },
-      );
-      if (error || data?.error || !data?.url) {
-        toast.error(data?.error ?? error?.message ?? "Failed to open portal");
-        return;
-      }
-      window.open(data.url, "_blank", "noopener,noreferrer");
-    } finally {
-      setOpening(false);
-    }
+    toast.error("Paddle billing portal is not yet migrated to Backend Core");
   };
 
   if (loading) {

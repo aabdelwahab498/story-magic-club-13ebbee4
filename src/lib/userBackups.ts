@@ -46,13 +46,8 @@ export async function deleteUserBackup(id: string): Promise<void> {
  * Request a short-lived signed URL (5 min) for a backup. The edge function
  * verifies ownership and that the backup is completed.
  */
-export async function requestBackupSignedUrl(backupId: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("restore-user-backup", {
-    body: { backupId },
-  });
-  if (error) throw error;
-  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-  return (data as { url: string }).url;
+export async function requestBackupSignedUrl(_backupId: string): Promise<string> {
+  throw new Error("Backup JSON download is not yet migrated to Backend Core");
 }
 
 export async function downloadBackupJson(backup: UserBackup): Promise<void> {
@@ -151,20 +146,13 @@ export interface BackupJobStatus {
 }
 
 export async function fetchBackupJobsStatus(): Promise<Record<string, BackupJobStatus>> {
-  const { data, error } = await supabase.functions.invoke("backup-jobs-status", { body: {} });
-  if (error) throw error;
-  return ((data as { jobs?: Record<string, BackupJobStatus> })?.jobs) ?? {};
+  throw new Error("Backup status check is not yet migrated to Backend Core");
 }
 
 /**
  * Retry the daily backup for the current user. Calls run-user-backups with
  * the user's own ID; the edge function verifies caller ownership.
  */
-export async function retryBackupForUser(userId: string): Promise<{ ok: number; failed: number }> {
-  const { data, error } = await supabase.functions.invoke("run-user-backups", {
-    body: { userId },
-  });
-  if (error) throw error;
-  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-  return { ok: (data as { ok: number }).ok ?? 0, failed: (data as { failed: number }).failed ?? 0 };
+export async function retryBackupForUser(_userId: string): Promise<{ ok: number; failed: number }> {
+  throw new Error("Backup triggering is not yet migrated to Backend Core");
 }

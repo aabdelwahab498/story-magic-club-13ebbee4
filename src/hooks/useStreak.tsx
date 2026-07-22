@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Daily Streak tracker stored in localStorage.
@@ -157,12 +156,7 @@ export const useStreak = (): UseStreakReturn => {
     setFreeSpins(spins);
     if (awarded) setNewMilestone(awarded);
 
-    // Fire-and-forget server-side sync so admins/parents see real numbers
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        supabase.functions.invoke("update-streak", { body: { minutesRead: 0 } }).catch(() => {});
-      }
-    });
+    // Server sync is disabled because streak tracking is not yet migrated to Backend Core.
   }, []);
 
   // Cross-tab sync

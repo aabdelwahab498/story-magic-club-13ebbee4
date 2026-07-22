@@ -1,7 +1,8 @@
 // Phase 5 — bedtime schedule + parent stats hooks.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-
+import { storiesApi, StoryResponseDto } from "@/api/stories.api";
+import { useState, useEffect } from "react";
 export interface BedtimeSchedule {
   id: string;
   parent_user_id: string;
@@ -59,9 +60,10 @@ export const useDeleteSchedule = () => {
 
 export interface ChildStats {
   totalStories: number;
-  avgQuality: number;
-  passedCount: number;
-  recentTitles: { id: string; title: string | null; created_at: string; quality_total: number | null }[];
+  completedCount: number;
+  generatingCount: number;
+  failedCount: number;
+  recentTitles: { id: string; title: string; created_at: string; status: string }[];
   skillCounts: Record<string, number>;
 }
 
@@ -70,31 +72,61 @@ export const useChildStats = (childId?: string | null) =>
     queryKey: ["child_stats", childId],
     enabled: !!childId,
     queryFn: async (): Promise<ChildStats> => {
-      const { data, error } = await supabase
-        .from("ai_story_history")
-        .select("id,title,created_at,quality_total,safety_passed,sel_outcome")
-        .eq("child_profile_id", childId!)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      const rows = data ?? [];
-      const totals = rows.map((r) => r.quality_total ?? 0).filter((x) => x > 0);
+      const data = await storiesApi.getStoriesByChild(childId!);
+      const rows = data || [];
+      
+      const completedCount = rows.filter(r => r.status === 'generated').length;
+      const failedCount = rows.filter(r => r.status === 'failed').length;
+      const generatingCount = rows.filter(r => r.status === 'queued' || r.status === 'generating').length;
+
       const skillCounts: Record<string, number> = {};
       for (const r of rows) {
-        const skill = (r.sel_outcome as { skill?: string } | null)?.skill;
+        const skill = r.selGoal;
         if (skill) skillCounts[skill] = (skillCounts[skill] ?? 0) + 1;
       }
+      
+      // Sort by createdAt descending
+      const sorted = [...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       return {
         totalStories: rows.length,
-        avgQuality: totals.length ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10 : 0,
-        passedCount: rows.filter((r) => r.safety_passed).length,
-        recentTitles: rows.slice(0, 10).map((r) => ({
-          id: r.id as string,
-          title: r.title as string | null,
-          created_at: r.created_at as string,
-          quality_total: r.quality_total as number | null,
+        completedCount,
+        generatingCount,
+        failedCount,
+        recentTitles: sorted.slice(0, 10).map((r) => ({
+          id: r.id,
+          title: r.theme ? `Story about ${r.theme}` : "Untitled",
+          created_at: r.createdAt,
+          status: r.status,
         })),
         skillCounts,
       };
     },
   });
+
+export const useFavoriteStories = () => {
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("najmah.favorites");
+    if (stored) {
+      try {
+        setFavorites(JSON.parse(stored));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id];
+      localStorage.setItem("najmah.favorites", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const isFavorite = (id: string) => favorites.includes(id);
+
+  return { favorites, toggleFavorite, isFavorite };
+};

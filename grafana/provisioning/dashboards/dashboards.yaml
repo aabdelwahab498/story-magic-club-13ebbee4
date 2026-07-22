@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=none
+apiVersion: 1
+
+providers:
+  - name: 'Najmah Dashboards'
+    orgId: 1
+    folder: 'Najmah Studio'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

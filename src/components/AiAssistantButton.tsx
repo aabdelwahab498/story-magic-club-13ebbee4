@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles, Send, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { env } from '@/lib/env';
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+const CHAT_URL = `${env.supabaseUrl}/functions/v1/ai-assistant`;
 
 const LANG_OPTIONS = [
   { code: "ar", label: "Arabic" },
@@ -76,7 +77,7 @@ const AiAssistantButton = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${env.supabaseKey}`,
         },
         body: JSON.stringify({ messages: next, language: lang }),
       });

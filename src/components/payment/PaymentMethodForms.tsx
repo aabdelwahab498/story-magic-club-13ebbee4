@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+// File exports payment forms and related helper elements.
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QrCode, Receipt, CreditCard, Building2, Smartphone, Copy, Wallet, CheckCircle2 } from "lucide-react";

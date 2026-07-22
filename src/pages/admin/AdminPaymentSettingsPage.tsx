@@ -27,11 +27,7 @@ const AdminPaymentSettingsPage = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke<PaddleConfig>("paddle-config", {
-        method: "GET",
-      });
-      if (error) throw error;
-      setConfig(data ?? null);
+      throw new Error("Paddle config is not yet migrated to Backend Core");
     } catch (e) {
       toast({
         title: "Error",
@@ -50,10 +46,7 @@ const AdminPaymentSettingsPage = () => {
   const syncProducts = async () => {
     setSyncing(true);
     try {
-      const { error } = await supabase.functions.invoke("paddle-seed-products", { method: "POST" });
-      if (error) throw error;
-      toast({ title: t("admin_payment_settings.synced", "Synced with Paddle") });
-      await load();
+      throw new Error("Paddle product seeding is not yet migrated to Backend Core");
     } catch (e) {
       toast({
         title: "Sync failed",

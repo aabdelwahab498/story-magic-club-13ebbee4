@@ -1,6 +1,4 @@
 
-import { useState } from "react";
-
 interface AvatarOption {
   id: string;
   name: string;

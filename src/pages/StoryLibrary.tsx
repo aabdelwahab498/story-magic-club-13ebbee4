@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, Volume2, Loader2, ChevronLeft, ChevronRight, X, Images, Pause, ArrowRight, Headphones, Sparkles, Wand2, Check, Crown, Download } from "lucide-react";
@@ -11,10 +11,10 @@ import type { NarratorId } from "@/lib/narrators";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useUserStories } from "@/hooks/useStories";
 import { generateTrialPdf, downloadTrialPdf, prepareTrialPdfDownloadTarget } from "@/lib/trialStoryApi";
 import type { SelStoryResponse } from "@/lib/selStoryApi";
-
-
+import { synthesizeDynamicTts } from "@/api/audio.api";
 
 interface DBStory {
   id: string;
@@ -35,14 +35,13 @@ const StoryLibrary = () => {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const navigate = useNavigate();
-  const isAr = lang === "ar";
   const { user, isAdmin } = useAuth();
   const sub = useSubscription();
   const [ideaPrompt, setIdeaPrompt] = useState("");
   const [ideaNarrator, setIdeaNarrator] = useState<NarratorId>(DEFAULT_NARRATOR);
   const [stories, setStories] = useState<DBStory[]>([]);
   const [selected, setSelected] = useState<DBStory | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: userStories, isLoading: loading } = useUserStories();
   const [narrating, setNarrating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
@@ -92,43 +91,34 @@ const StoryLibrary = () => {
   };
 
   useEffect(() => {
-    const load = async () => {
-      const { data, error } = await supabase
-        .from("stories")
-        .select("id,title,description,content,image,age_range,duration,gallery,created_by")
-        .eq("published", true)
-        .order("created_at", { ascending: true });
-      if (error) {
-        toast.error(t("common.error"));
-      } else {
-        const list = (data as unknown as DBStory[]) || [];
-        const creatorIds = Array.from(
-          new Set(list.map((s) => s.created_by).filter((v): v is string => !!v)),
+    const loadAuthorsAndSet = async () => {
+      if (!userStories) return;
+      
+      const creatorIds = Array.from(
+        new Set(userStories.map((s) => s.created_by).filter((v): v is string => !!v)),
+      );
+      let authorMap: Record<string, string> = {};
+      if (creatorIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id,display_name")
+          .in("user_id", creatorIds);
+        authorMap = Object.fromEntries(
+          (profs ?? []).map((p) => [
+            p.user_id as string,
+            (p.display_name as string | null)?.trim() || "",
+          ]),
         );
-        let authorMap: Record<string, string> = {};
-        if (creatorIds.length > 0) {
-          const { data: profs } = await supabase
-            .from("profiles")
-            .select("user_id,display_name")
-            .in("user_id", creatorIds);
-          authorMap = Object.fromEntries(
-            (profs ?? []).map((p) => [
-              p.user_id as string,
-              (p.display_name as string | null)?.trim() || "",
-            ]),
-          );
-        }
-        const enriched = list.map((s) => ({
-          ...s,
-          author_name: s.created_by ? authorMap[s.created_by] || "" : "",
-        }));
-        setStories(enriched);
-        setSelected(enriched[0] || null);
       }
-      setLoading(false);
+      const enriched = userStories.map((s) => ({
+        ...s,
+        author_name: s.created_by ? authorMap[s.created_by] || "" : "",
+      }));
+      setStories(enriched);
+      setSelected((prev) => prev || (enriched.length > 0 ? enriched[0] : null));
     };
-    load();
-  }, [t]);
+    loadAuthorsAndSet();
+  }, [userStories]);
 
   // Keyboard navigation for the lightbox
   useEffect(() => {
@@ -143,13 +133,7 @@ const StoryLibrary = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIndex, selected]);
 
-  // Cancel any in-flight narration when leaving the page
-  useEffect(() => {
-    return () => stopNarration();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const stopNarration = () => {
+  const stopNarration = useCallback(() => {
     if (ttsRef.current) {
       ttsRef.current.cancel();
       ttsRef.current = null;
@@ -164,7 +148,12 @@ const StoryLibrary = () => {
     }
     setIsPlaying(false);
     setNarrating(false);
-  };
+  }, [setIsPlaying, setNarrating]);
+
+  // Cancel any in-flight narration when leaving the page
+  useEffect(() => {
+    return () => stopNarration();
+  }, [stopNarration]);
 
   const stopPreview = () => {
     if (previewTimeoutRef.current !== null) {
@@ -195,11 +184,12 @@ const StoryLibrary = () => {
 
     setGeneratingAudio(true);
     try {
-      const { data, error } = await supabase.functions.invoke("narrate-story", {
-        body: { text, language: lang, character: narratorId },
+      const data = await synthesizeDynamicTts({
+        text,
+        language: lang,
+        character: narratorId,
       });
-      if (error) throw error;
-      if (!data || data.fallback || !data.audioContent) {
+      if (!data || !data.audioContent) {
         toast.message(t("stories.audio_fallback", "Using browser voice as fallback"));
         await playStory();
         return;
@@ -361,7 +351,7 @@ const StoryLibrary = () => {
                 return;
               }
               const pending = { idea, narrator: ideaNarrator, ts: Date.now() };
-              try { localStorage.setItem("pending-story-idea", JSON.stringify(pending)); } catch {}
+              try { localStorage.setItem("pending-story-idea", JSON.stringify(pending)); } catch { /* intentionally ignored */ }
 
               // Not signed in → go to auth, then back to pricing (audio requires subscription)
               if (!user) {
@@ -376,7 +366,7 @@ const StoryLibrary = () => {
                 return;
               }
               // Subscribed → generate immediately
-              try { localStorage.removeItem("pending-story-idea"); } catch {}
+              try { localStorage.removeItem("pending-story-idea"); } catch { /* intentionally ignored */ }
               navigate("/ai-storyteller", { state: { idea, autoGenerate: true, narrator: ideaNarrator } });
             }}
             className="px-5 py-2.5 rounded-full inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:scale-[1.03] transition-transform"

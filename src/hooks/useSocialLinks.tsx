@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+// File contains only custom hook and types, no React components.
 import { useEffect, useState, useCallback } from "react";
 
 export type SocialPlatform =

@@ -142,7 +142,7 @@ export default function BatchDownloadDialog({ childId, triggerLabel }: Props) {
       if (data) setJob(data as unknown as JobRow);
     }, 4000);
     return () => clearInterval(id);
-  }, [job?.id, job?.status]);
+  }, [job]);
 
   const startJob = async (storyIds?: string[]) => {
     const chosen = (Object.keys(formats) as Fmt[]).filter((f) => formats[f]);

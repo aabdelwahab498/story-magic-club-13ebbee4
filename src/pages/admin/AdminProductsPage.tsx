@@ -147,7 +147,6 @@ export default function AdminProductsPage() {
     });
   }, [products, search, activeFilter]);
 
-  const isAr = i18n.language?.startsWith("ar");
 
   return (
     <div className="space-y-6">
@@ -164,26 +163,8 @@ export default function AdminProductsPage() {
           <Button
             variant="outline"
             className="gap-2 rounded-full"
-            onClick={async () => {
-              const tid = toast.loading(
-                t("admin_products.syncing_paddle", "Syncing products to Paddle…"),
-              );
-              try {
-                const { supabase } = await import("@/integrations/supabase/client");
-                const { data, error } = await supabase.functions.invoke(
-                  "paddle-seed-store-products",
-                  { method: "POST" },
-                );
-                if (error) throw error;
-                console.log("paddle-seed-store-products result", data);
-                toast.success(
-                  t("admin_products.paddle_synced", "Products synced with Paddle."),
-                  { id: tid },
-                );
-                qc.invalidateQueries({ queryKey: ["admin-products"] });
-              } catch (err: any) {
-                toast.error(err?.message ?? "Failed to sync", { id: tid });
-              }
+            onClick={() => {
+              toast.error("Paddle product seeding is not yet migrated to Backend Core");
             }}
           >
             {t("admin_products.sync_to_paddle", "Sync to Paddle")}
@@ -345,8 +326,7 @@ interface EditProps {
 }
 
 function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
-  const { t, i18n } = useTranslation();
-  const isAr = i18n.language?.startsWith("ar");
+  const { t } = useTranslation();
   const [draft, setDraft] = useState<ProductRecord>(product);
   const isNew = product.id.startsWith("new-");
 
@@ -576,7 +556,7 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
               );
             })}
 
-            <AddAttachment onAdd={addGalleryItem} isAr={isAr} />
+            <AddAttachment onAdd={addGalleryItem} />
           </div>
         </div>
 
@@ -596,10 +576,8 @@ function ProductEditDialog({ product, onCancel, onSave, saving }: EditProps) {
 
 function AddAttachment({
   onAdd,
-  isAr,
 }: {
   onAdd: (item: ProductGalleryItem) => void;
-  isAr: boolean;
 }) {
   const { t } = useTranslation();
   return (

@@ -72,7 +72,6 @@ const PaymentModal = ({ open, onOpenChange, item, onComplete }: PaymentModalProp
       setStatus("idle");
       setFormData({});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Auto-fix method when region changes

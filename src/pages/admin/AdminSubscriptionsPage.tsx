@@ -57,7 +57,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 const AdminSubscriptionsPage = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const [tab, setTab] = useState<"subs" | "paddle" | "manual">("subs");
 

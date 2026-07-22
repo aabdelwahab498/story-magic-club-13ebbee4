@@ -45,14 +45,14 @@ export function NotificationBell() {
         localStorage.setItem(SEEN_KEY, top.id);
       }
     } catch { /* silent */ }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
     void load();
     const t = setInterval(load, POLL_MS);
     return () => clearInterval(t);
-  }, [user?.id, load]);
+  }, [user, load]);
 
   if (!user) return null;
   const unread = items.filter((i) => !i.read_at).length;

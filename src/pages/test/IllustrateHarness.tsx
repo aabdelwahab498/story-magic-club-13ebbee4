@@ -19,7 +19,7 @@
  */
 import { useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { generateIllustrations } from "@/api/illustrations.api";
 import { recordIllustrationMetric } from "@/lib/illustrationMetrics";
 
 type Status = "idle" | "queued" | "pending" | "ready" | "failed";
@@ -103,17 +103,8 @@ export default function IllustrateHarness() {
       }
     }, 120);
     try {
-      const { data, error } = await supabase.functions.invoke("illustrate-story", {
-        body: {
-          storyId: "harness-story",
-          trigger: "user",
-          triggerSource: "IllustrateHarness",
-          idempotencyKey,
-          pages: pending.map((p) => ({ index: p.index, illustrationPrompt: `p${p.index}` })),
-        },
-      });
-      if (error) throw error;
-      const illos = (data as { illustrations: { index: number; imageUrl: string | null; status: string; error?: string }[] }).illustrations;
+      const data = await generateIllustrations("harness-story") as any;
+      const illos = data.illustrations as { index: number; imageUrl: string | null; status: string; error?: string }[];
       const map = new Map(illos.map((i) => [i.index, i]));
       setPages((prev) => prev.map((p) => {
         const r = map.get(p.index);

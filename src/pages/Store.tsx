@@ -131,8 +131,9 @@ const Store = () => {
           successPath: "/store?paddle=success",
         });
         return;
-      } catch (e: any) {
-        toast.error(e?.message ?? "checkout_failed");
+      } catch (e) {
+        const err = e as { message?: string } | null;
+        toast.error(err?.message ?? "checkout_failed");
         return;
       }
     }
@@ -156,15 +157,14 @@ const Store = () => {
     addToCart.mutate({ userId: user.id, productId });
   };
 
-  const invokeExport = async (productId: string) =>
-    supabase.functions.invoke("export-product-story-pdf", {
-      body: { productId, language: i18n.language },
-    });
+  const invokeExport = async (_productId: string) => {
+    throw new Error("Store book PDF export is not yet migrated to Backend Core");
+  };
 
   const triggerBrowserDownload = async (pdfUrl: string, title: string) => {
     const filename = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;
     const ua = navigator.userAgent || "";
-    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
     const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
     const isInAppBrowser = /(FBAN|FBAV|Instagram|Line|WhatsApp|TikTok)/i.test(ua);
 
@@ -230,8 +230,24 @@ const Store = () => {
       );
     };
 
-    const isAuthResponse = (r: { data: any; error: any }) =>
-      (r.error && ((r.error as any)?.context?.status === 401)) ||
+    interface EdgeResponse {
+      data: {
+        error?: string;
+        retry_after?: number;
+        pdfUrl?: string;
+        blocked?: boolean;
+        hint?: string;
+      } | null;
+      error: {
+        context?: {
+          status?: number;
+        };
+        message?: string;
+      } | null;
+    }
+
+    const isAuthResponse = (r: EdgeResponse) =>
+      (r.error && (r.error.context?.status === 401)) ||
       r.data?.error === "unauthorized";
 
     try {
@@ -256,7 +272,7 @@ const Store = () => {
       // Handle rate limit (429) gracefully
       const retryAfter =
         (data?.error === "rate_limited" && Number(data?.retry_after)) ||
-        (Number((error as any)?.context?.status) === 429 ? 60 : 0);
+        (Number(error?.context?.status) === 429 ? 60 : 0);
       if (retryAfter > 0) {
         toast.dismiss(loadingToast);
         toast.error(
@@ -314,10 +330,11 @@ const Store = () => {
           },
         },
       );
-    } catch (e: any) {
+    } catch (e) {
       toast.dismiss(loadingToast);
+      const err = e as { message?: string } | null;
       toast.error(
-        (e?.message as string) ||
+        (err?.message as string) ||
           t("downloads.failed", { defaultValue: "Download failed" }),
         {
           action: {

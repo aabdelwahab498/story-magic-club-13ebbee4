@@ -80,8 +80,7 @@ const PROVIDER_INFO: Record<Provider, { name: string; helpKey: string; helpDefau
 };
 
 const ApiKeys = () => {
-  const { t, i18n } = useTranslation();
-  const isAr = i18n.language?.startsWith("ar");
+  const { t } = useTranslation();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [show, setShow] = useState<Record<string, boolean>>({});

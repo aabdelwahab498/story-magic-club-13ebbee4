@@ -124,9 +124,10 @@ export default function BlogReviewSection() {
           const seen = new Set(prev.map((r) => r.id));
           return [...prev, ...res.rows.filter((r) => !seen.has(r.id))];
         });
-      } catch (e: any) {
+      } catch (e) {
         console.error(e);
-        toast.error(e?.message ?? "Failed to load");
+        const err = e as { message?: string } | null;
+        toast.error(err?.message ?? "Failed to load");
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -153,8 +154,9 @@ export default function BlogReviewSection() {
       setRows((prev) => prev.filter((x) => x.id !== p.id));
       setTotal((n) => Math.max(0, n - 1));
       loadCounts();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+    } catch (e) {
+      const err = e as { message?: string } | null;
+      toast.error(err?.message ?? "Failed");
     } finally {
       setActingId(null);
     }
@@ -181,8 +183,9 @@ export default function BlogReviewSection() {
       setRejectTarget(null);
       setRejectReason("");
       loadCounts();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed");
+    } catch (e) {
+      const err = e as { message?: string } | null;
+      toast.error(err?.message ?? "Failed");
     } finally {
       setActingId(null);
     }

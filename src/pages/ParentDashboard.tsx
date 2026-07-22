@@ -9,8 +9,11 @@ import {
   useUpsertSchedule,
   useDeleteSchedule,
   useChildStats,
+  useFavoriteStories
 } from "@/lib/parentApi";
 import { toast } from "sonner";
+import { storiesApi } from "@/api/stories.api";
+import { useQueryClient } from "@tanstack/react-query";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -25,8 +28,30 @@ const ParentDashboard = () => {
   const child = kids.find((c) => c.id === activeId) ?? null;
   const { data: stats } = useChildStats(activeId);
   const { data: schedules = [] } = useBedtimeSchedules(activeId);
+  const { favorites, toggleFavorite, isFavorite } = useFavoriteStories();
   const upsert = useUpsertSchedule();
   const del = useDeleteSchedule();
+  const qc = useQueryClient();
+
+  const handleRetry = async (id: string) => {
+    try {
+      await storiesApi.retryStory(id);
+      toast.success("Retrying story generation...");
+      qc.invalidateQueries({ queryKey: ["child_stats"] });
+    } catch {
+      toast.error("Could not retry story");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await storiesApi.deleteStory(id);
+      toast.success("Story deleted");
+      qc.invalidateQueries({ queryKey: ["child_stats"] });
+    } catch {
+      toast.error("Could not delete story");
+    }
+  };
 
   const handlePickChild = (id: string) => {
     setActiveId(id);
@@ -114,23 +139,23 @@ const ParentDashboard = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <StatCard
               icon={<BookOpen className="h-5 w-5" />}
-              label="Stories"
+              label="Total"
               value={stats?.totalStories ?? 0}
             />
             <StatCard
-              icon={<Sparkles className="h-5 w-5" />}
-              label="Avg quality"
-              value={stats?.avgQuality ? `${stats.avgQuality}/25` : "—"}
+              icon={<ShieldCheck className="h-5 w-5" />}
+              label="Completed"
+              value={stats?.completedCount ?? 0}
             />
             <StatCard
-              icon={<ShieldCheck className="h-5 w-5" />}
-              label="Passed safety"
-              value={stats?.passedCount ?? 0}
+              icon={<Sparkles className="h-5 w-5" />}
+              label="Generating"
+              value={stats?.generatingCount ?? 0}
             />
             <StatCard
               icon={<Moon className="h-5 w-5" />}
-              label="Bedtime rules"
-              value={schedules.length}
+              label="Failed"
+              value={stats?.failedCount ?? 0}
             />
           </div>
 
@@ -156,17 +181,52 @@ const ParentDashboard = () => {
           <Section title="Recent stories">
             {stats?.recentTitles.length ? (
               <ul className="divide-y divide-foreground/10 dark:divide-white/10">
-                {stats.recentTitles.map((s) => (
-                  <li key={s.id} className="py-2 flex items-center justify-between text-sm">
-                    <span className="font-semibold text-foreground dark:text-white truncate pr-3">
-                      {s.title ?? "Untitled"}
-                    </span>
-                    <span className="text-xs text-muted-foreground dark:text-white/60 font-bold whitespace-nowrap">
-                      {s.quality_total ? `${s.quality_total}/25` : "—"} ·{" "}
-                      {new Date(s.created_at).toLocaleDateString()}
-                    </span>
-                  </li>
-                ))}
+                {stats.recentTitles.map((s) => {
+                  const statusMap: Record<string, { label: string, color: string }> = {
+                    draft: { label: "Preparing", color: "text-muted-foreground" },
+                    queued: { label: "Creating story", color: "text-amber-500 dark:text-amber-400" },
+                    generating: { label: "Creating story", color: "text-amber-500 dark:text-amber-400" },
+                    generated: { label: "Ready to read", color: "text-emerald-600 dark:text-emerald-400" },
+                    failed: { label: "Needs retry", color: "text-red-500 dark:text-red-400" },
+                  };
+                  const mappedStatus = statusMap[s.status] || { label: s.status, color: "text-muted-foreground" };
+                  const fav = isFavorite(s.id);
+                  return (
+                    <li key={s.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                      <div className="flex flex-col gap-1 pr-3">
+                        <span className="font-semibold text-foreground dark:text-white truncate">
+                          {s.title}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs font-bold">
+                          <span className={mappedStatus.color}>{mappedStatus.label}</span>
+                          <span className="text-muted-foreground dark:text-white/60">
+                            · {new Date(s.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {s.status === 'generated' && (
+                          <>
+                            <Link to={`/my-stories/${s.id}`} className="px-3 py-1 bg-primary text-primary-foreground rounded-full text-xs font-bold">
+                              View
+                            </Link>
+                            <button onClick={() => toggleFavorite(s.id)} className={`p-1.5 rounded-full border ${fav ? 'bg-rose-100 text-rose-500 border-rose-200' : 'bg-transparent text-muted-foreground border-border'}`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={fav ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                            </button>
+                          </>
+                        )}
+                        {s.status === 'failed' && (
+                          <button onClick={() => handleRetry(s.id)} className="px-3 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 rounded-full text-xs font-bold">
+                            Retry
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(s.id)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-full border border-border">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <Empty>No stories yet.</Empty>

@@ -39,7 +39,6 @@ interface MethodConfig {
 
 const buildMethods = (
   s: PaymentSettings,
-  isAr: boolean,
   t: TFunction,
 ): MethodConfig[] => [
   {
@@ -105,8 +104,8 @@ const CheckoutManual = () => {
 
   const enabledMethods = useMemo<MethodConfig[]>(() => {
     if (!settingsQ.data) return [];
-    return buildMethods(settingsQ.data, isAr, t).filter((m) => m.enabled && m.currencies.length > 0);
-  }, [settingsQ.data, isAr]);
+    return buildMethods(settingsQ.data, t).filter((m) => m.enabled && m.currencies.length > 0);
+  }, [settingsQ.data, t]);
 
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [currency, setCurrency] = useState<Currency>(initialCurrency);

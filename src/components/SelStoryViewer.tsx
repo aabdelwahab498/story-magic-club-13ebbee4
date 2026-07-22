@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Lock, Volume2, Pause, Square } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Volume2, Pause, Square } from "lucide-react";
 import type { SelStoryResponse, SelStoryPage } from "@/lib/selStoryApi";
 import { illustrateSelStory, exportStoryPdf, SubscriptionRequiredError } from "@/lib/selStoryApi";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
@@ -11,9 +11,8 @@ import { recordIllustrationMetric } from "@/lib/illustrationMetrics";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { speakWithBrowser, type BrowserTtsHandle } from "@/lib/browserTts";
-import { pauseAudio, resumeAudio, logAudio } from "@/lib/audioDebug";
+import { logAudio } from "@/lib/audioDebug";
 import { handleEdgeError } from "@/lib/edgeErrors";
 import PremiumBadge from "@/components/PremiumBadge";
 
@@ -51,10 +50,6 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // tracked here. Repeated Retry presses for the same page are no-ops while a
   // job is in-flight — this prevents duplicate edge function calls / charges.
   const inFlightPagesRef = useRef<Set<number>>(new Set());
-  // Mirrored in state so the Retry button can disable per-page (the button
-  // must stay disabled WHILE a failed page is being retried, then re-enable
-  // only after the new result returns).
-  const [retryingFailedPages, setRetryingFailedPages] = useState<Set<number>>(new Set());
   // Polite, screen-reader-only announcer for status transitions and toast
   // phases (queued / generating / page X ready / page X failed). Mirrors the
   // toast lifecycle so blind users get the same progress narrative.
@@ -106,18 +101,6 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     }
     pending.forEach((p) => inFlightPagesRef.current.add(p.index));
 
-    // Track which of the in-flight pages were previously "failed" so the
-    // Retry button can stay disabled per-page until the retry returns.
-    const retryingNow = pending
-      .filter((p) => pageStatus[p.index] === "failed")
-      .map((p) => p.index);
-    if (retryingNow.length > 0) {
-      setRetryingFailedPages((s) => {
-        const n = new Set(s);
-        retryingNow.forEach((i) => n.add(i));
-        return n;
-      });
-    }
 
     const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
     // Idempotency key: stable for this batch so a server with dedup support can
@@ -283,13 +266,6 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       );
     } finally {
       pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
-      if (retryingNow.length > 0) {
-        setRetryingFailedPages((s) => {
-          const n = new Set(s);
-          retryingNow.forEach((i) => n.delete(i));
-          return n;
-        });
-      }
       setIllustrating(false);
     }
   };
@@ -585,7 +561,6 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         const ready = pages.filter((p) => !!p.imageUrl).length;
         const total = pages.length;
         const allReady = ready === total && total > 0;
-        const failedCount = Object.values(pageStatus).filter((s) => s === "failed").length;
         const pendingCount = Object.values(pageStatus).filter((s) => s === "pending").length;
         return (
           <div className="mt-4 flex flex-col items-center gap-2 text-xs">

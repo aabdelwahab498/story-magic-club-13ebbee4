@@ -11,7 +11,29 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { fetchPlans, type SubscriptionPlan } from "@/lib/subscriptionApi";
+import { useAuth } from "@/hooks/useAuth";
+
+interface PlanAPI {
+  id: string;
+  name: Record<string, string>;
+  slug: string;
+  description: Record<string, string>;
+  price_usd: number;
+  price_egp: number;
+  is_featured: boolean;
+  features: string[];
+  limits: Record<string, number | null>;
+}
+
+const fetchBackendPlans = async (token?: string): Promise<PlanAPI[]> => {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api/v2/subscriptions/plans`, { headers });
+  if (!res.ok) throw new Error("Failed to fetch plans");
+  return res.json();
+};
 
 interface UpgradeModalProps {
   open: boolean;
@@ -21,23 +43,31 @@ interface UpgradeModalProps {
 }
 
 /**
- * Surfaced when a free/paid user hits their monthly story cap.
+ * Surfaced when a free/paid user hits their monthly limit.
  * Lists available plans and offers a BYOK shortcut for Pro/Elite tiers.
  */
 const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
+  const { session } = useAuth();
 
   const { data: plans } = useQuery({
-    queryKey: ["subscription-plans"],
-    queryFn: fetchPlans,
+    queryKey: ["backend-plans", session?.access_token],
+    queryFn: () => fetchBackendPlans(session?.access_token),
     staleTime: 5 * 60_000,
     enabled: open,
   });
 
   const upgradable = (plans ?? [])
-    .filter((p) => p.tier !== "free")
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    .filter((p) => p.price_usd > 0)
+    .sort((a, b) => a.price_usd - b.price_usd);
+
+  const featureLabels: Record<string, { ar: string; en: string }> = {
+    "STORY_GENERATION": { ar: "توليد القصص", en: "Story Generation" },
+    "ILLUSTRATION_GENERATION": { ar: "رسم شخصيات", en: "AI Illustrations" },
+    "PDF_EXPORT": { ar: "تصدير PDF", en: "PDF Export" },
+    "AUDIO_NARRATION": { ar: "نطق صوتي", en: "HD Narration" }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -45,13 +75,13 @@ const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Crown className="h-5 w-5 text-amber-500" />
-            {t("upgrade_modal.title", "You've reached your monthly story limit")}
+            {t("upgrade_modal.title", "You've reached your monthly limit")}
           </DialogTitle>
           <DialogDescription>
             {reason ??
               t(
                 "upgrade_modal.subtitle",
-                "Upgrade your plan to keep creating magical stories — or bring your own API key on Pro Creator / Elite Publisher to generate without limits.",
+                "Upgrade your plan to keep creating magical stories — or bring your own API key to generate without limits.",
               )}
           </DialogDescription>
         </DialogHeader>
@@ -62,7 +92,7 @@ const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
               {t("upgrade_modal.loading_plans", "Loading plans…")}
             </div>
           ) : (
-            upgradable.map((p: SubscriptionPlan) => (
+            upgradable.map((p) => (
               <div
                 key={p.id}
                 className="rounded-xl border border-foreground/10 p-4 bg-white/60 dark:bg-white/5 flex flex-col gap-2"
@@ -70,37 +100,31 @@ const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold capitalize flex items-center gap-1.5">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    {p.name?.[isAr ? "ar" : "en"] ?? p.tier}
+                    {p.name?.[isAr ? "ar" : "en"] ?? p.slug}
                   </h3>
                   <span className="text-sm font-bold text-primary">
                     ${p.price_usd}/mo
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("upgrade_modal.monthly_limit", "{{count}} stories / month", {
-                    count: p.monthly_story_limit ?? 0,
-                  })}
-                </p>
+                {p.limits && p.limits['STORIES_PER_MONTH'] !== undefined && (
+                  <p className="text-xs text-muted-foreground">
+                    {p.limits['STORIES_PER_MONTH'] === null 
+                      ? t("page_pricing.unlimited_stories", "Unlimited stories") 
+                      : t("upgrade_modal.monthly_limit", "{{count}} stories / month", {
+                          count: p.limits['STORIES_PER_MONTH'] ?? 0,
+                        })
+                    }
+                  </p>
+                )}
+                
                 <ul className="text-xs space-y-1 mt-1">
-                  {p.allow_illustrations && (
-                    <li className="flex items-center gap-1.5">
+                  {p.features.map(f => (
+                    <li key={f} className="flex items-center gap-1.5">
                       <Check className="h-3 w-3 text-emerald-500" />
-                      {t("upgrade_modal.illustrations", "AI illustrations")}
+                      {featureLabels[f]?.[isAr ? "ar" : "en"] || f}
                     </li>
-                  )}
-                  {p.allow_audio && (
-                    <li className="flex items-center gap-1.5">
-                      <Check className="h-3 w-3 text-emerald-500" />
-                      {t("upgrade_modal.audio", "HD narration")}
-                    </li>
-                  )}
-                  {p.allow_pdf && (
-                    <li className="flex items-center gap-1.5">
-                      <Check className="h-3 w-3 text-emerald-500" />
-                      {t("upgrade_modal.pdf", "PDF export")}
-                    </li>
-                  )}
-                  {(String(p.tier) === "pro_creator" || String(p.tier) === "elite_publisher") && (
+                  ))}
+                  {(p.slug === "PRO_CREATOR" || p.slug === "ELITE_PUBLISHER") && (
                     <li className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                       <KeyRound className="h-3 w-3" />
                       {t("upgrade_modal.byok", "Bring your own API key (unlimited)")}

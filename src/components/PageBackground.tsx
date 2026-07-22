@@ -2,7 +2,7 @@ import { useLocation } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import bgHomeMagical from "@/assets/bg-home-magical.jpg";
 import bgStoriesForest from "@/assets/bg-stories-forest.jpg";
-import bgAiCosmic from "@/assets/bg-ai-cosmic.jpg";
+
 
 /**
  * PageBackground — kid-friendly themed background that changes per page.

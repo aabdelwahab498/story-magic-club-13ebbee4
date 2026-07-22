@@ -1,23 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Loader2, Shield, User as UserIcon, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import { authApi } from "@/api/auth.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import ResendConfirmation from "@/components/ResendConfirmation";
-import { describeAuthError } from "@/lib/authErrors";
 
 const Auth = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, isStaff, loading: authLoading, refreshAdmin } = useAuth();
+  const { session, loading: authLoading, refreshAdmin, roles } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -30,80 +29,53 @@ const Auth = () => {
   const stateFrom = (location.state as { from?: string } | null)?.from;
   const queryRedirect = new URLSearchParams(location.search).get("redirect");
   const from = stateFrom || queryRedirect || undefined;
-  const resolveDest = (goStaff: boolean) =>
+  const resolveDest = useCallback((goStaff: boolean) =>
     from && !from.startsWith("/admin")
       ? from
       : goStaff
       ? "/admin/dashboard"
-      : "/";
+      : "/", [from]);
 
   useEffect(() => {
     if (authLoading || !session?.user?.id) return;
-    let cancelled = false;
-    (async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id);
-      if (cancelled) return;
-      const goStaff = (roles ?? []).some(
-        (r) => r.role === "admin" || r.role === "editor"
-      );
-      navigate(resolveDest(goStaff), { replace: true });
-    })();
-    return () => {
-      cancelled = true;
-    };
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, session, navigate, from]);
+    const goStaff = roles.some(
+      (r: any) => r === "admin" || r === "editor"
+    );
+    navigate(resolveDest(goStaff), { replace: true });
+  }, [authLoading, session, roles, navigate, resolveDest]);
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+    try {
+      await authApi.login({ email, password });
+    } catch (error: any) {
       setSubmitting(false);
-      toast.error(describeAuthError(error, t, "signin"), { duration: 7000 });
+      toast.error(error.message || t("auth.error_signin", "Failed to sign in"), { duration: 7000 });
       return;
     }
 
-    // If a master key was provided, claim admin role via secure edge function
     if (masterKey.trim()) {
-      const { data: claimData, error: claimErr } = await supabase.functions.invoke(
-        "claim-admin",
-        { body: { masterKey: masterKey.trim() } }
-      );
-      if (claimErr || (claimData as { error?: string })?.error) {
-        const msg =
-          (claimData as { error?: string })?.error ||
-          claimErr?.message ||
-          t("auth.master_invalid", "Invalid master key");
-        toast.error(msg);
-      } else {
-        toast.success(t("auth.master_granted", "Owner access granted ✨"));
-      }
+      toast.error("Owner/Admin access claiming is not yet migrated to Backend Core");
       setMasterKey("");
     }
 
     await refreshAdmin();
     setSubmitting(false);
-    const userId = data.user?.id;
     let goStaff = false;
-    if (userId) {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-      goStaff = (roles ?? []).some(
-        (r) => r.role === "admin" || r.role === "editor"
-      );
+    let friendlyName = "";
+    
+    try {
+      const meData = await authApi.getMe();
+      if (meData) {
+        goStaff = meData.roles?.some((r: any) => r === "admin" || r === "editor") || false;
+        friendlyName = meData.email?.split("@")[0] || "";
+      }
+    } catch (e) {
+      // ignore
     }
-    const friendlyName =
-      (data.user?.user_metadata as { display_name?: string } | undefined)?.display_name ||
-      data.user?.email?.split("@")[0] ||
-      "";
+
     toast.success(
       goStaff
         ? t("auth.welcome_admin", "Welcome back, Admin! ✨")
@@ -124,20 +96,17 @@ const Auth = () => {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: {
-          display_name: displayName,
-          preferred_language: localStorage.getItem("starry-tales-language") || "en",
-        },
-      },
-    });
-    setSubmitting(false);
-    if (error) {
-      toast.error(describeAuthError(error, t, "signup"), { duration: 7000 });
+    try {
+      await authApi.register({
+        email,
+        password,
+        displayName,
+        preferredLanguage: localStorage.getItem("starry-tales-language") || "en",
+      });
+      setSubmitting(false);
+    } catch (error: any) {
+      setSubmitting(false);
+      toast.error(error.message || t("auth.error_signup", "Failed to sign up"), { duration: 7000 });
       return;
     }
     // Fire-and-forget welcome email; never block signup.
@@ -181,35 +150,7 @@ const Auth = () => {
             <TabsTrigger value="signup">{t("auth.sign_up_tab")}</TabsTrigger>
           </TabsList>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full mt-4 gap-2 font-bold"
-            onClick={async () => {
-              const result = await lovable.auth.signInWithOAuth("google", {
-                redirect_uri: window.location.origin,
-              });
-              if (result.error) {
-                toast.error((result.error as Error).message ?? "Google sign-in failed");
-              }
-            }}
-          >
-            <svg className="h-4 w-4" viewBox="0 0 48 48" aria-hidden="true">
-              <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.2 35.5 24 35.5c-6.4 0-11.5-5.1-11.5-11.5S17.6 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.5 29 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5 43.5 34.8 43.5 24c0-1.2-.1-2.3-.4-3.5z"/>
-              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.5 29 4.5 24 4.5 16.3 4.5 9.7 8.9 6.3 14.7z"/>
-              <path fill="#4CAF50" d="M24 43.5c5 0 9.5-1.9 12.9-5l-6-4.9c-1.9 1.4-4.3 2.4-6.9 2.4-5.2 0-9.6-3.1-11.3-7.5l-6.5 5C9.5 39 16.2 43.5 24 43.5z"/>
-              <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.4-2.4 4.5-4.4 5.9l6 4.9c-.4.4 6.6-4.8 6.6-14.8 0-1.2-.1-2.3-.4-3.5z"/>
-            </svg>
-            {t("auth.sign_in_google", "Continue with Google")}
-          </Button>
 
-          <div className="flex items-center gap-2 my-4">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">
-              {t("auth.or", "or")}
-            </span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
 
 
           <TabsContent value="signin">

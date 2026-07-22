@@ -3,9 +3,29 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+interface PaddleSDK {
+  __initialized__?: boolean;
+  Environment: {
+    set: (env: "sandbox" | "production") => void;
+  };
+  Initialize: (opts: { token: string }) => void;
+  Checkout: {
+    open: (opts: {
+      items: Array<{ priceId: string; quantity: number }>;
+      customer?: { email: string };
+      customData?: Record<string, unknown>;
+      settings?: {
+        displayMode?: "overlay" | "inline";
+        theme?: "light" | "dark";
+        successUrl?: string;
+      };
+    }) => void;
+  };
+}
+
 declare global {
   interface Window {
-    Paddle?: any;
+    Paddle?: PaddleSDK;
   }
 }
 
@@ -62,14 +82,7 @@ export function usePaddle() {
       try {
         let cfg = cachedConfig;
         if (!cfg) {
-          const { data, error: fnErr } = await supabase.functions.invoke<PaddleConfig>(
-            "paddle-config",
-            { method: "GET" },
-          );
-          if (fnErr) throw fnErr;
-          if (!data) throw new Error("no_config");
-          cfg = data;
-          cachedConfig = cfg;
+          throw new Error("Paddle integration is not yet migrated to Backend Core");
         }
         if (cancelled) return;
         setConfig(cfg);
@@ -88,8 +101,11 @@ export function usePaddle() {
           window.Paddle.__initialized__ = true;
         }
         setReady(true);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "paddle_init_failed");
+      } catch (e) {
+        if (!cancelled) {
+          const err = e as { message?: string } | null;
+          setError(err?.message ?? "paddle_init_failed");
+        }
       }
     })();
     return () => { cancelled = true; };

@@ -46,9 +46,9 @@ import { useSoundEffects } from "@/hooks/useSoundEffects";
 import najmahLogoFull from "@/assets/najmah-logo-full.webp";
 import StreakBadge from "./StreakBadge";
 import CreditCounter from "./CreditCounter";
-import SocialMediaIcons from "./SocialMediaIcons";
 import ChildPicker from "./ChildPicker";
 import InstallPwaButton from "./InstallPwaButton";
+import UsageSummary from "./UsageSummary";
 
 type NavItem = { to: string; labelKey: string; icon: typeof Home };
 
@@ -320,6 +320,7 @@ const Navigation = () => {
                       <Crown className="h-4 w-4 text-amber-500" /> {t("nav.my_subscription", "My subscription")}
                     </Link>
                   </DropdownMenuItem>
+                  <UsageSummary />
                   <DropdownMenuItem asChild>
                     <Link to="/account/api-keys" className="cursor-pointer gap-2">
                       <KeyRound className="h-4 w-4" /> {t("nav.api_keys", "API keys")}

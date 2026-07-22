@@ -7,7 +7,6 @@ import wandIllustration from "@/assets/illustration-wand.png";
 import paletteIllustration from "@/assets/illustration-palette.png";
 import moonIllustration from "@/assets/illustration-moon.webp";
 import starMascot from "@/assets/sleeping-angel-moon-opt.webp";
-import AnimatedLogo from "@/components/AnimatedLogo";
 import CountersSection from "@/components/CountersSection";
 import HomeBlogPreview from "@/components/HomeBlogPreview";
 import SubscriptionWheelTeaser from "@/components/SubscriptionWheelTeaser";

@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 export type SecureUploadStatus =
   | "idle" | "validating" | "requesting" | "uploading" | "scanning" | "done" | "error";
@@ -50,65 +49,11 @@ export function useSecureUpload(opts: SecureUploadOptions) {
     setStatus("idle"); setProgress(0);
   }, []);
 
-  const upload = useCallback(async (file: File): Promise<SecureUploadResult | null> => {
-    setError(null); setResult(null); setProgress(0); setStatus("validating");
-
-    // Client-side pre-checks (cheap UX guards — server still re-validates)
-    const max = CLIENT_MAX[opts.bucket];
-    if (file.size > max) {
-      setStatus("error"); setError(`File exceeds ${(max / 1024 / 1024).toFixed(0)} MB limit`);
-      return null;
-    }
-    const accept = ACCEPT_BY_BUCKET[opts.bucket] as readonly string[];
-    if (file.type && !accept.includes(file.type)) {
-      setStatus("error"); setError(`Unsupported file type: ${file.type}`);
-      return null;
-    }
-
-    setStatus("requesting");
-    const init = await supabase.functions.invoke<{ tempPath: string; token: string; uploadUrl: string }>("upload-init", {
-      body: { bucket: opts.bucket, filename: file.name, size: file.size, declaredMime: file.type || "application/octet-stream" },
-    });
-    if (init.error || !init.data) {
-      setStatus("error"); setError(init.error?.message ?? "init_failed"); return null;
-    }
-
-    setStatus("uploading");
-    // Upload via XHR for progress events
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      abortRef.current = xhr;
-      xhr.open("PUT", init.data!.uploadUrl, true);
-      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 90));
-      };
-      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload_failed_${xhr.status}`)));
-      xhr.onerror = () => reject(new Error("network_error"));
-      xhr.onabort = () => reject(new Error("aborted"));
-      xhr.send(file);
-    }).catch((e) => {
-      setStatus("error"); setError(String(e?.message ?? e));
-      throw e;
-    });
-
-    setStatus("scanning"); setProgress(95);
-    const fin = await supabase.functions.invoke<SecureUploadResult>("upload-finalize", {
-      body: {
-        tempPath: init.data.tempPath,
-        targetBucket: opts.bucket,
-        filename: file.name,
-        declaredMime: file.type || "application/octet-stream",
-      },
-    });
-    abortRef.current = null;
-    if (fin.error || !fin.data) {
-      setStatus("error"); setError(fin.error?.message ?? "finalize_failed"); return null;
-    }
-
-    setProgress(100); setResult(fin.data); setStatus("done");
-    return fin.data;
-  }, [opts.bucket]);
+  const upload = useCallback(async (_file: File): Promise<SecureUploadResult | null> => {
+    setError("Secure upload is not yet migrated to Backend Core");
+    setStatus("error");
+    return null;
+  }, []);
 
   return { upload, cancel, reset, status, progress, error, result };
 }

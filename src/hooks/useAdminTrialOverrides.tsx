@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+// File contains only a custom hook and interfaces, no React components.
 import { useEffect, useState, useCallback } from "react";
 
 export interface AdminTrialOverrides {

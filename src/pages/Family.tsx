@@ -12,7 +12,6 @@ import {
   useChildren,
   useCreateChild,
   useDeleteChild,
-  useUpdateChild,
   setActiveChildId,
   getActiveChildId,
 } from "@/lib/childProfilesApi";
@@ -29,7 +28,6 @@ const Family = () => {
   const { session, loading: authLoading } = useAuth();
   const { data: children = [], isLoading } = useChildren(!!session);
   const createMut = useCreateChild();
-  const updateMut = useUpdateChild();
   const deleteMut = useDeleteChild();
 
   const [name, setName] = useState("");
@@ -71,8 +69,8 @@ const Family = () => {
       const created = await createMut.mutateAsync({
         name: name.trim(),
         age: age ? Number(age) : null,
-        preferred_language: language,
-        emotional_focus: focus,
+        language: language,
+        emotionalGoals: focus,
       });
       setName("");
       setAge("");
@@ -207,11 +205,13 @@ const Family = () => {
                   <UserIcon className="h-6 w-6 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold truncate">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {c.age ? `${c.age} • ` : ""}
-                    {c.preferred_language.toUpperCase()}
-                  </p>
+                  <Link to={`/family/${c.id}`} className="hover:underline focus:outline-none">
+                    <p className="font-bold truncate text-kids-midnight hover:text-primary transition-colors">{c.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {c.age ? `${c.age} • ` : ""}
+                      {c.language ? c.language.toUpperCase() : ""}
+                    </p>
+                  </Link>
                 </div>
                 <div className="flex flex-col gap-1">
                   <Button

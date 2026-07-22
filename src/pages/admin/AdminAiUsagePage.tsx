@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ export default function AdminAiUsagePage() {
   const [storyCount, setStoryCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const since = new Date(Date.now() - RANGES[range] * 3600 * 1000).toISOString();
     const [trial, stories] = await Promise.all([
@@ -62,11 +62,11 @@ export default function AdminAiUsagePage() {
     setRows((trial.data as TrialRow[]) || []);
     setStoryCount(stories.count || 0);
     setLoading(false);
-  };
+  }, [range]);
 
   useEffect(() => {
     load();
-  }, [range]);
+  }, [load]);
 
   const stats = useMemo(() => {
     const total = rows.length;

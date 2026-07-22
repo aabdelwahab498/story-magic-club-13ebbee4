@@ -8,6 +8,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -43,12 +44,18 @@ type OrderRow = {
   created_at: string;
 };
 
+type ProductSnapshot = {
+  image?: string;
+  name?: Record<string, string> | null;
+  sku?: string;
+};
+
 type OrderItem = {
   id: string;
   quantity: number;
   unit_price: number;
   currency: string;
-  product_snapshot: any;
+  product_snapshot: ProductSnapshot | null | undefined;
 };
 
 type NotificationRow = {
@@ -131,31 +138,13 @@ const AdminOrdersPage = () => {
     setTrackingCarrier(o.tracking_carrier ?? "");
   };
 
-  const notify = async (event: string) => {
+  const notify = async (_event: string) => {
     if (!selected) return;
-    try {
-      const { data, error } = await supabase.functions.invoke("send-order-notification", {
-        body: { order_id: selected.id, event, admin_note: note.trim() || undefined },
-      });
-      if (error) throw error;
-      const s = (data as any)?.email_status;
-      if (s === "queued") {
-        toast({ title: t("admin_orders.notif_sent", "Notification sent to customer") });
-      } else if (s === "skipped") {
-        toast({
-          title: t("admin_orders.notif_logged", "Notification logged"),
-          description: t(
-            "admin_orders.email_not_configured",
-            "Set up an email domain to actually deliver these messages.",
-          ),
-        });
-      } else {
-        toast({ title: t("admin_orders.notif_failed", "Notification failed"), variant: "destructive" });
-      }
-      qc.invalidateQueries({ queryKey: ["admin-order-notifs", selected.id] });
-    } catch (e) {
-      toast({ title: "Error", description: e instanceof Error ? e.message : "", variant: "destructive" });
-    }
+    toast({
+      title: "Notification failed",
+      description: "Order notifications are not yet migrated to Backend Core",
+      variant: "destructive",
+    });
   };
 
   const persistTracking = async () => {
@@ -191,7 +180,7 @@ const AdminOrdersPage = () => {
     if (!selected || !user) return;
     setBusy(true);
     try {
-      const patch: Record<string, any> = { admin_note: note.trim() || null };
+      const patch: Database["public"]["Tables"]["orders"]["Update"] = { admin_note: note.trim() || null };
       let eventName: string | null = null;
 
       if (action === "approve") {
@@ -217,7 +206,7 @@ const AdminOrdersPage = () => {
         eventName = "cancelled";
       }
 
-      const { error } = await supabase.from("orders").update(patch as any).eq("id", selected.id);
+      const { error } = await supabase.from("orders").update(patch).eq("id", selected.id);
       if (error) throw error;
       toast({ title: t("admin_orders.updated", "Order updated") });
 

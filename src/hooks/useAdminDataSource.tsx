@@ -32,6 +32,8 @@ export const AdminDataSourceProvider = ({ children }: { children: ReactNode }) =
   );
 };
 
+// Context provider and hook exported together for clean context consumption
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAdminDataSource() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAdminDataSource must be used within AdminDataSourceProvider");

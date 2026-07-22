@@ -1,0 +1,38 @@
+groups:
+  - name: najmah_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP Error Rate on Backend Gateway"
+          description: "HTTP error rate is above 5% for the last 5 minutes."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Response Latency detected"
+          description: "95th percentile of response latency exceeds 2 seconds."
+
+      - alert: AiProviderFailure
+        expr: rate(ai_provider_failures_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI Service Provider Failures elevated"
+          description: "Gemini or other AI provider failures are occurring abnormally fast."
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "Service Unreachable"
+          description: "One of the scraper targets is offline."

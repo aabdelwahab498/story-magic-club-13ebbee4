@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BookOpen, Image as ImageIcon, Volume2, WifiOff, RefreshCw, FileText } from "lucide-react";
@@ -46,7 +46,7 @@ export default function Offline() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const scan = async () => {
+  const scan = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -92,9 +92,9 @@ export default function Offline() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  useEffect(() => { scan(); }, []);
+  useEffect(() => { scan(); }, [scan]);
 
   const totalCount = groups.reduce((s, g) => s + g.items.length, 0);
   const latestDate = groups

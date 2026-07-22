@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Multilingual } from "@/lib/multilingual";
 import { STORAGE_BUCKETS } from "@/lib/adminConstants";
+import type { Database } from "@/integrations/supabase/types";
+
+type DBBlogPost = Database["public"]["Tables"]["blog_posts"]["Row"];
+type DBBlogPostInsert = Database["public"]["Tables"]["blog_posts"]["Insert"];
+type DBBlogPostUpdate = Database["public"]["Tables"]["blog_posts"]["Update"];
+type DBBlogCategory = Database["public"]["Tables"]["blog_categories"]["Row"];
 
 export interface BlogPostRecord {
   id: string;
@@ -36,7 +42,7 @@ export interface BlogCategoryRecord {
 const toM = (v: unknown): Multilingual =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Multilingual) : {};
 
-const normalizePost = (p: any): BlogPostRecord => ({
+const normalizePost = (p: DBBlogPost): BlogPostRecord => ({
   ...p,
   title: toM(p.title),
   excerpt: toM(p.excerpt),
@@ -44,6 +50,7 @@ const normalizePost = (p: any): BlogPostRecord => ({
   seo_title: toM(p.seo_title),
   seo_description: toM(p.seo_description),
   tags: Array.isArray(p.tags) ? p.tags : [],
+  submission_status: p.submission_status as "pending" | "approved" | "rejected" | undefined,
 });
 
 export type BlogSubmissionStatus = "pending" | "approved" | "rejected" | "all";
@@ -131,14 +138,14 @@ export async function fetchBlogCategories(): Promise<BlogCategoryRecord[]> {
     .select("*")
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((c: any) => ({ ...c, name: toM(c.name) }));
+  return (data ?? []).map((c: DBBlogCategory) => ({ ...c, name: toM(c.name) }));
 }
 
 export async function upsertBlogPost(
   post: Partial<BlogPostRecord> & { id?: string }
 ): Promise<BlogPostRecord> {
   const isNew = !post.id || post.id.startsWith("new-");
-  const payload: any = {
+  const payload: DBBlogPostInsert = {
     slug: post.slug ?? "",
     category_id: post.category_id ?? null,
     title: post.title ?? {},
@@ -213,7 +220,7 @@ export async function submitBlogPost(
     published: false,
     submission_status: "pending",
     created_by: user.id,
-  } as any;
+  } as DBBlogPostInsert;
   const { data, error } = await supabase
     .from("blog_posts")
     .insert(payload)
@@ -245,7 +252,7 @@ export async function approveBlogPost(id: string): Promise<BlogPostRecord> {
       published: true,
       published_at: new Date().toISOString(),
       reviewed_at: new Date().toISOString(),
-    } as any)
+    } as DBBlogPostUpdate)
     .eq("id", id)
     .select()
     .single();
@@ -264,7 +271,7 @@ export async function rejectBlogPost(
       published: false,
       review_note: note ?? null,
       reviewed_at: new Date().toISOString(),
-    } as any)
+    } as DBBlogPostUpdate)
     .eq("id", id)
     .select()
     .single();

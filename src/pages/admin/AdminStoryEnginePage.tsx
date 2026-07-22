@@ -48,8 +48,7 @@ const MODELS = [
 const VISUAL_STYLES = ["Pixar/Ghibli", "Pixar", "Studio Ghibli", "Disney", "Anime", "Watercolor Storybook", "Claymation"];
 
 export default function AdminStoryEnginePage() {
-  const { t, i18n } = useTranslation();
-  const isAr = i18n.language?.startsWith("ar");
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [s, setS] = useState<Settings | null>(null);

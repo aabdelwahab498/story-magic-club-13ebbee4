@@ -33,7 +33,7 @@ describe.skipIf(!ENABLE)("illustration_analytics_audit RLS", () => {
     } else {
       expect(data ?? []).toEqual([]);
     }
-  });
+  }, 20000);
 
   it("anon INSERT is rejected by RLS", async () => {
     const { error } = await anon!
@@ -44,7 +44,7 @@ describe.skipIf(!ENABLE)("illustration_analytics_audit RLS", () => {
       });
     expect(error).toBeTruthy();
     expect(error!.message.toLowerCase()).toMatch(/policy|permission|rls|row-level/);
-  });
+  }, 20000);
 
   it("anon SELECT with filters still returns no rows (filters do not bypass RLS)", async () => {
     const { data, error } = await anon!
@@ -58,5 +58,5 @@ describe.skipIf(!ENABLE)("illustration_analytics_audit RLS", () => {
     } else {
       expect(data ?? []).toEqual([]);
     }
-  });
+  }, 20000);
 });

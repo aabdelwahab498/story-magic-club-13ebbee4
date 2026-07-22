@@ -1,6 +1,6 @@
 // /my-backups — user-facing page listing daily backups (last 30d retention)
 // with download (5-minute signed URL) and restore-stories actions.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Seo from "@/components/Seo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +31,7 @@ export default function MyBackups() {
   const [jobs, setJobs] = useState<Record<string, BackupJobStatus>>({});
   const [retrying, setRetrying] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -43,9 +43,11 @@ export default function MyBackups() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [user?.id]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const totalSize = useMemo(() => rows.reduce((a, r) => a + (r.size_bytes ?? 0), 0), [rows]);
   const completed = rows.filter((r) => r.status === "completed").length;

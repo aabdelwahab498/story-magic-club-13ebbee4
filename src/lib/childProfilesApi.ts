@@ -1,28 +1,15 @@
 // Phase 2 — Child profiles (parent → many children).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { childrenApi, ChildProfile } from "@/api/children.api";
 
-export interface ChildProfile {
-  id: string;
-  parent_user_id: string;
-  name: string;
-  age: number | null;
-  avatar: string | null;
-  preferred_language: string;
-  emotional_focus: string[];
-  bedtime_preferences: Record<string, unknown>;
-  reading_level: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export type { ChildProfile };
 
 export interface ChildInput {
   name: string;
   age?: number | null;
-  avatar?: string | null;
-  preferred_language?: string;
-  emotional_focus?: string[];
-  reading_level?: string | null;
+  language?: string;
+  emotionalGoals?: string[];
+  readingLevel?: string | null;
 }
 
 const ACTIVE_KEY = "najmah.active_child_id";
@@ -41,12 +28,19 @@ export const useChildren = (enabled = true) =>
     queryKey: ["child_profiles"],
     enabled,
     queryFn: async (): Promise<ChildProfile[]> => {
-      const { data, error } = await supabase
-        .from("child_profiles")
-        .select("*")
-        .order("created_at", { ascending: true });
-      if (error) throw error;
+      const data = await childrenApi.getChildren();
       return (data ?? []) as ChildProfile[];
+    },
+  });
+
+export const useChild = (id: string | undefined) =>
+  useQuery({
+    queryKey: ["child_profile", id],
+    enabled: !!id,
+    queryFn: async (): Promise<ChildProfile> => {
+      if (!id) throw new Error("No child ID provided");
+      const data = await childrenApi.getChild(id);
+      return data as ChildProfile;
     },
   });
 
@@ -54,25 +48,13 @@ export const useCreateChild = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: ChildInput) => {
-      const { data: sess } = await supabase.auth.getUser();
-      const uid = sess.user?.id;
-      if (!uid) throw new Error("not_signed_in");
-      const { data, error } = await supabase
-        .from("child_profiles")
-        .insert([
-          {
-            parent_user_id: uid,
-            name: input.name,
-            age: input.age ?? null,
-            avatar: input.avatar ?? null,
-            preferred_language: input.preferred_language ?? "en",
-            emotional_focus: (input.emotional_focus ?? []) as never,
-            reading_level: input.reading_level ?? null,
-          },
-        ])
-        .select("*")
-        .single();
-      if (error) throw error;
+      const data = await childrenApi.createChild({
+        name: input.name,
+        age: input.age ?? 0,
+        language: input.language ?? 'en',
+        readingLevel: input.readingLevel ?? undefined,
+        emotionalGoals: input.emotionalGoals ?? [],
+      });
       return data as ChildProfile;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["child_profiles"] }),
@@ -83,24 +65,13 @@ export const useUpdateChild = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: { id: string } & Partial<ChildInput>) => {
-      const { error } = await supabase
-        .from("child_profiles")
-        .update({
-          ...(patch.name !== undefined ? { name: patch.name } : {}),
-          ...(patch.age !== undefined ? { age: patch.age } : {}),
-          ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
-          ...(patch.preferred_language !== undefined
-            ? { preferred_language: patch.preferred_language }
-            : {}),
-          ...(patch.emotional_focus !== undefined
-            ? { emotional_focus: patch.emotional_focus as never }
-            : {}),
-          ...(patch.reading_level !== undefined
-            ? { reading_level: patch.reading_level }
-            : {}),
-        })
-        .eq("id", id);
-      if (error) throw error;
+      await childrenApi.updateChild(id, {
+        name: patch.name,
+        age: patch.age ?? undefined,
+        language: patch.language ?? undefined,
+        readingLevel: patch.readingLevel ?? undefined,
+        emotionalGoals: patch.emotionalGoals ?? undefined,
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["child_profiles"] }),
   });
@@ -110,8 +81,7 @@ export const useDeleteChild = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("child_profiles").delete().eq("id", id);
-      if (error) throw error;
+      await childrenApi.deleteChild(id);
       if (getActiveChildId() === id) setActiveChildId(null);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["child_profiles"] }),

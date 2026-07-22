@@ -51,7 +51,6 @@ export function logAudio(evt: Omit<AudioDebugEvent, "ts">) {
   buffer.push(full);
   if (buffer.length > MAX) buffer.shift();
   // mirror to console
-  // eslint-disable-next-line no-console
   console.debug(
     `[Audio][${browserName}][${full.source}] ${full.kind}`,
     {

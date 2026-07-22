@@ -1,5 +1,6 @@
 // Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
+import { axiosInstance } from "@/api/client";
 import {
   downloadBlob,
   prepareDownloadTarget,
@@ -88,21 +89,43 @@ export async function downloadAudioMp3(
 // === Edge function callers ===
 
 export async function exportStoryPdf(storyId: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("export-story-pdf", {
-    body: { storyId },
-  });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data.pdfUrl as string;
+  try {
+    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/pdf`);
+    const url = response.data.download_url;
+    if (!url) throw new Error("no_pdf_url");
+    return url;
+  } catch (err: any) {
+    const message = err.response?.data?.message || err.message || "Failed to export PDF";
+    throw new Error(message);
+  }
 }
 
-export async function exportStoryEpub(storyId: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("export-story-epub", {
-    body: { storyId },
-  });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data.epubUrl as string;
+export async function exportStoryAudio(storyId: string): Promise<string> {
+  try {
+    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/audio`);
+    const url = response.data.download_url;
+    if (!url) throw new Error("no_audio_url");
+    return url;
+  } catch (err: any) {
+    const message = err.response?.data?.message || err.message || "Failed to export Audio";
+    throw new Error(message);
+  }
+}
+
+export async function exportStoryZip(storyId: string): Promise<string> {
+  try {
+    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/zip`);
+    const url = response.data.download_url;
+    if (!url) throw new Error("no_zip_url");
+    return url;
+  } catch (err: any) {
+    const message = err.response?.data?.message || err.message || "Failed to export ZIP";
+    throw new Error(message);
+  }
+}
+
+export async function exportStoryEpub(_storyId: string): Promise<string> {
+  throw new Error("EPUB export is not yet migrated to Backend Core");
 }
 
 export interface BatchStartResult {
@@ -111,34 +134,20 @@ export interface BatchStartResult {
   status: "running" | "completed" | "failed" | "cancelled";
 }
 
-export async function startBatchDownload(args: {
+export async function startBatchDownload(_args: {
   childId?: string;
   formats: ("pdf" | "mp3" | "txt" | "epub")[];
   storyIds?: string[];
 }): Promise<BatchStartResult> {
-  const { data, error } = await supabase.functions.invoke("batch-download-stories", {
-    body: args,
-  });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return { jobId: data.jobId, total: data.total, status: data.status ?? "running" };
+  throw new Error("Batch download is not yet migrated to Backend Core");
 }
 
-export async function cancelBatchJob(jobId: string): Promise<void> {
-  const { error } = await supabase
-    .from("batch_export_jobs")
-    .update({ cancel_requested: true })
-    .eq("id", jobId);
-  if (error) throw error;
+export async function cancelBatchJob(_jobId: string): Promise<void> {
+  throw new Error("Batch cancellation is not yet migrated to Backend Core");
 }
 
-export async function refreshBundleUrl(jobId: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("refresh-bundle-url", {
-    body: { jobId },
-  });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data.bundleUrl as string;
+export async function refreshBundleUrl(_jobId: string): Promise<string> {
+  throw new Error("Bundle refresh is not yet migrated to Backend Core");
 }
 
 // Backwards-compat name (kept so older callers still type-check).
@@ -182,7 +191,6 @@ export async function downloadDocx(title: string, pages: StoryPageLike[], target
 // Images ZIP — fetch all illustration urls and bundle as ZIP
 // ============================================================
 export async function buildImagesZip(
-  title: string,
   pages: StoryPageLike[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<Blob | null> {
@@ -214,7 +222,7 @@ export async function downloadImagesZip(
   onProgress?: (done: number, total: number) => void,
   target?: PreparedDownloadTarget,
 ): Promise<boolean> {
-  const blob = await buildImagesZip(title, pages, onProgress);
+  const blob = await buildImagesZip(pages, onProgress);
   if (!blob) return false;
   downloadBlob(blob, `najmah-${safeFilename(title)}-images.zip`, target);
   return true;

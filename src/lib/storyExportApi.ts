@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { axiosInstance } from "@/api/client";
 
 export type ExportKind = "txt" | "mp3" | "pdf";
 export type SupportedLanguage = "ar" | "en" | "fr" | "de" | "es" | "pt" | string;
@@ -113,119 +114,35 @@ async function readEdgeError(error: unknown): Promise<StoryExportError> {
   return new StoryExportError(code, message, { status, retryAfter });
 }
 
-async function invokeWithRetry<T>(functionName: string, body: Record<string, unknown>): Promise<T> {
-  const attempts = 2;
-  let last: StoryExportError | null = null;
-  for (let attempt = 0; attempt <= attempts; attempt++) {
-    const { data, error } = await supabase.functions.invoke<T & EdgeErrorBody & { success?: boolean }>(functionName, { body });
-    if (!error) return data as T;
-    last = await readEdgeError(error);
-    const retryable = !last.status || last.status === 500 || last.status === 502 || last.status === 546 || last.status === 429;
-    if (!retryable || attempt === attempts) break;
-    await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
-  }
-  throw last ?? new StoryExportError("network_error");
+export async function exportStoryAsTxt(_input: ExportTxtInput): Promise<ExportTxtResult> {
+  throw new Error("Text export is not yet migrated to Backend Core");
 }
 
-export async function exportStoryAsTxt(input: ExportTxtInput): Promise<ExportTxtResult> {
-  if (!input.fullText?.trim()) throw new StoryExportError("empty_text", "Story text is empty.");
-  if (input.fullText.length > 20_000) throw new StoryExportError("text_too_long", "Story text exceeds 20,000 characters.");
-
-  const data = await invokeWithRetry<{
-    success?: boolean; export_id?: string; download_url?: string; file_name?: string;
-    file_size?: number; expires_at?: string; provider?: string; dap_score?: number | null; error?: string;
-  }>("export-story-txt", {
-    story_id: input.storyId ?? null,
-    child_id: input.childId ?? null,
-    title: input.title,
-    full_text: input.fullText,
-    language: input.language,
-    child_name: input.childName ?? null,
-    emotion_tags: input.emotionTags ?? [],
-    page_count: input.pageCount ?? null,
-  });
-
-  if (!data?.success || !data.download_url || !data.export_id) throw new StoryExportError(data?.error ?? "unknown_error");
-  return {
-    exportId: data.export_id,
-    downloadUrl: data.download_url,
-    fileName: data.file_name ?? "story.txt",
-    fileSize: data.file_size ?? 0,
-    expiresAt: data.expires_at ?? new Date(Date.now() + 24 * 3600_000).toISOString(),
-    provider: data.provider ?? "local",
-    dapScore: data.dap_score ?? null,
-  };
-}
-
-export async function exportStoryAsAudio(input: ExportAudioInput): Promise<ExportAudioResult> {
-  if (!input.fullText?.trim()) throw new StoryExportError("empty_text");
-  if (input.fullText.length > 20_000) throw new StoryExportError("text_too_long");
-
-  const data = await invokeWithRetry<{
-    success?: boolean; export_id?: string; download_url?: string; file_name?: string;
-    file_size?: number; duration_seconds?: number | null; provider?: string; cache_hit?: boolean;
-    expires_at?: string; error?: string;
-  }>("export-story-audio", {
-    story_id: input.storyId ?? null,
-    child_id: input.childId ?? null,
-    title: input.title ?? "story",
-    full_text: input.fullText,
-    language: input.language,
-    voice_id: input.voiceId,
-    speed: input.speed ?? 1.0,
-    child_name: input.childName ?? null,
-    emotion_tags: input.emotionTags ?? [],
-  });
-
-  if (!data?.success || !data.download_url || !data.export_id) throw new StoryExportError(data?.error ?? "unknown_error");
-  return {
-    exportId: data.export_id,
-    downloadUrl: data.download_url,
-    fileName: data.file_name ?? "story.mp3",
-    fileSize: data.file_size ?? 0,
-    durationSeconds: data.duration_seconds ?? null,
-    provider: data.provider ?? "google",
-    cacheHit: data.cache_hit ?? false,
-    expiresAt: data.expires_at ?? new Date(Date.now() + 24 * 3600_000).toISOString(),
-  };
+export async function exportStoryAsAudio(_input: ExportAudioInput): Promise<ExportAudioResult> {
+  throw new Error("Audio export is not yet migrated to Backend Core");
 }
 
 export async function exportStoryAsPdf(input: ExportPdfInput): Promise<ExportPdfResult> {
-  if (!input.pages?.length) throw new StoryExportError("pages_required");
-  if (input.pages.length > 30) throw new StoryExportError("too_many_pages");
-
-  const data = await invokeWithRetry<{
-    success?: boolean; export_id?: string; download_url?: string; preview_url?: string | null;
-    file_name?: string; file_size?: number | null; page_count?: number | null; provider?: string;
-    expires_at?: string; error?: string;
-  }>("export-story-pdf", {
-    story_id: input.storyId ?? null,
-    child_id: input.childId ?? null,
-    title: input.title,
-    language: input.language,
-    child_name: input.childName ?? null,
-    theme_color: input.themeColor ?? null,
-    font_family: input.fontFamily ?? null,
-    emotion_tags: input.emotionTags ?? [],
-    pages: input.pages.map((p) => ({
-      page_number: p.pageNumber,
-      text: p.text,
-      illustration_url: p.illustrationUrl ?? null,
-      emotion_tag: p.emotionTag ?? null,
-    })),
-  });
-
-  if (!data?.success || !data.download_url || !data.export_id) throw new StoryExportError(data?.error ?? "unknown_error");
-  return {
-    exportId: data.export_id,
-    downloadUrl: data.download_url,
-    previewUrl: data.preview_url ?? null,
-    fileName: data.file_name ?? "story.pdf",
-    fileSize: data.file_size ?? null,
-    pageCount: data.page_count ?? null,
-    provider: data.provider ?? "local",
-    expiresAt: data.expires_at ?? new Date(Date.now() + 24 * 3600_000).toISOString(),
-  };
+  if (!input.storyId) {
+    throw new Error("Story must be saved before exporting to PDF.");
+  }
+  try {
+    const response = await axiosInstance.post<{ download_url?: string }>(`/media/stories/${input.storyId}/export/pdf`);
+    const url = response.data.download_url;
+    if (!url) throw new Error("no_pdf_url");
+    return {
+      exportId: "migrated_" + input.storyId,
+      downloadUrl: url,
+      fileName: `${input.title || "story"}.pdf`,
+      fileSize: 0,
+      pageCount: input.pages.length,
+      provider: "google",
+      expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(),
+    };
+  } catch (err: any) {
+    const msg = err.response?.data?.message || err.message || "Failed to export PDF";
+    throw new StoryExportError(msg);
+  }
 }
 
 export interface VoiceConfig {

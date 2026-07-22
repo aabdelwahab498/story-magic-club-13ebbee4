@@ -13,7 +13,7 @@
  */
 import { test, expect, type Route } from "@playwright/test";
 
-const ILLUSTRATE_URL = /illustrate-story/;
+const ILLUSTRATE_URL = /\/illustrations/;
 
 const buildResponse = (
   outcomes: { index: number; ok: boolean; error?: string }[],

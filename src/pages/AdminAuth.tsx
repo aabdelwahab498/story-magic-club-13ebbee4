@@ -61,21 +61,8 @@ const AdminAuth = () => {
       return;
     }
 
-    // Optional master key claim on sign-in
     if (masterKey.trim()) {
-      const { data: claimData, error: claimErr } = await supabase.functions.invoke(
-        "claim-admin",
-        { body: { masterKey: masterKey.trim() } }
-      );
-      if (claimErr || (claimData as { error?: string })?.error) {
-        toast.error(
-          (claimData as { error?: string })?.error ||
-            claimErr?.message ||
-            t("admin_auth.master_invalid", "Invalid master key")
-        );
-      } else {
-        toast.success(t("admin_auth.master_granted", "Admin access granted ✨"));
-      }
+      toast.error("Owner/Admin access claiming is not yet migrated to Backend Core");
       setMasterKey("");
     }
 

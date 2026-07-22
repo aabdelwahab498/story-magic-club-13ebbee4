@@ -1,22 +1,60 @@
-# Logs
-logs
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Production & build outputs
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+*.timestamp-*.mjs
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+!.env.production.example
+!**/.env.example
+!**/.env.production.example
+*.local
+
+# Logs & debugging
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+tsc_strict_errors*.txt
+tsc_noImplicitAny_errors.txt
 
-node_modules
-dist
-dist-ssr
-*.local
+# Temporary & scratch files
+*.bak
+*.tmp
+*.temp
+*.swp
+audit.cjs
+extract_tables.cjs
+get_table_details.cjs
+patch_types.cjs
 
-# Editor directories and files
+# Cache directories
+.cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# IDE & OS generated files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

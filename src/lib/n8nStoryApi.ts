@@ -3,7 +3,6 @@
 // If the response has `fallback: true` the caller should run the local
 // `compose-story` pipeline instead.
 // ============================================================================
-import { supabase } from "@/integrations/supabase/client";
 
 export interface N8nStoryPage {
   index: number;
@@ -38,22 +37,6 @@ export interface N8nStoryInput {
   userId?: string | null;
 }
 
-export async function generateStoryViaN8n(input: N8nStoryInput): Promise<N8nStoryResult> {
-  const { data, error } = await supabase.functions.invoke<N8nStoryResult>(
-    "n8n-story-generate",
-    {
-      body: {
-        idea: input.idea,
-        child_id: input.childId ?? null,
-        child_name: input.childName ?? null,
-        language: input.language ?? "en",
-        age_group: input.ageGroup ?? null,
-        user_id: input.userId ?? null,
-      },
-    },
-  );
-  if (error) {
-    return { fallback: true, reason: "invoke_error", message: error.message };
-  }
-  return data ?? { fallback: true, reason: "empty_response" };
+export async function generateStoryViaN8n(_input: N8nStoryInput): Promise<N8nStoryResult> {
+  return { fallback: true, reason: "n8n_not_migrated", message: "n8n automation is not yet migrated to Backend Core" };
 }

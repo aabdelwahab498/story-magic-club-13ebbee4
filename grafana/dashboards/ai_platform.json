@@ -1,0 +1,139 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "AI Platform Insights",
+      "type": "row"
+    },
+    {
+      "title": "Stories Generated",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "story_generation_total",
+          "legendFormat": "Stories"
+        }
+      ]
+    },
+    {
+      "title": "Illustrations Generated",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "illustration_generation_total",
+          "legendFormat": "Illustrations"
+        }
+      ]
+    },
+    {
+      "title": "Audio (TTS) Generated",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "audio_generation_total",
+          "legendFormat": "Audio Narrations"
+        }
+      ]
+    },
+    {
+      "title": "PDF Exports",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "pdf_export_total",
+          "legendFormat": "PDF exports"
+        }
+      ]
+    },
+    {
+      "title": "AI Service Provider Failures",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "ai_provider_failures_total",
+          "legendFormat": "Failures"
+        }
+      ]
+    },
+    {
+      "title": "AI Generation Latency",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "rate(ai_request_duration_seconds_sum[5m]) / rate(ai_request_duration_seconds_count[5m])",
+          "legendFormat": "Avg Latency (s)"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["najmah", "ai"],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "AI Insights Dashboard",
+  "version": 1
+}

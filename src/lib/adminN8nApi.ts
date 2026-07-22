@@ -1,7 +1,6 @@
 // ============================================================================
 // Admin n8n Integration API — talks to `admin-n8n-settings` edge function.
 // ============================================================================
-import { supabase } from "@/integrations/supabase/client";
 
 export type N8nWorkflowKind = "txt" | "mp3" | "pdf";
 
@@ -23,16 +22,8 @@ export interface N8nSettings {
   updated_at: string;
 }
 
-async function call<T>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
-  const { data, error } = await supabase.functions.invoke<T & { success?: boolean; error?: string }>(
-    "admin-n8n-settings",
-    { body: { action, ...extra } },
-  );
-  if (error) throw new Error(error.message);
-  if (!data || (data as { success?: boolean }).success === false) {
-    throw new Error((data as { error?: string })?.error ?? "unknown_error");
-  }
-  return data as T;
+async function call<T>(_action: string, _extra: Record<string, unknown> = {}): Promise<T> {
+  throw new Error("Admin n8n settings are not yet migrated to Backend Core");
 }
 
 export async function getN8nSettings(): Promise<N8nSettings> {

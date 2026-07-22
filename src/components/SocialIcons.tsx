@@ -1,4 +1,6 @@
-import { Facebook, Instagram, Youtube, ShoppingBag } from "lucide-react";
+/* eslint-disable react-refresh/only-export-components */
+// File contains inline helper icon components and exports multiple platform components.
+import { Facebook, Instagram, Youtube } from "lucide-react";
 import { SocialPlatform } from "@/hooks/useSocialLinks";
 
 const TikTokIcon = ({ className }: { className?: string }) => (

@@ -1,7 +1,7 @@
 // Full-story narration + video manifest client helpers.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { axiosInstance } from "@/api/client";
 
 export interface FullNarrationResult {
   audio_url: string;
@@ -19,24 +19,33 @@ export const useGenerateFullNarration = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: { storyId: string; character?: string }): Promise<FullNarrationResult> => {
-      const { data, error } = await supabase.functions.invoke("narrate-story-full", {
-        body: { storyId: args.storyId, character: args.character ?? "" },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data as FullNarrationResult;
+      await axiosInstance.post<{ mediaId: string; status: string }>(`/media/stories/${args.storyId}/audio`);
+      
+      const maxAttempts = 60;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const res = await axiosInstance.get<any>(`/media/stories/${args.storyId}/audio`);
+        const job = res.data;
+        if (job.status === "COMPLETED") {
+          return {
+            audio_url: job.audioUrl,
+            pages: 0,
+            page_weights: [],
+            bytes: 0,
+          } as FullNarrationResult;
+        }
+        if (job.status === "FAILED") {
+          throw new Error("Narration generation failed");
+        }
+      }
+      throw new Error("Narration generation timed out");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ai-story-history"] });
       toast.success("Narration ready 🎧");
     },
     onError: (e: Error) => {
-      const msg = e.message || "Narration failed";
-      if (msg.includes("subscription_required")) {
-        toast.error("HD narration needs a paid plan.");
-      } else {
-        toast.error(msg);
-      }
+      toast.error(e.message || "Narration failed");
     },
   });
 };
@@ -54,30 +63,17 @@ export interface ClassicNarrationResult {
  * Persists `stories.audio_url` so every reader sees the play button.
  */
 export const useGenerateClassicNarration = () => {
-  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
+    mutationFn: async (_args: {
       storyId: string;
       language?: string;
       character?: string;
     }): Promise<ClassicNarrationResult> => {
-      const { data, error } = await supabase.functions.invoke("narrate-classic-story", {
-        body: {
-          storyId: args.storyId,
-          language: args.language ?? "en",
-          character: args.character ?? "",
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data as ClassicNarrationResult;
+      throw new Error("Classic story narration is not yet migrated to Backend Core");
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["story"] });
-      qc.invalidateQueries({ queryKey: ["stories"] });
-      toast.success("Narration ready 🎧");
+    onError: (e: Error) => {
+      toast.error(e.message || "Narration failed");
     },
-    onError: (e: Error) => toast.error(e.message || "Narration failed"),
   });
 };
 
@@ -150,55 +146,48 @@ export async function generateStoryMp3(
     try { options.onProgress?.(evt); } catch { /* consumer errors must not break TTS */ }
   };
   emit({ phase: "queued", message: "Queued for narration…" });
-  // The server call is a single request; we can't stream chunk progress,
-  // but we can drive the phase so the UI never looks frozen.
+  
   const genTimer = setTimeout(
     () => emit({ phase: "generating", message: "Generating narration audio…" }),
     250,
   );
-  const { data, error } = await supabase.functions.invoke("narrate-story-edge", {
-    body: args,
-  });
-  clearTimeout(genTimer);
-  if (error) {
+
+  try {
+    const response = await axiosInstance.post<{ audioContent: string }>('/media/tts', {
+      text: args.text,
+      language: args.language,
+      character: args.voice,
+    });
+    clearTimeout(genTimer);
+
+    if (!response.data || !response.data.audioContent) {
+      throw new Error("No audio content returned from TTS service");
+    }
+
+    emit({ phase: "finalizing", message: "Preparing download…" });
+    const audioUrl = `data:audio/mpeg;base64,${response.data.audioContent}`;
+    
+    const result: StoryMp3Result = {
+      url: audioUrl,
+      voice: args.voice || "default",
+      provider: "google",
+      providersAttempted: ["google"],
+      status: "success",
+      cached: false,
+      bytes: response.data.audioContent.length,
+      duration: 0,
+      chunkCount: 1,
+      cacheKey: "tts_" + Date.now(),
+    };
+    emit({ phase: "ready", message: "Audio ready." });
+    return result;
+  } catch (err: any) {
+    clearTimeout(genTimer);
     throw new StoryMp3Error(
       "network_error",
-      "Could not reach the audio service. Please try again.",
+      err.response?.data?.message || err.message || "Could not reach the audio service. Please try again.",
     );
   }
-  if (!data || data.success !== true) {
-    throw new StoryMp3Error(
-      data?.code || "unknown",
-      data?.message || "Audio generation failed. Please try again.",
-      { retryable: data?.retryable ?? true, provider: data?.provider },
-    );
-  }
-  const status = (data.status as StoryMp3Status) ?? "success";
-  const providersAttempted: string[] = data.providersAttempted ?? [data.provider];
-  if (status === "cached") {
-    emit({ phase: "cached", message: "Loaded from cache." });
-  } else if (status === "fallback") {
-    emit({
-      phase: "retrying",
-      message: `Primary voice unavailable — used ${data.provider}.`,
-      attempt: providersAttempted.length,
-    });
-  }
-  emit({ phase: "finalizing", message: "Preparing download…" });
-  const result: StoryMp3Result = {
-    url: data.audioUrl as string,
-    voice: data.voice as string,
-    provider: data.provider as string,
-    providersAttempted,
-    status,
-    cached: status === "cached",
-    bytes: data.fileSize,
-    duration: data.duration,
-    chunkCount: data.chunkCount,
-    cacheKey: data.cacheKey,
-  };
-  emit({ phase: "ready", message: "Audio ready." });
-  return result;
 }
 
 export async function downloadStoryMp3(url: string, filename: string) {

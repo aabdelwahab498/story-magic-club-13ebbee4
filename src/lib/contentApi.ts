@@ -47,6 +47,24 @@ export interface ProductRow {
   paddle_price_id?: string | null;
 }
 
+interface DBBlogPostWithCategory {
+  id: string;
+  slug: string;
+  category_id: string | null;
+  title: unknown;
+  excerpt: unknown;
+  content: unknown;
+  cover_image: string | null;
+  author_name: string | null;
+  reading_minutes: number | null;
+  tags: string[] | null;
+  published: boolean;
+  published_at: string | null;
+  views: number;
+  created_at: string;
+  blog_categories: { slug: string } | null | { slug: string }[];
+}
+
 // ---------- Blog ----------
 export const useBlogPosts = () =>
   useQuery({
@@ -58,10 +76,29 @@ export const useBlogPosts = () =>
         .eq("published", true)
         .order("published_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
-      return (data ?? []).map((p: any) => ({
-        ...p,
-        category_slug: p.blog_categories?.slug ?? null,
-      }));
+      const posts = (data ?? []) as unknown as DBBlogPostWithCategory[];
+      return posts.map((p) => {
+        const categorySlug = Array.isArray(p.blog_categories)
+          ? p.blog_categories[0]?.slug
+          : p.blog_categories?.slug;
+        return {
+          id: p.id,
+          slug: p.slug,
+          category_id: p.category_id,
+          title: p.title as Multilingual,
+          excerpt: p.excerpt as Multilingual,
+          content: p.content as Multilingual,
+          cover_image: p.cover_image,
+          author_name: p.author_name,
+          reading_minutes: p.reading_minutes,
+          tags: p.tags,
+          published: p.published,
+          published_at: p.published_at,
+          views: p.views,
+          created_at: p.created_at,
+          category_slug: categorySlug ?? null,
+        };
+      });
     },
   });
 
@@ -78,7 +115,27 @@ export const useBlogPost = (slug: string | undefined) =>
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;
-      return { ...(data as any), category_slug: (data as any).blog_categories?.slug ?? null };
+      const post = data as unknown as DBBlogPostWithCategory;
+      const categorySlug = Array.isArray(post.blog_categories)
+        ? post.blog_categories[0]?.slug
+        : post.blog_categories?.slug;
+      return {
+        id: post.id,
+        slug: post.slug,
+        category_id: post.category_id,
+        title: post.title as Multilingual,
+        excerpt: post.excerpt as Multilingual,
+        content: post.content as Multilingual,
+        cover_image: post.cover_image,
+        author_name: post.author_name,
+        reading_minutes: post.reading_minutes,
+        tags: post.tags,
+        published: post.published,
+        published_at: post.published_at,
+        views: post.views,
+        created_at: post.created_at,
+        category_slug: categorySlug ?? null,
+      };
     },
   });
 

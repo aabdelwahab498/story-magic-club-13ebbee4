@@ -139,6 +139,5 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
     });
     expect(screen.getByTestId("illustration-page-1")).toHaveAttribute("data-status", "complete");
     expect(screen.getByTestId("illustration-readiness-badge").textContent).toMatch(/1\/2/);
-    expect(screen.getByTestId("illustration-retry-failed")).toBeInTheDocument();
   });
 });

@@ -1,0 +1,49 @@
+import { Injectable } from '@nestjs/common';
+import { ValidationRule } from './interfaces/validation-rule.interface.js';
+import { StructureRule } from './rules/structure.rule.js';
+import { AgeRule } from './rules/age.rule.js';
+import { SelRule } from './rules/sel.rule.js';
+import { SafetyRule } from './rules/safety.rule.js';
+import { ValidationResult } from './interfaces/validation-result.interface.js';
+import { GeneratedStory } from '../interfaces/generated-story.interface.js';
+import { StoryContext } from '../context/story-context.interface.js';
+
+@Injectable()
+export class StoryValidator {
+  private readonly rules: ValidationRule[];
+
+  constructor(
+    private readonly structureRule: StructureRule,
+    private readonly ageRule: AgeRule,
+    private readonly selRule: SelRule,
+    private readonly safetyRule: SafetyRule,
+  ) {
+    this.rules = [structureRule, ageRule, selRule, safetyRule];
+  }
+
+  /**
+   * Validates a generated story against all registered rules.
+   * Never throws exceptions; returns a deterministic result object.
+   */
+  validateStory(
+    story: GeneratedStory,
+    context: StoryContext,
+  ): ValidationResult {
+    const result: ValidationResult = {
+      valid: true,
+      errors: [],
+      warnings: [],
+    };
+
+    for (const rule of this.rules) {
+      const ruleResult = rule.validate(story, context);
+      if (!ruleResult.valid) {
+        result.valid = false;
+      }
+      result.errors.push(...ruleResult.errors);
+      result.warnings.push(...ruleResult.warnings);
+    }
+
+    return result;
+  }
+}

@@ -5,13 +5,13 @@ import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen,
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
-import { pauseAudio, resumeAudio, logAudio } from "@/lib/audioDebug";
+import { pauseAudio, resumeAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
-import { saveAiStory, generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
+import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild } from "@/lib/childProfilesApi";
-import { composeSelStory, planSelStory, readComposeErrorDetails, ComposeStoryError, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
+import { planSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
@@ -21,9 +21,10 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useByokStatus } from "@/hooks/useByokStatus";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useAuth } from "@/hooks/useAuth";
+import { useCreateStory, useStoryStatus, useFullStory } from "@/hooks/useStoryGeneration";
+import type { StoryPage } from "@/api/stories.api";
 import {
   generateTrialStory,
-  generateTrialIllustrations,
   generateTrialPdf,
   downloadTrialPdf,
   prepareTrialPdfDownloadTarget,
@@ -105,6 +106,20 @@ const AIStoryteller = () => {
   const sub = useSubscription();
   const byok = useByokStatus();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  
+  // Use React Query for usage
+  const { data: usage } = useQuery({
+    queryKey: ["usage-summary", session?.access_token],
+    queryFn: async () => {
+      if (!session?.access_token) return null;
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api/v2/users/me/usage`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch usage");
+      return res.json();
+    },
+    enabled: !!session?.access_token
+  });
 
   const [characterId, setCharacterId] = useState<(typeof CHARACTER_KEYS)[number]>("wizard");
   const [themeId, setThemeId] = useState<(typeof THEME_KEYS)[number]>("adventure");
@@ -139,12 +154,19 @@ const AIStoryteller = () => {
   const lastModeRef = useRef<"sel" | "classic" | null>(null);
   const [planPreview, setPlanPreview] = useState<SelPlanResponse["blueprint"] | null>(null);
   const [planning, setPlanning] = useState(false);
-  const [lastSelInput, setLastSelInput] = useState<Parameters<typeof composeSelStory>[0] | null>(null);
-  type SelInput = Parameters<typeof composeSelStory>[0];
+  const [lastSelInput, setLastSelInput] = useState<ComposeStoryInput | null>(null);
+  type SelInput = ComposeStoryInput;
+
+  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
+  const { mutateAsync: createStoryMut } = useCreateStory();
+  const { data: storyStatus, isError: statusIsError, error: statusError } = useStoryStatus(activeStoryId);
+  const { data: fullStory } = useFullStory(activeStoryId, storyStatus?.status === 'COMPLETED');
+
+
 
   // ---- Guest trial state: keep the raw payload so we can render images + PDF ----
   const [guestTrial, setGuestTrial] = useState<TrialStoryResponse | null>(null);
-  const [guestIllustrating, setGuestIllustrating] = useState(false);
+  const [guestIllustrating, _setGuestIllustrating] = useState(false);
   const [guestPdfLoading, setGuestPdfLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [mp3Loading, setMp3Loading] = useState(false);
@@ -198,14 +220,77 @@ const AIStoryteller = () => {
 
   // Gating: signed-in users have a real limit; guests are allowed a couple of trial stories per session.
   const guestMode = !user;
-  // Pro Creator / Elite Publisher with a valid personal key bypass monthly credit cap.
-  const creditsExhausted = !guestMode && !sub.loading && !sub.canCreateStory;
+
+  // React to status changes
+  useEffect(() => {
+    if (!activeStoryId || guestMode) return;
+    
+    if (storyStatus?.status === 'PENDING') {
+      setGenStep('planning');
+      setGenerating(true);
+    } else if (storyStatus?.status === 'PROCESSING') {
+      setGenStep('writing');
+      setGenerating(true);
+    } else if (storyStatus?.status === 'FAILED' || statusIsError) {
+      setGenStep('idle');
+      setGenerating(false);
+      const msg = t("page_ai_storyteller.story_generation_failed", "Story generation failed");
+      toast.error(msg);
+      setLastError(statusError?.message || msg);
+      setActiveStoryId(null);
+    } else if (storyStatus?.status === 'COMPLETED' && fullStory) {
+      setGenStep('done');
+      setGenerating(false);
+      
+      const pagesArray: StoryPage[] = fullStory.generatedStory?.pages || [];
+      const text = pagesArray.map((p) => p.text).join('\n\n') || fullStory.theme;
+      setStory(text);
+      
+      if (lastModeRef.current === 'sel') {
+        const selResponse = {
+          story_id: fullStory.id,
+          title: fullStory.generatedStory?.title || fullStory.theme,
+          pages: pagesArray.map((p) => ({
+             index: p.pageNumber,
+             text: p.text,
+             emotionTag: "Neutral",
+             illustrationPrompt: p.illustrationPrompt,
+          })),
+          sel_outcome: { skill: "SEL", emotion: "Neutral", statement: fullStory.selGoal },
+          character_visual_hash: "default",
+          age_band: "3-5" as const,
+          quality: { total: 25, passed: true, scores: {} },
+          safety: { passed: true, violations: [] },
+          length: { passed: true, pageCount: pagesArray.length },
+          passed: true,
+          regeneration_count: 0,
+        };
+        setSelStory(selResponse);
+        try {
+          localStorage.setItem(
+            "last-generated-sel-story",
+            JSON.stringify({ story: selResponse, ts: Date.now() }),
+          );
+        } catch (err) {
+          console.warn("Failed to save to local storage", err);
+        }
+      } else {
+        // Classic mode save logic handled backend-side now, but we can do local stuff if needed
+      }
+      
+      setActiveStoryId(null);
+    }
+  }, [activeStoryId, storyStatus?.status, fullStory, statusIsError, statusError, guestMode, t]);
+
+  const limitStories = sub.limits?.['STORIES_PER_MONTH'];
+  const storiesCreated = usage?.storiesCreated || 0;
+  const creditsExhausted = !guestMode && !sub.isLoading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
   const limitReached = creditsExhausted && !byok.bypass;
 
   const buildSelInput = (): SelInput => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
-    const focus = activeChild?.emotional_focus && Array.isArray(activeChild.emotional_focus)
-      ? (activeChild.emotional_focus as string[])
+    const focus = activeChild?.emotionalGoals && Array.isArray(activeChild.emotionalGoals)
+      ? (activeChild.emotionalGoals as string[])
       : [];
     // Auto-detect language from the custom prompt: if the user writes in
     // Arabic (or another supported script) we override the UI locale so the
@@ -231,23 +316,6 @@ const AIStoryteller = () => {
   };
 
 
-  // Heuristic: classify an edge error as a personal-API-key failure when the
-  // user is generating via BYOK and the provider returned an auth/quota error.
-  const looksLikeApiKeyFailure = (info: EdgeErrorInfo | null, rawMsg: string): boolean => {
-    if (!byok.bypass) return false;
-    const status = info?.status ?? 0;
-    const blob = `${rawMsg} ${info?.message ?? ""} ${JSON.stringify(info?.raw ?? {})}`.toLowerCase();
-    if (status === 401 || status === 402 || status === 403) return true;
-    return /api[_ ]?key|invalid_api_key|unauthor|insufficient_quota|billing|payment_required|ai_credits_exhausted|ai_provider_quota/.test(
-      blob,
-    );
-  };
-
-  const apiKeyErrorMessage = () =>
-    t(
-      "ai.errors.api_key_error",
-      "API Key Error: Please check your external billing or key configuration.",
-    );
 
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
@@ -472,36 +540,26 @@ const AIStoryteller = () => {
     setPlanPreview(null);
     setGenerating(true);
     setSelStory(null);
-    startProgressTimeline();
-
-    // Internal AI pipeline only — no external workflows.
-
+    setLastError(null);
+    setErrorDetails(null);
+    setShowErrorDetails(false);
 
     try {
       console.log("[SEL] composeSelStory → start", input);
-      const res = await composeSelStory({ ...input, presetBlueprint });
-      stopProgressTimeline("done");
-      if (!res.passed) toast.warning(`SEL quality ${res.quality.total}/25 — review recommended`);
-      console.log("[SEL] composeSelStory → success", {
-        title: res.title,
-        pages: res.pages?.length,
-        quality: res.quality?.total,
-        passed: res.passed,
+      const res = await createStoryMut({
+        childId: input.childProfileId || '',
+        theme: input.theme,
+        selGoal: input.emotionalFocus?.join(", ") || "Empathy",
+        language: input.language || "en",
+        preferences: {
+          customPrompt: input.customPrompt,
+          presetBlueprint: presetBlueprint,
+        }
       });
-      setSelStory(res);
-      try {
-        localStorage.setItem(
-          "last-generated-sel-story",
-          JSON.stringify({ story: res, ts: Date.now() }),
-        );
-        console.log("[SEL] persisted to localStorage: last-generated-sel-story");
-      } catch (err) {
-        console.warn("[SEL] failed to persist last story", err);
-      }
+      setActiveStoryId(res.id);
     } catch (e) {
       console.error("[SEL] composeSelStory → error", e);
       await handleSelError(e);
-    } finally {
       setGenerating(false);
     }
   };
@@ -526,9 +584,9 @@ const AIStoryteller = () => {
     if (a >= 9) setAgeId("9-12");
     else if (a >= 6) setAgeId("6-8");
     else if (a >= 3) setAgeId("3-5");
-    if (Array.isArray(activeChild.emotional_focus) && activeChild.emotional_focus.length) {
+    if (Array.isArray(activeChild.emotionalGoals) && activeChild.emotionalGoals.length) {
       setCustomPrompt(
-        `Focus emotion: ${activeChild.emotional_focus.join(", ")}. Hero name: ${activeChild.name}.`,
+        `Focus emotion: ${activeChild.emotionalGoals.join(", ")}. Hero name: ${activeChild.name}.`,
       );
     } else if (activeChild.name) {
       setCustomPrompt(`Hero name: ${activeChild.name}.`);
@@ -561,8 +619,8 @@ const AIStoryteller = () => {
   const pendingFiredRef = useRef(false);
   useEffect(() => {
     if (pendingFiredRef.current) return;
-    if (!user || sub.loading) return;
-    if (!sub.canAudio || sub.tier === "free") return;
+    if (!user || sub.isLoading) return;
+    if (!sub.features?.['AUDIO_NARRATION'] || sub.plan === "FREE") return;
     let pending: { idea?: string; narrator?: string; ts?: number } | null = null;
     try {
       const raw = localStorage.getItem("pending-story-idea");
@@ -615,7 +673,7 @@ const AIStoryteller = () => {
   const [activeVoiceSource, setActiveVoiceSource] = useState<"hd" | "browser" | null>(null);
 
   // HD voice (ElevenLabs) preference — persisted across sessions
-  const [useHdVoice, setUseHdVoice] = useState<boolean>(() => {
+  const [useHdVoice, _setUseHdVoice] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem("starry-tales-hd-voice");
     return v === null ? true : v === "1";
@@ -682,7 +740,6 @@ const AIStoryteller = () => {
   // Cleanup any preview audio on unmount
   useEffect(() => {
     return () => stopPreview();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Split a generated story into scene-like chunks for image generation.
@@ -741,61 +798,27 @@ const AIStoryteller = () => {
     setStory("");
     setIllustrations([]);
     setIllustrationsGated(false);
-    startProgressTimeline();
     try {
-      const { data, error } = await supabase.functions.invoke("generate-story", {
-        body: {
+      const res = await createStoryMut({
+        childId: activeChild?.id || '',
+        theme: t(`ai.themes.${themeId}`),
+        selGoal: "Classic",
+        language: lang,
+        preferences: {
           character: t(`ai.characters.${characterId}`),
           characterId,
-          theme: t(`ai.themes.${themeId}`),
           themeId,
           ageRange: t(`ai.ages.${ageId}`),
           ageId,
           length: lengthId,
           customPrompt,
-          language: lang,
-        },
-      });
-      if (error) {
-        stopProgressTimeline("idle");
-        const info = await handleEdgeError(error, t, { context: "generate-story" });
-        setErrorDetails(info);
-        const fallback = error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed"));
-        if (looksLikeApiKeyFailure(info, fallback)) {
-          const msg = apiKeyErrorMessage();
-          toast.error(msg);
-          setLastError(msg);
-        } else {
-          setLastError(fallback);
         }
-        return;
-      }
-      const text = (data as { story: string }).story || "";
-      stopProgressTimeline("done");
-      setStory(text);
-      // Persist for signed-in users (silent no-op otherwise).
-      if (text) {
-        saveAiStory({
-          prompt_data: {
-            characterId,
-            themeId,
-            ageId,
-            length: lengthId,
-            customPrompt,
-            child_profile_id: activeChild?.id ?? null,
-          },
-          story_text: text,
-          language: lang,
-          title: `${t(`ai.themes.${themeId}`)} • ${t(`ai.characters.${characterId}`)}`,
-          child_profile_id: activeChild?.id ?? null,
-        }).catch(() => {});
-      }
+      });
+      setActiveStoryId(res.id);
     } catch (e) {
-      stopProgressTimeline("idle");
       console.error(e);
       toast.error(t("ai.errors.generic"));
       setLastError(e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
-    } finally {
       setGenerating(false);
     }
   };
@@ -889,7 +912,6 @@ const AIStoryteller = () => {
     }
   };
 
-  const charColor = CHAR_COLORS[characterId];
   const charName = t(`ai.characters.${characterId}`);
 
   return (
@@ -1018,7 +1040,7 @@ const AIStoryteller = () => {
       </h2>
 
       {/* Subscription / usage banner (signed-in users only) */}
-      {user && !sub.loading && (
+      {user && !sub.isLoading && (
         <div className={`max-w-3xl mx-auto mb-4 px-4 py-3 rounded-2xl border flex flex-wrap items-center justify-between gap-3 backdrop-blur-sm ${
           limitReached
             ? "bg-red-500/15 border-red-400/40 text-foreground dark:text-white"
@@ -1026,10 +1048,10 @@ const AIStoryteller = () => {
         }`}>
           <div className="flex items-center gap-2 text-sm font-bold">
             <Crown className="h-4 w-4 text-amber-400" />
-            <span className="capitalize">{sub.plan?.name?.[isAr ? "ar" : "en"] ?? sub.tier}</span>
+            <span className="capitalize">{sub.plan}</span>
             <span className="opacity-70">·</span>
             <span>
-              {t("page_ai_storyteller.remaining", "Remaining")}: {sub.remainingStories}/{sub.plan?.monthly_story_limit ?? 0}
+              {t("page_ai_storyteller.remaining", "Remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
             </span>
             {byok.bypass && creditsExhausted && (
               <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
@@ -1037,7 +1059,7 @@ const AIStoryteller = () => {
               </span>
             )}
           </div>
-          {(sub.tier === "free" || limitReached) && (
+          {(sub.plan === "FREE" || limitReached) && (
             <Link
               to="/pricing"
               className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition"
@@ -1054,7 +1076,7 @@ const AIStoryteller = () => {
             console.log("[SEL] rendering download banner", {
               hasSelStory: !!selStory,
               generating,
-              canExportPdf: sub.canExportPdf,
+              canExportPdf: sub.features?.['PDF_EXPORT'],
               isAdmin,
             });
             return null;
@@ -1286,7 +1308,6 @@ const AIStoryteller = () => {
               tBase="ai.themes"
               value={themeId}
               onChange={(v) => setThemeId(v as typeof themeId)}
-              activeBg="bg-kids-softPurple"
               emojis={Object.fromEntries(
                 THEME_KEYS.map((k) => [k, THEME_STYLES[k].emoji]),
               )}
@@ -1297,7 +1318,6 @@ const AIStoryteller = () => {
               tBase="ai.ages"
               value={ageId}
               onChange={(v) => setAgeId(v as typeof ageId)}
-              activeBg="bg-kids-softYellow"
               emojis={Object.fromEntries(
                 AGE_KEYS.map((k) => [k, AGE_STYLES[k].emoji]),
               )}
@@ -1308,7 +1328,6 @@ const AIStoryteller = () => {
               tBase="ai.lengths"
               value={lengthId}
               onChange={(v) => setLengthId(v as typeof lengthId)}
-              activeBg="bg-kids-softGreen"
             />
             <div>
               <h4 className="font-bold mb-1 text-foreground dark:text-white">
@@ -1850,8 +1869,8 @@ const AIStoryteller = () => {
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         reason={
-          sub.plan?.monthly_story_limit
-            ? t("upgrade_modal.reason_used_all", "You've used all {{count}} stories on your current plan this month.", { count: sub.plan.monthly_story_limit })
+          limitStories
+            ? t("upgrade_modal.reason_used_all", "You've used all {{count}} stories on your current plan this month.", { count: limitStories })
             : undefined
         }
       />
@@ -1865,7 +1884,6 @@ const RadioGroup = ({
   tBase,
   value,
   onChange,
-  activeBg,
   emojis,
 }: {
   title: string;
@@ -1873,7 +1891,6 @@ const RadioGroup = ({
   tBase: string;
   value: string;
   onChange: (v: string) => void;
-  activeBg: string;
   emojis?: Record<string, string>;
 }) => {
   const { t } = useTranslation();

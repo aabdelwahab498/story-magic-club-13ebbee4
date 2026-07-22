@@ -82,8 +82,9 @@ export default function AdminAuditLogsPage() {
       });
       setRows(res.rows);
       setTotal(res.total);
-    } catch (e: any) {
-      toast.error(e?.message === "not_authenticated" ? "Please sign in" : "Failed to load audit logs");
+    } catch (e) {
+      const err = e as { message?: string } | null;
+      toast.error(err?.message === "not_authenticated" ? "Please sign in" : "Failed to load audit logs");
     }
     setLoading(false);
   };

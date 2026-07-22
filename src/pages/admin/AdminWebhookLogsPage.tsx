@@ -8,11 +8,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
+type WebhookPayload = {
+  data?: {
+    id?: string;
+    subscription_id?: string;
+    checkout?: {
+      id?: string;
+    };
+  };
+};
+
 type Event = {
   id: string;
   event_id: string;
   event_type: string;
-  payload: any;
+  payload: WebhookPayload | null | undefined;
   processed_at: string | null;
   error: string | null;
   created_at: string;
@@ -113,7 +123,7 @@ const AdminWebhookLogsPage = () => {
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
+          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
           className="rounded-lg border-2 border-muted bg-background px-3 py-2 text-sm"
         >
           <option value="all">{t("admin_webhooks.all", "All statuses")}</option>

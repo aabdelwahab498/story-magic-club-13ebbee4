@@ -144,8 +144,9 @@ const CheckoutOrder = () => {
           userId: user.id,
           successPath: "/account/subscription?paddle=success",
         });
-      } catch (err: any) {
-        toast.error(err?.message ?? "checkout_failed");
+      } catch (err) {
+        const e = err as { message?: string } | null;
+        toast.error(e?.message ?? "checkout_failed");
       }
       return;
     }

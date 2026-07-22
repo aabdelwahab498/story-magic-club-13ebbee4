@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
 import {
   Loader2,
   CheckCircle2,
@@ -38,7 +37,6 @@ const WORKFLOWS: { kind: N8nWorkflowKind; label: string; pathField: keyof N8nSet
 ];
 
 export default function AdminN8nIntegrationPage() {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<N8nSettings | null>(null);

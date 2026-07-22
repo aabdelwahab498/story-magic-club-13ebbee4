@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+// Exports navigation components and style constants.
 import * as React from "react"
 import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu"
 import { cva } from "class-variance-authority"

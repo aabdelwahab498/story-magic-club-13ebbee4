@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Volume2, Trash2, Play, RefreshCw, Save, Sparkles } from "lucide-react";
@@ -68,7 +66,6 @@ const CHARACTER_OPTIONS = [
 const PAGE_SIZE = 10;
 
 export default function AdminAudioPage() {
-  const { t } = useTranslation();
   const { overrides, update } = useAdminTrialOverrides();
   const [settings, setSettings] = useState<AudioSettings>(readSettings);
   const [rows, setRows] = useState<AudioRow[]>([]);

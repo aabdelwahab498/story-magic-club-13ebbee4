@@ -109,7 +109,7 @@ const BlogSubmit = () => {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      const localizedField = (text: string) => ({ [lang]: text, en: text } as any);
+      const localizedField = (text: string): Record<string, string> => ({ [lang]: text, en: text });
       const saved = await submitBlogPost({
         slug: finalSlug,
         category_id: categoryId === "none" ? null : categoryId,
@@ -132,9 +132,10 @@ const BlogSubmit = () => {
       setAuthorName("");
       setTagsInput("");
       setMySubmissions((prev) => [saved, ...prev]);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message ?? t("blog_submit.submit_failed", "Submission failed"));
+      const e = err as { message?: string } | null;
+      toast.error(e?.message ?? t("blog_submit.submit_failed", "Submission failed"));
     } finally {
       setSubmitting(false);
     }
