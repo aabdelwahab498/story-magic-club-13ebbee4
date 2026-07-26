@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { UserContext } from '../../rbac/interfaces/user-context.interface.js';
 import { StoriesService } from '../stories.service.js';
 import { StoryStatus } from '../enums/story-status.enum.js';
@@ -24,6 +24,7 @@ export class StoryLifecycleManager {
   };
 
   constructor(
+    @Inject(forwardRef(() => StoriesService))
     private readonly storiesService: StoriesService,
     private readonly logger: StoryLifecycleLogger,
     private readonly events: StoryLifecycleEvents,

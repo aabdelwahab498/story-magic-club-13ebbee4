@@ -7,6 +7,8 @@ import { IllustrationService } from './illustration/illustration.service.js';
 import { SceneExtractorService } from './illustration/scene-extractor.service.js';
 import { IllustrationPromptBuilder } from './illustration/illustration-prompt.builder.js';
 import { GoogleImageProvider } from './providers/google-image.provider.js';
+import { MockIllustrationProvider } from './providers/mock-illustration.provider.js';
+import { IllustrationProviderFactory } from './providers/illustration-provider.factory.js';
 import { MediaConfigService } from './media.config.js';
 import { CharacterBibleService } from './character/character.service.js';
 import { CharacterExtractor } from './character/character.extractor.js';
@@ -14,6 +16,7 @@ import { IllustratedStoryExportService } from './export/illustrated-story-export
 import { CreditsModule } from '../credits/credits.module.js';
 import { UsageModule } from '../usage/usage.module.js';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js';
+import { PdfExportService } from '../pdf/pdf.service.js';
 
 // Audio Components
 import { AudioController } from './audio.controller.js';
@@ -33,10 +36,13 @@ import { AudioProviderFactory } from './providers/audio/audio-provider.factory.j
     SceneExtractorService,
     IllustrationPromptBuilder,
     GoogleImageProvider,
+    MockIllustrationProvider,
+    IllustrationProviderFactory,
     MediaConfigService,
     CharacterBibleService,
     CharacterExtractor,
     IllustratedStoryExportService,
+    PdfExportService,
     // Audio Providers & Service
     AudioService,
     EdgeAudioProvider,

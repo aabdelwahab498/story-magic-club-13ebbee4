@@ -12,8 +12,8 @@ services:
 
   backend-core:
     build:
-      context: ./backend-core
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend-core/Dockerfile
     container_name: najmah-backend-core
     restart: always
     environment:
@@ -25,6 +25,7 @@ services:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost}
       - PYTHON_AI_URL=http://ai-service:8000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
       - "3000:3000"
     depends_on:
@@ -40,6 +41,7 @@ services:
       - PORT=8000
       - HOST=0.0.0.0
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
       - "8000:8000"
 

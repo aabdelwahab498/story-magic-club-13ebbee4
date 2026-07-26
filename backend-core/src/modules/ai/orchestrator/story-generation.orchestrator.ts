@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { forwardRef, Injectable, Logger, Inject } from '@nestjs/common';
 import { UserContext } from '../../rbac/interfaces/user-context.interface.js';
 import { StoriesService } from '../../stories/stories.service.js';
 import { ChildrenService } from '../../children/children.service.js';
@@ -15,9 +15,11 @@ export class StoryGenerationOrchestrator {
   private readonly logger = new Logger(StoryGenerationOrchestrator.name);
 
   constructor(
+    @Inject(forwardRef(() => StoriesService))
     private readonly storiesService: StoriesService,
     private readonly childrenService: ChildrenService,
     @Inject(AI_GATEWAY) private readonly aiGateway: IAIGateway,
+    @Inject(forwardRef(() => StoryLifecycleManager))
     private readonly lifecycleManager: StoryLifecycleManager,
     private readonly metricsService: StoryMetricsService,
   ) {}
