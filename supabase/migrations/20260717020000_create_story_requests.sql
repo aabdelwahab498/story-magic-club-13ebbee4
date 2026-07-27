@@ -11,7 +11,7 @@ CREATE TYPE story_status AS ENUM (
 );
 
 -- Create the story_requests table
-CREATE TABLE story_requests (
+CREATE TABLE IF NOT EXISTS story_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   child_id UUID NOT NULL REFERENCES child_profiles(id) ON DELETE CASCADE,

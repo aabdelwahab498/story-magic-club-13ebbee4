@@ -12,7 +12,7 @@ BEGIN
       email_change_token_new, email_change
     ) VALUES (
       '00000000-0000-0000-0000-000000000000', v_uid, 'authenticated', 'authenticated',
-      'demo-admin@najmah.app', crypt('NajmahDemo2026!', gen_salt('bf')),
+      'demo-admin@najmah.app', extensions.crypt('NajmahDemo2026!', extensions.gen_salt('bf')),
       now(),
       jsonb_build_object('provider','email','providers', jsonb_build_array('email')),
       jsonb_build_object('display_name','Najmah Demo Admin','preferred_language','en'),
@@ -24,7 +24,7 @@ BEGIN
       'email', v_uid::text, now(), now(), now());
   ELSE
     UPDATE auth.users
-       SET encrypted_password = crypt('NajmahDemo2026!', gen_salt('bf')),
+       SET encrypted_password = extensions.crypt('NajmahDemo2026!', extensions.gen_salt('bf')),
            email_confirmed_at = COALESCE(email_confirmed_at, now()),
            updated_at = now()
      WHERE id = v_uid;

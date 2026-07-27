@@ -1,6 +1,6 @@
 -- 1. Create tables
 
-CREATE TABLE public.subscription_plans (
+CREATE TABLE IF NOT EXISTS public.subscription_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE public.plan_limits (
     UNIQUE (plan_id, limit_key)
 );
 
-CREATE TABLE public.user_subscriptions (
+CREATE TABLE IF NOT EXISTS public.user_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     plan_id UUID NOT NULL REFERENCES public.subscription_plans(id) ON DELETE RESTRICT,
@@ -91,10 +91,10 @@ DECLARE
     premium_plan_id UUID := gen_random_uuid();
 BEGIN
     -- Insert Plans
-    INSERT INTO public.subscription_plans (id, name, slug, description)
+    INSERT INTO public.subscription_plans (id, tier, name, slug, description)
     VALUES 
-        (free_plan_id, 'Free', 'FREE', 'Basic access to Najmah AI Story Studio'),
-        (premium_plan_id, 'Premium', 'PREMIUM', 'Full access with higher limits and premium features');
+        (free_plan_id, 'FREE', jsonb_build_object('en','Free'), 'FREE', jsonb_build_object('en','Basic access to Najmah AI Story Studio')),
+        (premium_plan_id, 'PREMIUM', jsonb_build_object('en','Premium'), 'PREMIUM', jsonb_build_object('en','Full access with higher limits and premium features'));
 
     -- Insert Free Plan Features
     INSERT INTO public.plan_features (plan_id, feature_key, enabled)
