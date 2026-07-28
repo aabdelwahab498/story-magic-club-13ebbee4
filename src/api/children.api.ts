@@ -114,7 +114,13 @@ export const childrenApi = {
   },
 
   updateChild: async (id: string, payload: UpdateChildProfileDto): Promise<ChildProfile> => {
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      name?: string;
+      age?: number;
+      preferred_language?: string;
+      reading_level?: string;
+      emotional_focus?: string[];
+    } = {};
     if (payload.name !== undefined) patch.name = payload.name;
     if (payload.age !== undefined) patch.age = payload.age;
     if (payload.language !== undefined) patch.preferred_language = payload.language;
