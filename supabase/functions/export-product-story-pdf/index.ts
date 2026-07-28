@@ -161,12 +161,14 @@ serve(async (req) => {
     // Reuse the current illustrated version immediately. Older text-only files
     // live under legacy paths above; v4 is only written by this illustrated flow.
     if (!force) {
-      const { data: pub } = admin.storage.from("story-pdfs").getPublicUrl(path);
+      const { data: signedExisting } = await admin.storage.from("story-pdfs").createSignedUrl(path, 3600);
       try {
-        const head = await fetch(pub.publicUrl, { method: "HEAD", cache: "no-store" });
-        const size = Number(head.headers.get("content-length") || "0");
-        if (head.ok && size > 5_000) {
-          return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, reused: true }, 200);
+        const head = signedExisting?.signedUrl
+          ? await fetch(signedExisting.signedUrl, { method: "HEAD", cache: "no-store" })
+          : null;
+        const size = Number(head?.headers.get("content-length") || "0");
+        if (head?.ok && size > 5_000) {
+          return json({ pdfUrl: signedExisting!.signedUrl, reused: true }, 200);
         }
         if (head.ok) {
           // Small/text-only cached file — remove it so we regenerate cleanly.
@@ -317,8 +319,14 @@ serve(async (req) => {
       console.error("upload", upErr);
       return json({ error: "upload_failed" }, 500);
     }
-    const { data: pub } = admin.storage.from("story-pdfs").getPublicUrl(path);
-    return json({ pdfUrl: `${pub.publicUrl}?v=${Date.now()}`, pages: pages.length }, 200);
+    const { data: signedNew, error: signErr } = await admin.storage
+      .from("story-pdfs")
+      .createSignedUrl(path, 3600);
+    if (signErr || !signedNew?.signedUrl) {
+      console.error("sign", signErr);
+      return json({ error: "sign_url_failed" }, 500);
+    }
+    return json({ pdfUrl: signedNew.signedUrl, pages: pages.length }, 200);
   } catch (e) {
     console.error("export-product-story-pdf error", e);
     return json({ error: e instanceof Error ? e.message : "unknown" }, 500);
