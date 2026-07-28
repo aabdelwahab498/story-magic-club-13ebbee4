@@ -12,7 +12,7 @@ const Footer = () => {
   return (
     <footer className="relative z-10 mt-12 border-t-2 border-kids-softPurple dark:border-primary/30 bg-white/80 dark:bg-card/70 backdrop-blur rounded-t-3xl">
       <div className="container mx-auto px-4 sm:px-6 py-8 flex flex-col items-center gap-5">
-        <Link to="/" className="flex items-center gap-2 group" {...sfx}>
+        <Link to="/" className="flex items-center gap-2 group" onMouseEnter={sfx.onMouseEnter} onClick={sfx.onClick}>
           <img
             src={najmahLogoFull}
             alt={t("app.name")}
