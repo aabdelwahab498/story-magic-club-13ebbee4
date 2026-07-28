@@ -90,26 +90,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("@supabase") || id.includes("supabase")) {
-              return "vendor-supabase";
-            }
-            if (id.includes("react") || id.includes("scheduler")) {
-              return "vendor-react";
-            }
-            if (id.includes("lucide")) {
-              return "vendor-icons";
-            }
-            if (id.includes("recharts") || id.includes("d3")) {
-              return "vendor-charts";
-            }
-            return "vendor";
-          }
-        },
-      },
-    },
+    // No custom manualChunks: hand-splitting vendor code produced circular
+    // chunk initialisation ("Cannot access X before initialization") and a
+    // blank page in production builds. Rollup's default splitting is safe.
+    chunkSizeWarningLimit: 2000,
   },
+
+
 }));
