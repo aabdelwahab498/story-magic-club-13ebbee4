@@ -50,21 +50,21 @@ describe.skipIf(!ENABLE)(
       it(`${fn} returns 403 trigger_required when trigger is missing`, async () => {
         const r = await post(fn, { storyId: "test", pages: [] });
         expect(r.status).toBe(403);
-        const body = await r.json().catch(() => ({}));
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
         expect(body?.error).toBe("trigger_required");
       });
 
       it(`${fn} returns 403 trigger_required when trigger is mismatched`, async () => {
         const r = await post(fn, { storyId: "test", pages: [], trigger: "system" });
         expect(r.status).toBe(403);
-        const body = await r.json().catch(() => ({}));
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
         expect(body?.error).toBe("trigger_required");
       });
 
       it(`${fn} returns 403 trigger_required when trigger is the wrong type`, async () => {
         const r = await post(fn, { storyId: "test", pages: [], trigger: 1 });
         expect(r.status).toBe(403);
-        const body = await r.json().catch(() => ({}));
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
         expect(body?.error).toBe("trigger_required");
       });
     }

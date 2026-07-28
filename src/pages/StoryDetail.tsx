@@ -19,7 +19,7 @@ import { useStory } from "@/hooks/useStories";
 import { Film, Wand2 } from "lucide-react";
 import DownloadNowButton from "@/components/story/DownloadNowButton";
 
-interface _DBStory {
+export interface DBStory {
   id: string;
   title: Multilingual;
   description: Multilingual;
