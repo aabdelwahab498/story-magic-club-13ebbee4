@@ -10,6 +10,7 @@ import AdPlaceholder from "./AdPlaceholder";
 import OfflineBanner from "./OfflineBanner";
 import SwUpdateIndicator from "./SwUpdateIndicator";
 import { useTheme } from "@/hooks/useTheme";
+import ErrorBoundary from "./ErrorBoundary";
 
 const Layout = () => {
   const { theme } = useTheme();
@@ -37,7 +38,9 @@ const Layout = () => {
       <OfflineBanner />
 
       <LanguageSuggestionBanner />
-      <Navigation />
+      <ErrorBoundary label="navigation">
+        <Navigation />
+      </ErrorBoundary>
       {/* Social icons in the top-right corner — desktop only. Tablet/mobile users find them in the footer. */}
       <div className="container mx-auto px-4 sm:px-6 mt-2 relative z-10 hidden lg:flex justify-end">
         <SocialMediaIcons
@@ -48,7 +51,9 @@ const Layout = () => {
         />
       </div>
       <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 animate-fade-in relative z-10 flex-1 w-full pb-24 lg:pb-8">
-        <Outlet />
+        <ErrorBoundary label="page">
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <AdPlaceholder />
       <Footer />

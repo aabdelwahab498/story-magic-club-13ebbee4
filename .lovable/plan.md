@@ -1,91 +1,39 @@
-## الهدف
-تحويل محور التصدير في Najmah Story Studio إلى مسار إنتاجي ثابت لملفات TXT/PDF/MP3 داخل التطبيق فقط، بدون n8n، مع تحميل تلقائي، حالات انتظار، أخطاء واضحة، واختبارات فعلية.
+## سبب الشاشة السوداء (مؤكَّد بالفحص)
 
-## التشخيص الحالي
-- الواجهة ما زالت تستخدم أسماء وبادجات n8n (`N8nExportBar`, `useN8nExport`, `n8nExportApi`) رغم أن المطلوب إلغاء n8n بالكامل.
-- زر التصدير الجديد يرسل `storyId` خطأ: يستخدم `selStory.id` بينما القصة ترجع `story_id`، لذلك الصادرات قد تُسجل بدون ربط صحيح بالقصة.
-- PDF الحالي يعتمد على `Helvetica` القياسي في `pdf-lib`، وهذا يفشل أو يشوّه العربية/Unicode، وهو سبب محتمل لأخطاء `pdf_pipeline_failed`.
-- MP3 الحالي يرسل النص كاملًا في طلب TTS واحد؛ القصص الطويلة غالبًا تتجاوز حدود مزود الصوت وتنتج `tts_pipeline_failed` أو 502.
-- كاش الصوت يكتب provider باسم غير مطابق لقيد قاعدة البيانات (`google-tts` بدل القيم المسموحة)، ما يجعل الكاش غير موثوق.
-- وظيفة حالة n8n القديمة قد تعرض للمستخدم أن n8n مستخدم/مفعّل، وهذا يناقض القرار النهائي.
-- توجد مسارات تصدير مزدوجة: أزرار داخل `SelStoryViewer` ومسار toolbar منفصل، ما يسبب اختلاف السلوك بين PDF/MP3.
+```text
+PAGEERROR: children.find is not a function
+  at ChildPicker (src/components/ChildPicker.tsx)
+  at Navigation → Layout → RenderedRoute
+body text length = 0
+```
+
+1. **مصدر بيانات خاطئ**: `src/api/children.api.ts` ينادي `apiClient('/users/me/children')`، و`src/api/client.ts` يستخدم `VITE_API_URL || '/api/v2'` — خادم NestJS (`backend-core`) غير مُشغَّل، فيرجع الطلب `index.html` (نص) بدل مصفوفة، و`children.find(...)` داخل `useActiveChild` يرمي استثناء.
+2. **لا يوجد Error Boundary**: `ChildPicker` داخل `Navigation` داخل `Layout` → الاستثناء يُفرّغ شجرة React كلها → شاشة سوداء في كل الصفحات.
+
+جدول `child_profiles` موجود فعلًا في Lovable Cloud: `id, parent_user_id, name, age, avatar, preferred_language, emotional_focus, bedtime_preferences, reading_level` (وعليه 5 سياسات RLS).
 
 ## خطة الإصلاح
 
-### 1) تنظيف الواجهة من n8n وتوحيد أزرار التصدير
-- إعادة تسمية الطبقة الأمامية إلى أسماء محايدة مثل `StoryExportBar`, `useStoryExport`, `storyExportApi`.
-- إزالة استدعاء `n8n-integration-status` والباجات التي تعرض n8n/local.
-- الإبقاء على أزرار TXT/PDF/MP3 فقط بحالات واضحة:
-  - جاري تجهيز TXT
-  - جاري إنشاء PDF
-  - جاري تسجيل MP3
-  - فشل مع زر إعادة المحاولة
-- إصلاح `storyId` ليستخدم `selStory.story_id`.
-- توحيد download handling بحيث أي `download_url` يرجع من الخلفية يتم تنزيله تلقائيًا.
+### 1. تحويل بيانات الأطفال إلى Lovable Cloud
+إعادة كتابة `src/api/children.api.ts` ليستعمل عميل Supabase على `child_profiles` بدل `apiClient`:
+- `getChildren` → `select` مُقيَّد بـ `parent_user_id = auth.uid()`
+- `getChild` / `createChild` / `updateChild` / `deleteChild` بنفس التواقيع الحالية
+- طبقة تحويل بين أعمدة الجدول و`ChildProfile` (`preferred_language ↔ language`، `emotional_focus ↔ emotionalGoals`، `reading_level ↔ readingLevel`) حتى لا تتغيّر أي شاشة مستدعية
+- مراجعة سياسات RLS الحالية والتأكد أنها تسمح لولي الأمر بأطفاله فقط
 
-### 2) إصلاح TXT export
-- إبقاء TXT سريعًا ومباشرًا داخل الخلفية.
-- التحقق من وجود نص وعنوان ولغة.
-- ربط السجل بـ `story_id` الصحيح عند توفره.
-- إرجاع response موحد:
-```json
-{
-  "success": true,
-  "export_id": "...",
-  "download_url": "...",
-  "file_name": "...txt",
-  "file_size": 123,
-  "provider": "local"
-}
-```
+### 2. تحصين ضد الانهيار الكامل
+- `useChildren` / `useActiveChild`: ضمان أن القيمة دائمًا مصفوفة (`Array.isArray(data) ? data : []`)
+- إضافة `ErrorBoundary` حول محتوى `Layout` والـ `Suspense` في `App.tsx` مع رسالة خطأ مقروءة وزر "إعادة المحاولة" بدل الشاشة السوداء
 
-### 3) إصلاح PDF export جذريًا
-- جعل PDF Unicode-safe بدل `Helvetica` فقط، خصوصًا العربية.
-- إضافة fallback آمن لو فشل تضمين الصور: لا يفشل التصدير كله بسبب صورة واحدة.
-- تقليل مخاطر resource limits:
-  - حد أقصى لعدد الصور.
-  - تخطي الصور الكبيرة جدًا تلقائيًا.
-  - جعل PDF النصي يعمل دائمًا حتى بدون صور.
-- توحيد الأخطاء إلى أكواد واضحة مثل:
-  - `pdf_render_failed`
-  - `pdf_font_failed`
-  - `storage_upload_failed`
-- التأكد من أن اللغة العربية تظهر باتجاه صحيح قدر الإمكان، أو على الأقل لا تكسر إنشاء الملف.
+### 3. المسارات الأخرى المعتمدة على نفس الخادم المفقود
+`src/api/stories.api.ts` و`auth.api.ts` تُستهلك عبر `useStories` و`useStoryGeneration` و`useRoles` بنفس الأسلوب الهش — تحصين أماكن الاستهلاك (قوائم فارغة + حالة خطأ ظاهرة) دون تغيير سلوك أي شاشة تعمل، وتأجيل نقلها الكامل إلى Cloud لخطوة لاحقة.
 
-### 4) إصلاح MP3 export
-- تقسيم النص إلى chunks حسب الجمل/الفقرات بدل طلب TTS واحد للنص كاملًا.
-- توليد الصوت لكل chunk ثم دمجه بترتيبه.
-- إصلاح provider في `audio_cache` إلى قيمة متوافقة مع قاعدة البيانات (`google`).
-- التقاط أخطاء cache/upsert بدل تجاهلها.
-- استخدام cache hash مبني على النص + اللغة + الصوت + السرعة.
-- إرجاع أخطاء مفهومة عند عدم ضبط TTS أو تجاوز الحدود.
+### 4. تنظيف تحذير React
+إزالة/تصحيح تمرير خاصية `playSound` إلى عنصر `<button>` في `src/pages/Index.tsx`.
 
-### 5) توحيد مسارات التصدير في التطبيق
-- جعل أزرار التصدير داخل `SelStoryViewer` تستخدم نفس API الموحد أو إزالة التكرار السلوكي.
-- منع وجود مسارين مختلفين لـ PDF/MP3 ينتجان نتائج مختلفة.
-- الحفاظ على gating الحالي للاشتراكات إن كان مطلوبًا، لكن مع رسالة واضحة بدل فشل تقني.
+### 5. التحقق
+- إعادة فتح التطبيق في متصفح فعلي والتقاط لقطات لـ `/`، `/stories`، `/ai-storyteller`، `/family` والتأكد من صفر `pageerror`
+- تشغيل فحص الأنواع
 
-### 6) تحديث وظائف الخلفية بدون n8n
-- إما إنشاء وظائف بأسماء إنتاجية جديدة:
-  - `export-story-txt`
-  - `export-story-audio`
-  - استخدام/تحديث `export-story-pdf`
-- أو إبقاء أسماء الوظائف القديمة مؤقتًا كـ compatibility فقط، لكن الواجهة لن تعرض أو تستخدم أي مفهوم n8n.
-- لا استخدام webhooks ولا mock ولا external workflow.
-
-### 7) الاختبار والتحقق
-- تشغيل فحص TypeScript.
-- اختبار وظائف الخلفية مباشرة بمدخلات صغيرة:
-  - TXT لقصة قصيرة.
-  - PDF لقصة عربية/إنجليزية قصيرة.
-  - MP3 لنص قصير ثم نص أطول مقسم.
-- فحص سجلات الخلفية بعد الاختبار.
-- اختبار واجهة المستخدم عبر المتصفح:
-  - توليد/فتح قصة.
-  - ظهور أزرار TXT/PDF/MP3.
-  - loading state لكل زر.
-  - تحميل الملف تلقائيًا عند النجاح.
-  - ظهور رسالة مفهومة عند الفشل.
-
-## الناتج المتوقع
-بعد التنفيذ، يصبح مسار التصدير مستقلًا بالكامل داخل Lovable Cloud، بدون n8n، ويدعم TXT/PDF/MP3 بطريقة موحدة وقابلة للاختبار، مع تقليل أخطاء 502 وresource limit خصوصًا في PDF وMP3.
+## ملاحظة
+لن يتم حذف `backend-core` ولا تغيير أي شيء في تصدير TXT/PDF/MP3 — العمل محصور في إصلاح انهيار الواجهة ومصدر بيانات الأطفال.
