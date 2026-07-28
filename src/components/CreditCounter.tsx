@@ -3,13 +3,14 @@ import { Sparkles, Loader2, Award } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useSubscription } from "@/hooks/useSubscription";
+import { getLocalized } from "@/lib/multilingual";
 
 /**
  * Credit counter pill for the navbar.
  * Data source: useCredits() -> fetches from backend API.
  */
 const CreditCounter = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { balance, isLoading: creditsLoading, error: creditsError } = useCredits();
   const { plan, tier, loading: planLoading } = useSubscription();
@@ -34,7 +35,7 @@ const CreditCounter = () => {
       >
         <Award className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Plan:</span>
-        <span>{planLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (plan?.name ?? tier)}</span>
+        <span>{planLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (getLocalized(plan?.name, i18n.language) || tier)}</span>
       </div>
 
       {/* Credit Counter */}

@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
+import { getLocalized } from "@/lib/multilingual";
 
 /**
  * Compact monthly usage summary. Reads everything from the subscription
@@ -28,7 +29,7 @@ export const UsageSummary = () => {
   return (
     <div className="p-3 text-sm">
       <div className="font-bold text-xs uppercase tracking-wide opacity-60 mb-2">
-        {isAr ? "استخدامك هذا الشهر" : "Usage This Month"} - {plan?.name ?? tier}
+        {isAr ? "استخدامك هذا الشهر" : "Usage This Month"} - {getLocalized(plan?.name, i18n.language) || tier}
       </div>
 
       <div className="space-y-3">

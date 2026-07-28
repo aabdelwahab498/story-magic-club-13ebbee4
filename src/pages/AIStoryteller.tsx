@@ -11,6 +11,7 @@ import ReadingMode from "@/components/ReadingMode";
 import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild } from "@/lib/childProfilesApi";
+import { getLocalized } from "@/lib/multilingual";
 import { planSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
 import SelStoryViewer from "@/components/SelStoryViewer";
@@ -754,8 +755,6 @@ const AIStoryteller = () => {
       const res = await generateClassicIllustrations({
         scenes: trimmed,
         character: t(`ai.characters.${characterId}`),
-        ageId,
-        language: lang,
       }, { trigger: "user", source: "AIStoryteller.generateSceneIllustrations" });
 
       setIllustrations(res.illustrations);
@@ -787,6 +786,7 @@ const AIStoryteller = () => {
       const res = await createStoryMut({
         childId: activeChild?.id || '',
         selGoal: "Classic",
+        theme: t(`ai.themes.${themeId}`),
         language: lang,
         preferences: {
           character: t(`ai.characters.${characterId}`),
@@ -1032,7 +1032,7 @@ const AIStoryteller = () => {
         }`}>
           <div className="flex items-center gap-2 text-sm font-bold">
             <Crown className="h-4 w-4 text-amber-400" />
-            <span className="capitalize">{sub.plan?.name ?? sub.tier}</span>
+            <span className="capitalize">{getLocalized(sub.plan?.name, lang) || sub.tier}</span>
             <span className="opacity-70">·</span>
             <span>
               {t("page_ai_storyteller.remaining", "Remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
