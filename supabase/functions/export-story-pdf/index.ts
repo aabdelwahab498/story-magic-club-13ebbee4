@@ -419,7 +419,8 @@ Deno.serve(async (req) => {
       return friendly("sign_url_failed", 500);
     }
 
-    const publicUrl = admin.storage.from(PDF_BUCKET).getPublicUrl(objectPath).data.publicUrl;
+    // Bucket is private: reuse the signed URL instead of a public URL.
+    const publicUrl = signed.data.signedUrl;
     await admin.from("exports").update({
       status: "ready",
       file_path: objectPath,
