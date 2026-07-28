@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { env } from '@/lib/env';
 
 export function useUpgrade() {
   const { session } = useAuth();
@@ -14,7 +15,7 @@ export function useUpgrade() {
 
     try {
       setIsUpgrading(true);
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api/v2/billing/checkout`, {
+      const res = await fetch(`${env.supabaseUrl}/functions/v1/api/v2/billing/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

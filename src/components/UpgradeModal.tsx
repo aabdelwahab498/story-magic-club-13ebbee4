@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { env } from "@/lib/env";
 
 interface PlanAPI {
   id: string;
@@ -30,7 +31,7 @@ const fetchBackendPlans = async (token?: string): Promise<PlanAPI[]> => {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api/v2/subscriptions/plans`, { headers });
+  const res = await fetch(`${env.supabaseUrl}/functions/v1/api/v2/subscriptions/plans`, { headers });
   if (!res.ok) throw new Error("Failed to fetch plans");
   return res.json();
 };
