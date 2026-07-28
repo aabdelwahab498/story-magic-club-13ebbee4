@@ -90,27 +90,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-          // Keep the whole React runtime (and anything that re-exports it)
-          // in ONE chunk. Splitting it caused `createContext` of undefined.
-          if (
-            /node_modules\/(react|react-dom|scheduler|react-is|use-sync-external-store)\//.test(id)
-          ) {
-            return "vendor-react";
-          }
-          if (/node_modules\/(recharts|d3-[^/]+|victory-[^/]+)\//.test(id)) {
-            return "vendor-charts";
-          }
-          if (/node_modules\/@supabase\//.test(id)) {
-            return "vendor-supabase";
-          }
-          return "vendor";
-        },
-      },
-    },
+    // No custom manualChunks: hand-splitting vendor code produced circular
+    // chunk initialisation ("Cannot access X before initialization") and a
+    // blank page in production builds. Rollup's default splitting is safe.
+    chunkSizeWarningLimit: 2000,
   },
+
 
 }));
