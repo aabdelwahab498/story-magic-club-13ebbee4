@@ -14,15 +14,14 @@ export interface SecureUploadOptions {
   bucket: "user-files" | "drawing-entries" | "payment-proofs" | "video-uploads";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _CLIENT_MAX = {
+export const CLIENT_MAX = {
   "user-files": 25 * 1024 * 1024,
   "drawing-entries": 10 * 1024 * 1024,
   "payment-proofs": 10 * 1024 * 1024,
   "video-uploads": 100 * 1024 * 1024,
 } as const;
 
-const _ACCEPT_BY_BUCKET = {
+export const ACCEPT_BY_BUCKET = {
   "user-files": ["image/png", "image/jpeg", "image/webp", "application/pdf"],
   "drawing-entries": ["image/png", "image/jpeg", "image/webp"],
   "payment-proofs": ["image/png", "image/jpeg", "image/webp", "application/pdf"],

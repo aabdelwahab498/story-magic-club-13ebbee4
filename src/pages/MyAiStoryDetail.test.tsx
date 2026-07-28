@@ -3,12 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import MyAiStoryDetail from "./MyAiStoryDetail";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import React from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { useIllustrations } from "@/hooks/useIllustrations";
 import { useGenerateIllustrations, useRetryIllustrations, useRegeneratePageIllustration, useExportIllustratedStory } from "@/hooks/useGenerateIllustrations";
 import { useStoryAudio, useGenerateAudio, useRetryAudio, useDeleteAudio } from "@/hooks/useStoryAudio";
-import { useAuth } from "@/hooks/useAuth";
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {

@@ -93,8 +93,7 @@ export class StoryExportError extends Error {
 
 type EdgeErrorBody = { error?: string; code?: string; retry_after?: number; message?: string };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function _readEdgeError(error: unknown): Promise<StoryExportError> {
+export async function readEdgeError(error: unknown): Promise<StoryExportError> {
   let code = "network_error";
   let message = (error as Error)?.message;
   let status: number | undefined;

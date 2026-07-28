@@ -88,7 +88,7 @@ const Pricing = () => {
         {(() => {
           const list = q.data ?? [];
           return list.map((plan) => {
-            const isCurrent = currentPlanSlug === plan.slug;
+            const isCurrent = String(currentPlanSlug) === plan.slug;
             const isPremium = plan.is_featured || plan.price_usd > 0;
             const isFree = plan.price_usd <= 0;
             const price = plan.price_usd;

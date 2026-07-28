@@ -268,7 +268,7 @@ const Store = () => {
         return;
       }
 
-      const { data, error } = result;
+      const { data, error } = result as EdgeResponse;
       // Handle rate limit (429) gracefully
       const retryAfter =
         (data?.error === "rate_limited" && Number(data?.retry_after)) ||

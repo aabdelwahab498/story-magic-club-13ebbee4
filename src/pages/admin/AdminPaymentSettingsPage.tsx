@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle, ExternalLink, CreditCard, RefreshCw, Crown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 type PaddleConfig = {
@@ -21,7 +20,7 @@ type PaddleConfig = {
 const AdminPaymentSettingsPage = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState<PaddleConfig | null>(null);
+  const [config] = useState<PaddleConfig | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const load = async () => {

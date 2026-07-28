@@ -11,10 +11,10 @@
 // tests run on every push.
 import { describe, it, expect } from "vitest";
 
-const SUPABASE_URL =
+export const SUPABASE_URL =
   (import.meta as unknown as { env: Record<string, string> }).env
     .VITE_SUPABASE_URL ?? "";
-const ANON_KEY =
+export const ANON_KEY =
   (import.meta as unknown as { env: Record<string, string> }).env
     .VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
 
@@ -28,7 +28,7 @@ const ENDPOINTS = [
 // We enable it unconditionally now that it is mocked.
 const ENABLE = true;
 
-const post = async (fn: string, body: unknown) => {
+const post = async (_fn: string, body: unknown) => {
   // We mock the backend behavior here to prevent hitting live URLs during test execution.
   const parsedBody = body as { trigger?: unknown };
   if (parsedBody.trigger !== "user") {
