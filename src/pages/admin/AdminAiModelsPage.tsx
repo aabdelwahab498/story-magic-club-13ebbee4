@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { env } from "@/lib/env";
 import {
   Sparkles,
   Image as ImageIcon,
@@ -430,13 +431,13 @@ const QuickTestSection = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+      const url = `${env.supabaseUrl}/functions/v1/ai-assistant`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: env.supabaseKey,
+          Authorization: `Bearer ${session?.access_token ?? env.supabaseKey}`,
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: prompt }],
