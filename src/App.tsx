@@ -15,6 +15,7 @@ import Index from "./pages/Index";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AudioDebugPanel } from "@/components/AudioDebugPanel";
 import PermissionGuard from "@/components/admin/PermissionGuard";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Lazy-load every non-home route so the initial bundle stays small.
 // This is the single biggest win for first-paint performance.
@@ -115,6 +116,7 @@ const App = () => (
           <AuthProvider>
             <BedtimeWatcher />
             <AdminDataSourceProvider>
+              <ErrorBoundary label="router">
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
@@ -198,6 +200,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+              </ErrorBoundary>
             </AdminDataSourceProvider>
           </AuthProvider>
         </BrowserRouter>
