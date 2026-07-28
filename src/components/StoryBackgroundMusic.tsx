@@ -12,11 +12,11 @@ interface Props {
   active: boolean;
 }
 
-export default function StoryBackgroundMusic({ theme = "friendship", mood = "calm", active }: Props) {
+export default function StoryBackgroundMusic({ active }: Props) {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioUrl] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.2);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 

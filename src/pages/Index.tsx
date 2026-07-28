@@ -128,7 +128,7 @@ const Index = () => {
             {t("app.tagline_focus")}
           </p>
           <button
-            {...sfx}
+            onMouseEnter={sfx.onMouseEnter}
             onClick={() => { sfx.playSound("sparkle"); setTrialOpen(true); }}
             className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 sm:px-7 sm:py-3 bg-gradient-to-r from-primary to-kids-pink text-white font-bold rounded-full shadow-pop hover-pop text-sm sm:text-base animate-pulse-slow"
           >
@@ -146,7 +146,7 @@ const Index = () => {
         {cards.map(({ to, img, bg, ring, titleKey, descKey, delay }) => (
           <button
             key={to}
-            {...sfx}
+            onMouseEnter={sfx.onMouseEnter}
             onClick={() => {
               sfx.playSound("sparkle");
               navigate(to);
@@ -220,7 +220,7 @@ const Index = () => {
           </h2>
           <p className="text-base sm:text-lg text-center max-w-lg mb-5 sm:mb-6 px-2">{t("home.cta_desc")}</p>
           <button
-            {...sfx}
+            onMouseEnter={sfx.onMouseEnter}
             onClick={() => {
               sfx.playSound("sparkle");
               navigate("/stories");

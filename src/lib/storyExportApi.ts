@@ -93,7 +93,7 @@ export class StoryExportError extends Error {
 
 type EdgeErrorBody = { error?: string; code?: string; retry_after?: number; message?: string };
 
-async function readEdgeError(error: unknown): Promise<StoryExportError> {
+export async function readEdgeError(error: unknown): Promise<StoryExportError> {
   let code = "network_error";
   let message = (error as Error)?.message;
   let status: number | undefined;
@@ -134,6 +134,7 @@ export async function exportStoryAsPdf(input: ExportPdfInput): Promise<ExportPdf
       exportId: "migrated_" + input.storyId,
       downloadUrl: url,
       fileName: `${input.title || "story"}.pdf`,
+      previewUrl: url,
       fileSize: 0,
       pageCount: input.pages.length,
       provider: "google",

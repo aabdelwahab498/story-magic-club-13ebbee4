@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, Loader2, Pause, Volume2, Languages, BookMarked } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getLocalized, type Multilingual } from "@/lib/multilingual";
 import { toast } from "sonner";
 import NarratorPicker from "@/components/NarratorPicker";
@@ -20,7 +19,7 @@ import { useStory } from "@/hooks/useStories";
 import { Film, Wand2 } from "lucide-react";
 import DownloadNowButton from "@/components/story/DownloadNowButton";
 
-interface DBStory {
+export interface DBStory {
   id: string;
   title: Multilingual;
   description: Multilingual;
@@ -329,8 +328,7 @@ const StoryDetail = () => {
               {isStaff && (
                 <button
                   onClick={async () => {
-                    const res = await generateNarration.mutateAsync({ storyId: story.id, language: storyLang });
-                    setStory((s) => s ? { ...s, audio_url: res.audio_url } : s);
+                    await generateNarration.mutateAsync({ storyId: story.id, language: storyLang });
                   }}
                   disabled={generateNarration.isPending}
                   className="px-6 py-3 rounded-full inline-flex items-center justify-center gap-2 bg-secondary text-secondary-foreground font-bold transition-all disabled:opacity-50"

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 export default function AdminDashboard() {
-  const { t } = useTranslation();
+  useTranslation();
   const [loading, setLoading] = useState(true);
   const [overviewData, setOverviewData] = useState<any>(null);
 
@@ -105,7 +105,7 @@ export default function AdminDashboard() {
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
-                  {subscriptionData.map((entry, index) => (
+                  {subscriptionData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

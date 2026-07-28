@@ -1,15 +1,15 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { authApi } from "@/api/auth.api";
-import { MeResponse } from "@/api/auth.api";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Session, User } from "@supabase/supabase-js";
 import { AppRole, PermissionKey } from "@/lib/rbac";
 
 /**
- * Authentication context providing session, user, and RBAC helpers.
- * Refactored to use NestJS API /auth/me instead of Supabase Auth.
+ * Authentication context backed by Lovable Cloud auth.
+ * Roles are read from the `user_roles` table (never from the profile row).
  */
 interface AuthCtx {
-  session: any | null; // Kept for backwards compatibility
-  user: any | null; // Kept for backwards compatibility
+  session: Session | null;
+  user: User | null;
   roles: AppRole[];
   permissions: PermissionKey[];
   hasPermission: (key: PermissionKey) => boolean;
@@ -25,55 +25,67 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [meData, setMeData] = useState<MeResponse | null>(null);
-  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchMe = async () => {
-    try {
-      const data = await authApi.getMe();
-      setMeData(data);
-    } catch (err) {
-      setMeData(null);
-    } finally {
-      setAuthLoading(false);
+  const loadRoles = useCallback(async (userId: string | undefined) => {
+    if (!userId) {
+      setRoles([]);
+      return;
     }
-  };
-
-  useEffect(() => {
-    fetchMe();
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+      if (error) throw error;
+      setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+    } catch {
+      setRoles([]);
+    }
   }, []);
 
-  const roles = meData?.roles || [];
-  const permissions = meData?.permissions || [];
+  useEffect(() => {
+    // Register the listener first, then read the existing session.
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setLoading(false);
+      // Defer any additional Supabase call out of the callback.
+      setTimeout(() => void loadRoles(nextSession?.user?.id), 0);
+    });
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      setLoading(false);
+      void loadRoles(data.session?.user?.id);
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, [loadRoles]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  const hasPermission = (key: PermissionKey) => permissions.includes(key);
-
   const isAdmin = hasRole("admin");
   const isEditor = hasRole("editor");
   const isStaff = isAdmin || isEditor;
 
+  // Permissions are role-derived for now; admins implicitly hold every key.
+  const permissions: PermissionKey[] = [];
+  const hasPermission = (key: PermissionKey) => isAdmin || permissions.includes(key);
+
   const signOut = async () => {
-    try {
-      await authApi.signOut();
-    } finally {
-      setMeData(null);
-    }
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setRoles([]);
   };
 
   const refreshAdmin = async () => {
-    await fetchMe();
+    await loadRoles(user?.id);
   };
-
-  // Map MeResponse to legacy user object format to avoid breaking UI components
-  const user = meData ? {
-    id: meData.id,
-    email: meData.email,
-    user_metadata: { display_name: meData.email?.split("@")[0] || "" }
-  } : null;
-
-  // Mock session object
-  const session = user ? { user } : null;
 
   return (
     <Ctx.Provider
@@ -87,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAdmin,
         isEditor,
         isStaff,
-        loading: authLoading,
+        loading,
         signOut,
         refreshAdmin,
       }}

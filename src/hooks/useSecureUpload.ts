@@ -14,14 +14,14 @@ export interface SecureUploadOptions {
   bucket: "user-files" | "drawing-entries" | "payment-proofs" | "video-uploads";
 }
 
-const CLIENT_MAX = {
+export const CLIENT_MAX = {
   "user-files": 25 * 1024 * 1024,
   "drawing-entries": 10 * 1024 * 1024,
   "payment-proofs": 10 * 1024 * 1024,
   "video-uploads": 100 * 1024 * 1024,
 } as const;
 
-const ACCEPT_BY_BUCKET = {
+export const ACCEPT_BY_BUCKET = {
   "user-files": ["image/png", "image/jpeg", "image/webp", "application/pdf"],
   "drawing-entries": ["image/png", "image/jpeg", "image/webp"],
   "payment-proofs": ["image/png", "image/jpeg", "image/webp", "application/pdf"],
@@ -32,7 +32,7 @@ const ACCEPT_BY_BUCKET = {
  * Secure upload hook: init -> PUT to temp-uploads -> finalize (validate + scan + move).
  * Returns progress + status + final signed URL.
  */
-export function useSecureUpload(opts: SecureUploadOptions) {
+export function useSecureUpload(_opts: SecureUploadOptions) {
   const [status, setStatus] = useState<SecureUploadStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);

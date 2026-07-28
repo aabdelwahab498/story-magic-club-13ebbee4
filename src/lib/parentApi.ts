@@ -1,7 +1,7 @@
 // Phase 5 — bedtime schedule + parent stats hooks.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { storiesApi, StoryResponseDto } from "@/api/stories.api";
+import { storiesApi } from "@/api/stories.api";
 import { useState, useEffect } from "react";
 export interface BedtimeSchedule {
   id: string;

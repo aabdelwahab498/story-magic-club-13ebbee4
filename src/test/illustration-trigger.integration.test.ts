@@ -11,10 +11,10 @@
 // tests run on every push.
 import { describe, it, expect } from "vitest";
 
-const SUPABASE_URL =
+export const SUPABASE_URL =
   (import.meta as unknown as { env: Record<string, string> }).env
     .VITE_SUPABASE_URL ?? "";
-const ANON_KEY =
+export const ANON_KEY =
   (import.meta as unknown as { env: Record<string, string> }).env
     .VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
 
@@ -28,7 +28,7 @@ const ENDPOINTS = [
 // We enable it unconditionally now that it is mocked.
 const ENABLE = true;
 
-const post = async (fn: string, body: unknown) => {
+const post = async (_fn: string, body: unknown) => {
   // We mock the backend behavior here to prevent hitting live URLs during test execution.
   const parsedBody = body as { trigger?: unknown };
   if (parsedBody.trigger !== "user") {
@@ -50,21 +50,21 @@ describe.skipIf(!ENABLE)(
       it(`${fn} returns 403 trigger_required when trigger is missing`, async () => {
         const r = await post(fn, { storyId: "test", pages: [] });
         expect(r.status).toBe(403);
-        const body = await r.json().catch(() => ({}));
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
         expect(body?.error).toBe("trigger_required");
       });
 
       it(`${fn} returns 403 trigger_required when trigger is mismatched`, async () => {
         const r = await post(fn, { storyId: "test", pages: [], trigger: "system" });
         expect(r.status).toBe(403);
-        const body = await r.json().catch(() => ({}));
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
         expect(body?.error).toBe("trigger_required");
       });
 
       it(`${fn} returns 403 trigger_required when trigger is the wrong type`, async () => {
         const r = await post(fn, { storyId: "test", pages: [], trigger: 1 });
         expect(r.status).toBe(403);
-        const body = await r.json().catch(() => ({}));
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
         expect(body?.error).toBe("trigger_required");
       });
     }

@@ -100,7 +100,7 @@ const AccountProfile = () => {
     openai: false,
     openrouter: false,
   });
-  const [pending, setPending] = useState<Record<ProviderId, boolean>>({
+  const [pending] = useState<Record<ProviderId, boolean>>({
     openai: false,
     openrouter: false,
   });

@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 export default function PaymentResult() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   
   const status = searchParams.get('status');
-  const transactionId = searchParams.get('transactionId');
 
   const [loading, setLoading] = useState(true);
 

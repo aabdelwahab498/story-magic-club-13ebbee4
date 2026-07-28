@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { fetchAllPlans, updatePlan, type SubscriptionPlan } from "@/lib/subscriptionApi";
-import { supabase } from "@/integrations/supabase/client";
 
 const tierColor: Record<string, string> = {
   free: "from-slate-400 to-slate-500",
@@ -26,7 +25,7 @@ export default function AdminPlansPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
+  const [seeding] = useState(false);
 
   const seedPaddle = async () => {
     toast.error("Paddle product seeding is not yet migrated to Backend Core");
