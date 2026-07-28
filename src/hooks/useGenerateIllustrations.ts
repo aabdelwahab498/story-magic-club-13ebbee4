@@ -6,7 +6,7 @@ export const useGenerateIllustrations = () => {
 
   return useMutation<CreateIllustrationResponse, Error, string>({
     mutationFn: (storyId: string) => generateIllustrations(storyId),
-    onSuccess: (data, storyId) => {
+    onSuccess: (_data, storyId) => {
       queryClient.invalidateQueries({ queryKey: ['illustrations', storyId] });
     },
   });
@@ -17,7 +17,7 @@ export const useRetryIllustrations = () => {
 
   return useMutation<CreateIllustrationResponse, Error, string>({
     mutationFn: (storyId: string) => retryIllustrations(storyId),
-    onSuccess: (data, storyId) => {
+    onSuccess: (_data, storyId) => {
       queryClient.invalidateQueries({ queryKey: ['illustrations', storyId] });
     },
   });
@@ -28,7 +28,7 @@ export const useRegeneratePageIllustration = () => {
 
   return useMutation<CreateIllustrationResponse, Error, { storyId: string; pageNumber: number }>({
     mutationFn: ({ storyId, pageNumber }) => regeneratePageIllustration(storyId, pageNumber),
-    onSuccess: (data, { storyId }) => {
+    onSuccess: (_data, { storyId }) => {
       queryClient.invalidateQueries({ queryKey: ['illustrations', storyId] });
     },
   });

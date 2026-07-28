@@ -20,7 +20,7 @@ export default function PaddleSubscriptionCard() {
   const { user } = useAuth();
   const [sub, setSub] = useState<PaddleSub | null>(null);
   const [loading, setLoading] = useState(true);
-  const [opening, setOpening] = useState(false);
+  const [opening] = useState(false);
 
   useEffect(() => {
     if (!user) return;

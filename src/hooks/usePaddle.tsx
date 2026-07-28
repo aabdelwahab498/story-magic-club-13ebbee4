@@ -1,7 +1,6 @@
 // Loads Paddle.js (v2) on demand, initializes with the public client token + env,
 // and exposes a typed wrapper for opening the overlay checkout.
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface PaddleSDK {
   __initialized__?: boolean;

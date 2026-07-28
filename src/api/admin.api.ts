@@ -2,15 +2,15 @@ import { apiClient } from './client';
 
 export const adminApi = {
   getDashboardOverview: async () => {
-    return apiClient.get('/admin/dashboard/overview');
+    return apiClient('/admin/dashboard/overview');
   },
   getUsersAnalytics: async () => {
-    return apiClient.get('/admin/users');
+    return apiClient('/admin/users');
   },
   getSubscriptionsAnalytics: async () => {
-    return apiClient.get('/admin/subscriptions');
+    return apiClient('/admin/subscriptions');
   },
   getAiUsageAnalytics: async () => {
-    return apiClient.get('/admin/usage');
+    return apiClient('/admin/usage');
   }
 };
