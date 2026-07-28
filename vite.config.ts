@@ -93,23 +93,24 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("@supabase") || id.includes("supabase")) {
-              return "vendor-supabase";
-            }
-            if (id.includes("react") || id.includes("scheduler")) {
-              return "vendor-react";
-            }
-            if (id.includes("lucide")) {
-              return "vendor-icons";
-            }
-            if (id.includes("recharts") || id.includes("d3")) {
-              return "vendor-charts";
-            }
-            return "vendor";
+          if (!id.includes("node_modules")) return;
+          // Keep the whole React runtime (and anything that re-exports it)
+          // in ONE chunk. Splitting it caused `createContext` of undefined.
+          if (
+            /node_modules\/(react|react-dom|scheduler|react-is|use-sync-external-store)\//.test(id)
+          ) {
+            return "vendor-react";
           }
+          if (/node_modules\/(recharts|d3-[^/]+|victory-[^/]+)\//.test(id)) {
+            return "vendor-charts";
+          }
+          if (/node_modules\/@supabase\//.test(id)) {
+            return "vendor-supabase";
+          }
+          return "vendor";
         },
       },
     },
   },
+
 }));
