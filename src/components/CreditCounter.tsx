@@ -12,7 +12,7 @@ const CreditCounter = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { balance, isLoading: creditsLoading, error: creditsError } = useCredits();
-  const { plan, isLoading: planLoading } = useSubscription();
+  const { plan, tier, loading: planLoading } = useSubscription();
 
   if (!user) return null;
 
@@ -34,7 +34,7 @@ const CreditCounter = () => {
       >
         <Award className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Plan:</span>
-        <span>{planLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : plan}</span>
+        <span>{planLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (plan?.name ?? tier)}</span>
       </div>
 
       {/* Credit Counter */}

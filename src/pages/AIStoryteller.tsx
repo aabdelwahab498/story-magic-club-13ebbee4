@@ -107,20 +107,6 @@ const AIStoryteller = () => {
   const byok = useByokStatus();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   
-  // Use React Query for usage
-  const { data: usage } = useQuery({
-    queryKey: ["usage-summary", session?.access_token],
-    queryFn: async () => {
-      if (!session?.access_token) return null;
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api/v2/users/me/usage`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
-      if (!res.ok) throw new Error("Failed to fetch usage");
-      return res.json();
-    },
-    enabled: !!session?.access_token
-  });
-
   const [characterId, setCharacterId] = useState<(typeof CHARACTER_KEYS)[number]>("wizard");
   const [themeId, setThemeId] = useState<(typeof THEME_KEYS)[number]>("adventure");
   const [ageId, setAgeId] = useState<(typeof AGE_KEYS)[number]>("3-5");
@@ -282,9 +268,9 @@ const AIStoryteller = () => {
     }
   }, [activeStoryId, storyStatus?.status, fullStory, statusIsError, statusError, guestMode, t]);
 
-  const limitStories = sub.limits?.['STORIES_PER_MONTH'];
-  const storiesCreated = usage?.storiesCreated || 0;
-  const creditsExhausted = !guestMode && !sub.isLoading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
+  const limitStories = sub.plan?.monthly_story_limit ?? null;
+  const storiesCreated = sub.storiesUsedThisMonth || 0;
+  const creditsExhausted = !guestMode && !sub.loading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
   const limitReached = creditsExhausted && !byok.bypass;
 
   const buildSelInput = (): SelInput => {
@@ -619,8 +605,8 @@ const AIStoryteller = () => {
   const pendingFiredRef = useRef(false);
   useEffect(() => {
     if (pendingFiredRef.current) return;
-    if (!user || sub.isLoading) return;
-    if (!sub.features?.['AUDIO_NARRATION'] || sub.plan === "FREE") return;
+    if (!user || sub.loading) return;
+    if (!sub.canAudio || sub.tier === "free") return;
     let pending: { idea?: string; narrator?: string; ts?: number } | null = null;
     try {
       const raw = localStorage.getItem("pending-story-idea");
@@ -768,7 +754,6 @@ const AIStoryteller = () => {
       const res = await generateClassicIllustrations({
         scenes: trimmed,
         character: t(`ai.characters.${characterId}`),
-        theme: t(`ai.themes.${themeId}`),
         ageId,
         language: lang,
       }, { trigger: "user", source: "AIStoryteller.generateSceneIllustrations" });
@@ -801,7 +786,6 @@ const AIStoryteller = () => {
     try {
       const res = await createStoryMut({
         childId: activeChild?.id || '',
-        theme: t(`ai.themes.${themeId}`),
         selGoal: "Classic",
         language: lang,
         preferences: {
@@ -1040,7 +1024,7 @@ const AIStoryteller = () => {
       </h2>
 
       {/* Subscription / usage banner (signed-in users only) */}
-      {user && !sub.isLoading && (
+      {user && !sub.loading && (
         <div className={`max-w-3xl mx-auto mb-4 px-4 py-3 rounded-2xl border flex flex-wrap items-center justify-between gap-3 backdrop-blur-sm ${
           limitReached
             ? "bg-red-500/15 border-red-400/40 text-foreground dark:text-white"
@@ -1048,7 +1032,7 @@ const AIStoryteller = () => {
         }`}>
           <div className="flex items-center gap-2 text-sm font-bold">
             <Crown className="h-4 w-4 text-amber-400" />
-            <span className="capitalize">{sub.plan}</span>
+            <span className="capitalize">{sub.plan?.name ?? sub.tier}</span>
             <span className="opacity-70">·</span>
             <span>
               {t("page_ai_storyteller.remaining", "Remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
@@ -1059,7 +1043,7 @@ const AIStoryteller = () => {
               </span>
             )}
           </div>
-          {(sub.plan === "FREE" || limitReached) && (
+          {(sub.tier === "free" || limitReached) && (
             <Link
               to="/pricing"
               className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition"
@@ -1076,7 +1060,7 @@ const AIStoryteller = () => {
             console.log("[SEL] rendering download banner", {
               hasSelStory: !!selStory,
               generating,
-              canExportPdf: sub.features?.['PDF_EXPORT'],
+              canExportPdf: sub.canExportPdf,
               isAdmin,
             });
             return null;
