@@ -23,7 +23,13 @@ describe("useIllustrations", () => {
   });
 
   it("should fetch illustrations successfully", async () => {
-    const mockData = [{ pageNumber: 1, imageUrl: "test.jpg", status: "COMPLETED" }];
+    const mockData = {
+      jobStatus: "COMPLETED",
+      totalPages: 1,
+      completedPages: 1,
+      failedPages: 0,
+      illustrations: [{ pageNumber: 1, imageUrl: "test.jpg", status: "COMPLETED" }],
+    } as never;
     vi.mocked(fetchIllustrations).mockResolvedValueOnce(mockData);
 
     const { result } = renderHook(() => useIllustrations("123"), { wrapper });
