@@ -89,7 +89,10 @@ export const useDeleteChild = () => {
 };
 
 export const useActiveChild = () => {
-  const { data: children = [], ...rest } = useChildren();
+  const { data, ...rest } = useChildren();
+  // Defensive: never assume the query returned an array — a broken API layer
+  // used to return HTML here and crashed the whole app.
+  const children: ChildProfile[] = Array.isArray(data) ? data : [];
   const activeId = getActiveChildId();
   const active = children.find((c) => c.id === activeId) ?? children[0] ?? null;
   return { active, children, ...rest };
