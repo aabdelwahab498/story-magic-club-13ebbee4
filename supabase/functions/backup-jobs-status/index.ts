@@ -15,6 +15,24 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // ── Admin-only gate ────────────────────────────────────────────────────
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+
+  const userClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+
+  const { data: isAdmin, error: roleErr } = await admin.rpc("has_role", {
+    _user_id: userData.user.id,
+    _role: "admin",
+  });
+  if (roleErr || !isAdmin) return json({ error: "forbidden" }, 403);
+
   // Derive last-run for each job from user_backups (success) and from the
   // latest created_at across statuses. We avoid querying cron.* schema
   // directly (not exposed to PostgREST) and use observable side-effects.
