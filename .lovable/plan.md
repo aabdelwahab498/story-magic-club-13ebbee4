@@ -1,39 +1,38 @@
-## سبب الشاشة السوداء (مؤكَّد بالفحص)
+# Full Project Audit — Najmah / Starry Tales
 
-```text
-PAGEERROR: children.find is not a function
-  at ChildPicker (src/components/ChildPicker.tsx)
-  at Navigation → Layout → RenderedRoute
-body text length = 0
-```
+Produce a single, evidence-based engineering audit document. No code changes, no new features.
 
-1. **مصدر بيانات خاطئ**: `src/api/children.api.ts` ينادي `apiClient('/users/me/children')`، و`src/api/client.ts` يستخدم `VITE_API_URL || '/api/v2'` — خادم NestJS (`backend-core`) غير مُشغَّل، فيرجع الطلب `index.html` (نص) بدل مصفوفة، و`children.find(...)` داخل `useActiveChild` يرمي استثناء.
-2. **لا يوجد Error Boundary**: `ChildPicker` داخل `Navigation` داخل `Layout` → الاستثناء يُفرّغ شجرة React كلها → شاشة سوداء في كل الصفحات.
+## Deliverable
 
-جدول `child_profiles` موجود فعلًا في Lovable Cloud: `id, parent_user_id, name, age, avatar, preferred_language, emotional_focus, bedtime_preferences, reading_level` (وعليه 5 سياسات RLS).
+One file: `docs/PROJECT_FULL_AUDIT.md` (Arabic + English mixed, matching the report structure requested).
+Nothing else in the repo is touched.
 
-## خطة الإصلاح
+## How the report is built
 
-### 1. تحويل بيانات الأطفال إلى Lovable Cloud
-إعادة كتابة `src/api/children.api.ts` ليستعمل عميل Supabase على `child_profiles` بدل `apiClient`:
-- `getChildren` → `select` مُقيَّد بـ `parent_user_id = auth.uid()`
-- `getChild` / `createChild` / `updateChild` / `deleteChild` بنفس التواقيع الحالية
-- طبقة تحويل بين أعمدة الجدول و`ChildProfile` (`preferred_language ↔ language`، `emotional_focus ↔ emotionalGoals`، `reading_level ↔ readingLevel`) حتى لا تتغيّر أي شاشة مستدعية
-- مراجعة سياسات RLS الحالية والتأكد أنها تسمح لولي الأمر بأطفاله فقط
+Every claim comes from reading the actual code, not assumption:
 
-### 2. تحصين ضد الانهيار الكامل
-- `useChildren` / `useActiveChild`: ضمان أن القيمة دائمًا مصفوفة (`Array.isArray(data) ? data : []`)
-- إضافة `ErrorBoundary` حول محتوى `Layout` والـ `Suspense` في `App.tsx` مع رسالة خطأ مقروءة وزر "إعادة المحاولة" بدل الشاشة السوداء
+- Routes and pages: read `src/App.tsx` (68 route entries) and all 72 files in `src/pages/`.
+- Components: enumerate `src/components/` (60+ root files plus `admin/`, `story/`, `cart/`, `payment/`, `ui/`).
+- Hooks and data layer: `src/hooks/`, `src/lib/`, `src/api/`, `src/integrations/supabase/`.
+- Backend: 49 edge functions in `supabase/functions/`, plus the live database schema (69 tables, enums, RPC functions, RLS policies, storage buckets).
+- Config: `vite.config.ts`, `tailwind.config.ts`, `tsconfig*.json`, `package.json`, `.env.example`, `supabase/config.toml`, `Dockerfile`, `docker-compose*.yml`, `.github/workflows/ci.yml`.
+- Legacy stack: `backend-core/` (NestJS) and `ai-service/` (FastAPI) are assessed for whether they are still wired to the running app.
 
-### 3. المسارات الأخرى المعتمدة على نفس الخادم المفقود
-`src/api/stories.api.ts` و`auth.api.ts` تُستهلك عبر `useStories` و`useStoryGeneration` و`useRoles` بنفس الأسلوب الهش — تحصين أماكن الاستهلاك (قوائم فارغة + حالة خطأ ظاهرة) دون تغيير سلوك أي شاشة تعمل، وتأجيل نقلها الكامل إلى Cloud لخطوة لاحقة.
+## Report sections
 
-### 4. تنظيف تحذير React
-إزالة/تصحيح تمرير خاصية `playSound` إلى عنصر `<button>` في `src/pages/Index.tsx`.
+1. **Project Overview** — product purpose, commercial model (tiers, credits, Paddle + manual payments), user types (parent/child, editor, admin), main user flows traced through actual routes.
+2. **Frontend Architecture** — React 18 / TS / Vite 5 / Tailwind / shadcn / TanStack Query / React Router / RHF+Zod / i18next (6 locales, RTL) / PWA; full annotated `src/` tree with the purpose of each folder.
+3. **Pages Inventory** — table of every page: file, route, purpose, key components, completion status (complete / partial / legacy).
+4. **Components Map** — grouped into layout, shared, feature (story, admin, cart, payment), and UI primitives, with the relationship graph between them.
+5. **Data Layer** — Supabase client usage vs. the leftover `src/api/*` NestJS-era client, tables actually queried, auth flow via `useAuth`, storage buckets and their public/private state, external services.
+6. **AI Features** — where AI is invoked (edge functions and client callers), the SEL 4-act pipeline stages, prompt locations, models used, request/response shapes, quota and moderation gates.
+7. **Environment Configuration** — required variables by surface (frontend, edge functions, legacy services), config files, key dependencies, secret names only (never values).
+8. **Security Review** — auth, RBAC via `user_roles` / `has_role`, RLS and grants coverage, edge-function auth checks, client-side exposure, current known gaps.
+9. **Deployment Readiness** — local run commands, build process, required artifacts, and an honest verdict on portability outside Lovable (including the Lovable Cloud coupling points).
+10. **Export Plan** — concrete steps for GitHub, local dev, Vercel/Netlify, and Docker, including what must be replaced (Cloud-managed backend, secrets, migrations).
+11. **Final Assessment** — completion percentage per area, top current problems, top 10 pre-launch steps, and a recommendation on freezing vs. reworking the frontend.
 
-### 5. التحقق
-- إعادة فتح التطبيق في متصفح فعلي والتقاط لقطات لـ `/`، `/stories`، `/ai-storyteller`، `/family` والتأكد من صفر `pageerror`
-- تشغيل فحص الأنواع
+## Technical notes
 
-## ملاحظة
-لن يتم حذف `backend-core` ولا تغيير أي شيء في تصدير TXT/PDF/MP3 — العمل محصور في إصلاح انهيار الواجهة ومصدر بيانات الأطفال.
+- Read-only work: file reads, searches, and read-only database queries. No migrations, no deploys, no edits outside the report file.
+- Where evidence is inconclusive, the report marks it explicitly as "unverified" rather than guessing.
