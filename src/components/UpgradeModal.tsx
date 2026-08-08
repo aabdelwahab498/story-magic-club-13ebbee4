@@ -14,27 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { env } from "@/lib/env";
 
-interface PlanAPI {
-  id: string;
-  name: Record<string, string>;
-  slug: string;
-  description: Record<string, string>;
-  price_usd: number;
-  price_egp: number;
-  is_featured: boolean;
-  features: string[];
-  limits: Record<string, number | null>;
-}
-
-const fetchBackendPlans = async (token?: string): Promise<PlanAPI[]> => {
-  const headers: HeadersInit = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const res = await fetch(`${env.supabaseUrl}/functions/v1/api/v2/subscriptions/plans`, { headers });
-  if (!res.ok) throw new Error("Failed to fetch plans");
-  return res.json();
-};
+import { usePlans, type PlanAPI } from "@/lib/plansApi";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -52,12 +32,7 @@ const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
   const isAr = i18n.language?.startsWith("ar");
   const { session } = useAuth();
 
-  const { data: plans } = useQuery({
-    queryKey: ["backend-plans", session?.access_token],
-    queryFn: () => fetchBackendPlans(session?.access_token),
-    staleTime: 5 * 60_000,
-    enabled: open,
-  });
+  const { data: plans } = usePlans(open);
 
   const upgradable = (plans ?? [])
     .filter((p) => p.price_usd > 0)
