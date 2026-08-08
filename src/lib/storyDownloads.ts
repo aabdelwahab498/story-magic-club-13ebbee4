@@ -1,6 +1,6 @@
 // Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
-import { axiosInstance } from "@/api/client";
+
 import {
   downloadBlob,
   prepareDownloadTarget,
@@ -86,46 +86,65 @@ export async function downloadAudioMp3(
   await downloadFromUrl(signed, filename, target);
 }
 
-// === Edge function callers ===
+// === Edge function callers (adapter boundary → Backend Core later) ===
 
+type EdgeExportBody = {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  download_url?: string;
+  pdfUrl?: string;
+  audioUrl?: string;
+  audio_url?: string;
+  epubUrl?: string;
+  bundleUrl?: string;
+};
+
+function readEdgeBody(data: unknown, error: unknown, fallback: string): EdgeExportBody {
+  if (error) throw error instanceof Error ? error : new Error(String(error));
+  const body = (data ?? {}) as EdgeExportBody;
+  if (body.success === false || (body.error && !body.download_url)) {
+    throw new Error(body.message || body.error || fallback);
+  }
+  return body;
+}
+
+/** Server-rendered PDF for a persisted story. Returns a signed download URL. */
 export async function exportStoryPdf(storyId: string): Promise<string> {
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/pdf`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_pdf_url");
-    return url;
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message || "Failed to export PDF";
-    throw new Error(message);
-  }
+  const { data, error } = await supabase.functions.invoke("export-story-pdf", {
+    body: { storyId },
+  });
+  const body = readEdgeBody(data, error, "pdf_export_failed");
+  const url = body.download_url ?? body.pdfUrl;
+  if (!url) throw new Error("no_pdf_url");
+  return url;
 }
 
+/** Stitched narration for a persisted story. Returns the audio URL. */
 export async function exportStoryAudio(storyId: string): Promise<string> {
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/audio`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_audio_url");
-    return url;
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message || "Failed to export Audio";
-    throw new Error(message);
-  }
+  const { data, error } = await supabase.functions.invoke("narrate-story-full", {
+    body: { storyId },
+  });
+  const body = readEdgeBody(data, error, "audio_export_failed");
+  const url = body.audio_url ?? body.audioUrl ?? body.download_url;
+  if (!url) throw new Error("no_audio_url");
+  return url;
 }
 
+/** ZIP bundle for a single story (uses the batch export pipeline). */
 export async function exportStoryZip(storyId: string): Promise<string> {
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/zip`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_zip_url");
-    return url;
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message || "Failed to export ZIP";
-    throw new Error(message);
-  }
+  const job = await startBatchDownload({ formats: ["pdf", "mp3", "txt"], storyIds: [storyId] });
+  return job.jobId;
 }
 
-export async function exportStoryEpub(_storyId: string): Promise<string> {
-  throw new Error("EPUB export is not yet migrated to Backend Core");
+export async function exportStoryEpub(storyId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("export-story-epub", {
+    body: { storyId },
+  });
+  const body = readEdgeBody(data, error, "epub_export_failed");
+  const url = body.epubUrl ?? body.download_url;
+  if (!url) throw new Error("no_epub_url");
+  return url;
 }
 
 export interface BatchStartResult {
@@ -134,21 +153,40 @@ export interface BatchStartResult {
   status: "running" | "completed" | "failed" | "cancelled";
 }
 
-export async function startBatchDownload(_args: {
+export async function startBatchDownload(args: {
   childId?: string;
   formats: ("pdf" | "mp3" | "txt" | "epub")[];
   storyIds?: string[];
 }): Promise<BatchStartResult> {
-  throw new Error("Batch download is not yet migrated to Backend Core");
+  const { data, error } = await supabase.functions.invoke("batch-download-stories", {
+    body: args,
+  });
+  const body = readEdgeBody(data, error, "batch_export_failed") as EdgeExportBody & {
+    jobId?: string;
+    total?: number;
+    status?: BatchStartResult["status"];
+  };
+  if (!body.jobId) throw new Error("no_job_id");
+  return { jobId: body.jobId, total: body.total ?? 0, status: body.status ?? "running" };
 }
 
-export async function cancelBatchJob(_jobId: string): Promise<void> {
-  throw new Error("Batch cancellation is not yet migrated to Backend Core");
+export async function cancelBatchJob(jobId: string): Promise<void> {
+  const { error } = await supabase
+    .from("batch_export_jobs")
+    .update({ cancel_requested: true })
+    .eq("id", jobId);
+  if (error) throw error;
 }
 
-export async function refreshBundleUrl(_jobId: string): Promise<string> {
-  throw new Error("Bundle refresh is not yet migrated to Backend Core");
+export async function refreshBundleUrl(jobId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("refresh-bundle-url", {
+    body: { jobId },
+  });
+  const body = readEdgeBody(data, error, "bundle_refresh_failed");
+  if (!body.bundleUrl) throw new Error("no_bundle_url");
+  return body.bundleUrl;
 }
+
 
 // Backwards-compat name (kept so older callers still type-check).
 export const batchDownloadStories = startBatchDownload;

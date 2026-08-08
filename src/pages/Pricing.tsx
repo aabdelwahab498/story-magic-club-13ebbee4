@@ -1,47 +1,22 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, Crown, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useUpgrade } from "@/hooks/useUpgrade";
-import { env } from "@/lib/env";
 
-interface PlanAPI {
-  id: string;
-  name: Record<string, string>;
-  slug: string;
-  description: Record<string, string>;
-  price_usd: number;
-  price_egp: number;
-  is_featured: boolean;
-  features: string[];
-  limits: Record<string, number | null>;
-}
-
-const fetchBackendPlans = async (token?: string): Promise<PlanAPI[]> => {
-  const headers: HeadersInit = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const res = await fetch(`${env.supabaseUrl}/functions/v1/api/v2/subscriptions/plans`, { headers });
-  if (!res.ok) throw new Error("Failed to fetch plans");
-  return res.json();
-};
+import { usePlans } from "@/lib/plansApi";
 
 const Pricing = () => {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const navigate = useNavigate();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { plan: currentPlanSlug } = useSubscription();
   const { startUpgrade, isUpgrading } = useUpgrade();
 
-  const q = useQuery({ 
-    queryKey: ["backend-plans", session?.access_token], 
-    queryFn: () => fetchBackendPlans(session?.access_token) 
-  });
+  const q = usePlans();
 
   const handleUpgradeClick = (planSlug: string) => {
     if (!user) {
