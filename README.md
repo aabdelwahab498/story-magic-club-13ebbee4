@@ -3,14 +3,10 @@
 ## 📸 Platform Screenshots
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/4bb010a6-6d83-406f-9c33-0720508765fa" width="48%" />
+
   <img src="https://github.com/user-attachments/assets/f2daaab0-e55d-4f8e-9480-6f1086ef211c" width="48%" />
 </p>
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/74acea22-0082-4ff1-9f9f-396a88bc7051" width="48%" />
-  <img src="https://github.com/user-attachments/assets/f28f0370-a0d3-44ac-b8c9-5b00b3248b8f" width="48%" />
-</p>
 
 ## 🏗️ System Architecture
 
