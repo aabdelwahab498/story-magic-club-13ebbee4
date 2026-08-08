@@ -1,4 +1,9 @@
+
 # Najmah AI Story Platform (v1.0.0) 
+<img width="1439" height="813" alt="Screenshot 2026-08-07 223227" src="https://github.com/user-attachments/assets/4bb010a6-6d83-406f-9c33-0720508765fa" />
+<img width="1230" height="654" alt="Screenshot 2026-08-07 223330" src="https://github.com/user-attachments/assets/f2daaab0-e55d-4f8e-9480-6f1086ef211c" />
+<img width="1367" height="570" alt="Screenshot 2026-08-07 223455" src="https://github.com/user-attachments/assets/74acea22-0082-4ff1-9f9f-396a88bc7051" />
+<img width="1363" height="742" alt="Screenshot 2026-08-07 223615" src="https://github.com/user-attachments/assets/f28f0370-a0d3-44ac-b8c9-5b00b3248b8f" />
 
 
 **Najmah** is an enterprise-grade, AI-powered story creation platform designed for children, parents, and educators. It integrates personalized storytelling, Social-Emotional Learning (SEL) frameworks, multi-language support (English, Arabic, German, French, Italian, Spanish with full RTL rendering), synthetic voice narrations, custom scene illustrations, and print-ready PDF/ZIP exports.
