@@ -132,17 +132,25 @@ serve(async (req) => {
     // Pre-authored PDFs: some products ship with a hand-crafted illustrated PDF
     // that fully meets the SEL/children's-literature spec. When present, we
     // serve it directly instead of rendering a fallback. Keyed by normalized sku.
-    const PREAUTHORED_PDFS: Record<string, string> = {
-      "story-misk-mermaid":
-        `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/misk-mermaid/misk-mermaid-full.pdf`,
-      "story-luma-nova":
-        `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/luma-nova/luma-nova-full.pdf`,
-      "story-sami-thunder":
-        `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs/products/sami-thunder/sami-thunder-full.pdf`,
+    // `story-pdfs` is a PRIVATE bucket, so we always hand back a short-lived
+    // signed URL — never a /object/public/ link (those return 400).
+    const PREAUTHORED_PDF_PATHS: Record<string, string> = {
+      "story-misk-mermaid": "products/misk-mermaid/misk-mermaid-full.pdf",
+      "story-luma-nova": "products/luma-nova/luma-nova-full.pdf",
+      "story-sami-thunder": "products/sami-thunder/sami-thunder-full.pdf",
     };
-    if (PREAUTHORED_PDFS[sku]) {
-      return json({ pdfUrl: `${PREAUTHORED_PDFS[sku]}?v=${Date.now()}`, reused: true, preauthored: true }, 200);
+    const preauthoredPath = PREAUTHORED_PDF_PATHS[sku];
+    if (preauthoredPath) {
+      const { data: signedPre, error: signErr } = await admin.storage
+        .from("story-pdfs")
+        .createSignedUrl(preauthoredPath, 3600);
+      if (signErr || !signedPre?.signedUrl) {
+        errLog("preauthored sign failed", { path: preauthoredPath, err: signErr?.message });
+        return json({ error: "pdf_asset_missing", path: preauthoredPath }, 404);
+      }
+      return json({ pdfUrl: signedPre.signedUrl, reused: true, preauthored: true }, 200);
     }
+
 
     const path = `products/${sku}-${language}-illustrated-v5.pdf`;
 
@@ -244,21 +252,27 @@ serve(async (req) => {
     cover.drawText("Najmah", { x: 60, y: 60, size: 12, font, color: rgb(0.7, 0.75, 0.95) });
 
     // Per-SKU illustration overrides. When a product has bespoke artwork
-    // uploaded to storage, we embed those images instead of the vector
-    // fallback illustrations. Keyed by normalized sku.
-    const STORAGE_BASE = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/story-pdfs`;
-    const ILLUSTRATION_OVERRIDES: Record<string, string[]> = {
+    // uploaded to the PRIVATE `story-pdfs` bucket, we sign each object and
+    // embed those images instead of the vector fallback illustrations.
+    const ILLUSTRATION_OVERRIDE_PATHS: Record<string, string[]> = {
       "story-misk-mermaid": [
-        `${STORAGE_BASE}/products/misk-mermaid/p1.jpg`,
-        `${STORAGE_BASE}/products/misk-mermaid/p2.jpg`,
-        `${STORAGE_BASE}/products/misk-mermaid/p3.jpg`,
-        `${STORAGE_BASE}/products/misk-mermaid/p4.png`,
-        `${STORAGE_BASE}/products/misk-mermaid/p5.png`,
-        `${STORAGE_BASE}/products/misk-mermaid/p6.png`,
-        `${STORAGE_BASE}/products/misk-mermaid/p7.png`,
+        "products/misk-mermaid/p1.jpg",
+        "products/misk-mermaid/p2.jpg",
+        "products/misk-mermaid/p3.jpg",
+        "products/misk-mermaid/p4.png",
+        "products/misk-mermaid/p5.png",
+        "products/misk-mermaid/p6.png",
+        "products/misk-mermaid/p7.png",
       ],
     };
-    const overrideUrls = ILLUSTRATION_OVERRIDES[sku] ?? null;
+    const overridePaths = ILLUSTRATION_OVERRIDE_PATHS[sku] ?? null;
+    let overrideUrls: string[] | null = null;
+    if (overridePaths) {
+      const { data: signedList } = await admin.storage
+        .from("story-pdfs")
+        .createSignedUrls(overridePaths, 600);
+      overrideUrls = overridePaths.map((_, i) => signedList?.[i]?.signedUrl ?? "");
+    }
 
     // Pre-fetch override images once (parallel) so page loop stays fast.
     const overrideImages: Array<
@@ -267,8 +281,10 @@ serve(async (req) => {
       ? await Promise.all(
           overrideUrls.map(async (url) => {
             try {
+              if (!url) return null;
               const r = await fetch(url);
               if (!r.ok) return null;
+
               const ct = r.headers.get("content-type") ?? "";
               const bytes = new Uint8Array(await r.arrayBuffer());
               const img = ct.includes("png")
