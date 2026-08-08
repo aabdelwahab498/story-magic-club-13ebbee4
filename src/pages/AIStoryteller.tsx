@@ -8,11 +8,11 @@ import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { pauseAudio, resumeAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
-import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
+import { generateClassicIllustrations, saveAiStory, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
-import { planSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
+import { planSelStory, composeSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
@@ -22,8 +22,8 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useByokStatus } from "@/hooks/useByokStatus";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useAuth } from "@/hooks/useAuth";
-import { useCreateStory, useStoryStatus, useFullStory } from "@/hooks/useStoryGeneration";
-import type { StoryPage } from "@/api/stories.api";
+import { useQueryClient } from "@tanstack/react-query";
+
 import {
   generateTrialStory,
   generateTrialPdf,
@@ -144,10 +144,8 @@ const AIStoryteller = () => {
   const [lastSelInput, setLastSelInput] = useState<ComposeStoryInput | null>(null);
   type SelInput = ComposeStoryInput;
 
-  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
-  const { mutateAsync: createStoryMut } = useCreateStory();
-  const { data: storyStatus, isError: statusIsError, error: statusError } = useStoryStatus(activeStoryId);
-  const { data: fullStory } = useFullStory(activeStoryId, storyStatus?.status === 'COMPLETED');
+  const queryClient = useQueryClient();
+
 
 
 
@@ -208,66 +206,8 @@ const AIStoryteller = () => {
   // Gating: signed-in users have a real limit; guests are allowed a couple of trial stories per session.
   const guestMode = !user;
 
-  // React to status changes
-  useEffect(() => {
-    if (!activeStoryId || guestMode) return;
-    
-    if (storyStatus?.status === 'PENDING') {
-      setGenStep('planning');
-      setGenerating(true);
-    } else if (storyStatus?.status === 'PROCESSING') {
-      setGenStep('writing');
-      setGenerating(true);
-    } else if (storyStatus?.status === 'FAILED' || statusIsError) {
-      setGenStep('idle');
-      setGenerating(false);
-      const msg = t("page_ai_storyteller.story_generation_failed", "Story generation failed");
-      toast.error(msg);
-      setLastError(statusError?.message || msg);
-      setActiveStoryId(null);
-    } else if (storyStatus?.status === 'COMPLETED' && fullStory) {
-      setGenStep('done');
-      setGenerating(false);
-      
-      const pagesArray: StoryPage[] = fullStory.generatedStory?.pages || [];
-      const text = pagesArray.map((p) => p.text).join('\n\n') || fullStory.theme;
-      setStory(text);
-      
-      if (lastModeRef.current === 'sel') {
-        const selResponse = {
-          story_id: fullStory.id,
-          title: fullStory.generatedStory?.title || fullStory.theme,
-          pages: pagesArray.map((p) => ({
-             index: p.pageNumber,
-             text: p.text,
-             emotionTag: "Neutral",
-             illustrationPrompt: p.illustrationPrompt,
-          })),
-          sel_outcome: { skill: "SEL", emotion: "Neutral", statement: fullStory.selGoal },
-          character_visual_hash: "default",
-          age_band: "3-5" as const,
-          quality: { total: 25, passed: true, scores: {} },
-          safety: { passed: true, violations: [] },
-          length: { passed: true, pageCount: pagesArray.length },
-          passed: true,
-          regeneration_count: 0,
-        };
-        setSelStory(selResponse);
-        try {
-          localStorage.setItem(
-            "last-generated-sel-story",
-            JSON.stringify({ story: selResponse, ts: Date.now() }),
-          );
-        } catch (err) {
-          console.warn("Failed to save to local storage", err);
-        }
-      } else {
-        // Classic mode save logic handled backend-side now, but we can do local stuff if needed
-      }
-      
-      setActiveStoryId(null);
-    }
-  }, [activeStoryId, storyStatus?.status, fullStory, statusIsError, statusError, guestMode, t]);
+  // Generation is synchronous against the edge functions — no polling needed.
+
 
   const limitStories = sub.plan?.monthly_story_limit ?? null;
   const storiesCreated = sub.storiesUsedThisMonth || 0;
@@ -530,26 +470,39 @@ const AIStoryteller = () => {
     setLastError(null);
     setErrorDetails(null);
     setShowErrorDetails(false);
+    startProgressTimeline();
 
     try {
       console.log("[SEL] composeSelStory → start", input);
-      const res = await createStoryMut({
-        childId: input.childProfileId || '',
-        theme: input.theme,
-        selGoal: input.emotionalFocus?.join(", ") || "Empathy",
-        language: input.language || "en",
-        preferences: {
-          customPrompt: input.customPrompt,
-          presetBlueprint: presetBlueprint,
-        }
-      });
-      setActiveStoryId(res.id);
+      const res = await composeSelStory({
+        ...input,
+        ...(presetBlueprint ? { presetBlueprint } : {}),
+      } as SelInput);
+      stopProgressTimeline("done");
+      setSelStory(res);
+      const text = (res.pages ?? []).map((p) => p.text).join("\n\n");
+      if (text) setStory(text);
+      try {
+        localStorage.setItem(
+          "last-generated-sel-story",
+          JSON.stringify({ story: res, ts: Date.now() }),
+        );
+      } catch (err) {
+        console.warn("Failed to save to local storage", err);
+      }
+      // Keep "My Stories" and its pages in sync with the freshly persisted row.
+      queryClient.invalidateQueries({ queryKey: ["my_ai_stories"] });
+      queryClient.invalidateQueries({ queryKey: ["my_ai_stories_page"] });
+      queryClient.invalidateQueries({ queryKey: ["ai-story-history"] });
     } catch (e) {
       console.error("[SEL] composeSelStory → error", e);
+      stopProgressTimeline("idle");
       await handleSelError(e);
+    } finally {
       setGenerating(false);
     }
   };
+
 
   const handleApprovePlan = () => {
     if (!planPreview || !lastSelInput) return;
@@ -782,30 +735,64 @@ const AIStoryteller = () => {
     setStory("");
     setIllustrations([]);
     setIllustrationsGated(false);
+    startProgressTimeline();
     try {
-      const res = await createStoryMut({
-        childId: activeChild?.id || '',
-        selGoal: "Classic",
-        theme: t(`ai.themes.${themeId}`),
-        language: lang,
-        preferences: {
+      const { data, error } = await supabase.functions.invoke("generate-story", {
+        body: {
           character: t(`ai.characters.${characterId}`),
           characterId,
+          theme: t(`ai.themes.${themeId}`),
           themeId,
           ageRange: t(`ai.ages.${ageId}`),
           ageId,
           length: lengthId,
           customPrompt,
-        }
+          language: lang,
+        },
       });
-      setActiveStoryId(res.id);
+      if (error) {
+        stopProgressTimeline("idle");
+        const info = await handleEdgeError(error, t, { context: "generate-story" });
+        setErrorDetails(info);
+        const fallback = error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed"));
+        setLastError(fallback);
+        return;
+      }
+      const text = (data as { story?: string })?.story || "";
+      stopProgressTimeline("done");
+      setStory(text);
+      // Persist for signed-in users (silent no-op otherwise).
+      if (text) {
+        saveAiStory({
+          prompt_data: {
+            characterId,
+            themeId,
+            ageId,
+            length: lengthId,
+            customPrompt,
+            child_profile_id: activeChild?.id ?? null,
+          },
+          story_text: text,
+          language: lang,
+          title: `${t(`ai.themes.${themeId}`)} • ${t(`ai.characters.${characterId}`)}`,
+          child_profile_id: activeChild?.id ?? null,
+        })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ["my_ai_stories"] });
+            queryClient.invalidateQueries({ queryKey: ["my_ai_stories_page"] });
+          })
+          .catch(() => {});
+      }
     } catch (e) {
+      stopProgressTimeline("idle");
       console.error(e);
       toast.error(t("ai.errors.generic"));
       setLastError(e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
+    } finally {
       setGenerating(false);
     }
   };
+
 
   const stopAllNarration = () => {
     if (browserTtsRef.current) {

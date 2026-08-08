@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { axiosInstance } from "@/api/client";
+
 
 export type ExportKind = "txt" | "mp3" | "pdf";
 export type SupportedLanguage = "ar" | "en" | "fr" | "de" | "es" | "pt" | string;
@@ -114,37 +114,93 @@ export async function readEdgeError(error: unknown): Promise<StoryExportError> {
   return new StoryExportError(code, message, { status, retryAfter });
 }
 
-export async function exportStoryAsTxt(_input: ExportTxtInput): Promise<ExportTxtResult> {
-  throw new Error("Text export is not yet migrated to Backend Core");
+export async function exportStoryAsTxt(input: ExportTxtInput): Promise<ExportTxtResult> {
+  const { data, error } = await supabase.functions.invoke("export-story-txt", {
+    body: {
+      story_id: input.storyId ?? null,
+      child_id: input.childId ?? null,
+      title: input.title,
+      full_text: input.fullText,
+      language: input.language,
+      child_name: input.childName ?? null,
+      emotion_tags: input.emotionTags ?? [],
+      page_count: input.pageCount ?? null,
+    },
+  });
+  if (error) throw await readEdgeError(error);
+  if (!data?.success) throw new StoryExportError(data?.error ?? "txt_export_failed", data?.message);
+  return {
+    exportId: data.export_id,
+    downloadUrl: data.download_url,
+    fileName: data.file_name,
+    fileSize: data.file_size ?? 0,
+    expiresAt: data.expires_at,
+    provider: data.provider ?? "local",
+    dapScore: data.dap_score ?? null,
+  };
 }
 
-export async function exportStoryAsAudio(_input: ExportAudioInput): Promise<ExportAudioResult> {
-  throw new Error("Audio export is not yet migrated to Backend Core");
+export async function exportStoryAsAudio(input: ExportAudioInput): Promise<ExportAudioResult> {
+  const { data, error } = await supabase.functions.invoke("export-story-audio", {
+    body: {
+      story_id: input.storyId ?? null,
+      child_id: input.childId ?? null,
+      title: input.title,
+      full_text: input.fullText,
+      language: input.language,
+      voice_id: input.voiceId,
+      speed: input.speed,
+      child_name: input.childName ?? null,
+      emotion_tags: input.emotionTags ?? [],
+    },
+  });
+  if (error) throw await readEdgeError(error);
+  if (!data?.success) throw new StoryExportError(data?.error ?? "audio_export_failed", data?.message);
+  return {
+    exportId: data.export_id,
+    downloadUrl: data.download_url,
+    fileName: data.file_name,
+    fileSize: data.file_size ?? 0,
+    durationSeconds: data.duration_seconds ?? null,
+    provider: data.provider ?? "local",
+    cacheHit: data.cache_hit === true,
+    expiresAt: data.expires_at,
+  };
 }
 
 export async function exportStoryAsPdf(input: ExportPdfInput): Promise<ExportPdfResult> {
-  if (!input.storyId) {
-    throw new Error("Story must be saved before exporting to PDF.");
-  }
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/media/stories/${input.storyId}/export/pdf`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_pdf_url");
-    return {
-      exportId: "migrated_" + input.storyId,
-      downloadUrl: url,
-      fileName: `${input.title || "story"}.pdf`,
-      previewUrl: url,
-      fileSize: 0,
-      pageCount: input.pages.length,
-      provider: "google",
-      expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(),
-    };
-  } catch (err: any) {
-    const msg = err.response?.data?.message || err.message || "Failed to export PDF";
-    throw new StoryExportError(msg);
-  }
+  const { data, error } = await supabase.functions.invoke("export-story-pdf", {
+    body: {
+      storyId: input.storyId ?? undefined,
+      story_id: input.storyId ?? null,
+      child_id: input.childId ?? null,
+      title: input.title,
+      pages: input.pages.map((p) => ({
+        page_number: p.pageNumber,
+        text: p.text,
+        illustration_url: p.illustrationUrl ?? null,
+        emotion_tag: p.emotionTag ?? null,
+      })),
+      language: input.language,
+      child_name: input.childName ?? null,
+      theme_color: input.themeColor ?? null,
+      emotion_tags: input.emotionTags ?? [],
+    },
+  });
+  if (error) throw await readEdgeError(error);
+  if (!data?.success) throw new StoryExportError(data?.error ?? "pdf_export_failed", data?.message);
+  return {
+    exportId: data.export_id,
+    downloadUrl: data.download_url,
+    previewUrl: data.preview_url ?? null,
+    fileName: data.file_name,
+    fileSize: data.file_size ?? null,
+    pageCount: data.page_count ?? input.pages.length,
+    provider: data.provider ?? "local",
+    expiresAt: data.expires_at,
+  };
 }
+
 
 export interface VoiceConfig {
   id: string;

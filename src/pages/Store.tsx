@@ -157,9 +157,12 @@ const Store = () => {
     addToCart.mutate({ userId: user.id, productId });
   };
 
-  const invokeExport = async (_productId: string) => {
-    throw new Error("Store book PDF export is not yet migrated to Backend Core");
-  };
+  // Fixed catalog PDFs are rendered server-side from the persisted product record.
+  const invokeExport = async (productId: string) =>
+    supabase.functions.invoke("export-product-story-pdf", {
+      body: { productId, language: i18n.language },
+    });
+
 
   const triggerBrowserDownload = async (pdfUrl: string, title: string) => {
     const filename = `najmah-${title.replace(/[^a-z0-9]+/gi, "_").slice(0, 60)}.pdf`;

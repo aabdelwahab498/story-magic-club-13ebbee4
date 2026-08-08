@@ -1,5 +1,6 @@
 // Phase 3/4 — client wrappers for SEL story orchestration + illustration.
-import { axiosInstance } from "@/api/client";
+import { supabase } from "@/integrations/supabase/client";
+
 
 export interface SelStoryPage {
   index: number;
@@ -76,55 +77,65 @@ export class ComposeStoryError extends Error {
 }
 
 
-export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
-  try {
-    const response = await axiosInstance.post("/stories/plan", {
-      childId: input.childProfileId,
-      theme: input.theme,
-      selGoal: input.emotionalFocus?.join(", ") || "Empathy",
-      language: input.language || "en",
-    });
-
-    const plan = response.data;
-    
-    // Map backend StoryPlan format to old frontend blueprint layout
-    return {
-      requestId: "plan_request",
-      mode: "plan",
-      blueprint: {
-        title: plan.title,
-        hero: {
-          name: plan.characters?.[0]?.name || "Hero",
-          sense: plan.characters?.[0]?.description || "Sense",
-          problem: plan.conflict || "Problem",
-          engine: "Engine",
-          charm: "Charm",
-        },
-        mentor: plan.characters?.find((c: any) => c.role?.toLowerCase() === "mentor") || plan.characters?.[1] || { name: "Mentor", role: "Mentor" },
-        companion: plan.characters?.find((c: any) => c.role?.toLowerCase() === "companion") || plan.characters?.[2] || { name: "Companion", role: "Companion" },
-        acts: {
-          act1_normalWorld: `Introduction of ${plan.characters?.[0]?.name || "the hero"}.`,
-          act2_disturbance: plan.conflict,
-          act3_attempts: [plan.resolution],
-          act4_resolution: `Resolution of the conflict: ${plan.resolution}`,
-        },
-        selOutcome: {
-          skill: plan.selGoals?.[0] || "Empathy",
-          emotion: "Connected",
-          statement: `We learned about ${plan.selGoals?.join(", ") || "social emotional learning"}.`,
-        },
-      },
-      age_band: input.age <= 5 ? "3-5" : input.age <= 8 ? "6-8" : "9-12",
-    } as SelPlanResponse;
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message || "Failed to plan story";
-    throw new ComposeStoryError("plan_failed", message);
+/**
+ * Adapter boundary — currently backed by the `compose-story` edge function
+ * (Supabase). Swap the body here when Backend Core takes over; the UI only
+ * knows about these signatures.
+ */
+function assertComposeOk(data: unknown) {
+  const body = data as { success?: boolean; code?: string; message?: string } | null;
+  if (body && body.success === false) {
+    throw new ComposeStoryError(
+      body.code ?? "compose_failed",
+      body.message ?? "Unable to generate the story right now.",
+    );
   }
 }
 
+export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
+  const { data, error } = await supabase.functions.invoke("compose-story", {
+    body: { ...input, mode: "plan" },
+  });
+  if (error) throw error;
+  assertComposeOk(data);
+  return data as SelPlanResponse;
+}
 
+async function shouldRetryComposeError(err: unknown): Promise<boolean> {
+  const ctx = (err as { context?: Response })?.context;
+  if (!(ctx instanceof Response)) return false;
+  if (ctx.status !== 502) return false;
+  try {
+    const body = await ctx.clone().json();
+    const code = typeof body?.error === "string" ? body.error : "";
+    return code === "ai_invalid_json" || code.includes("invalid_json") || code === "";
+  } catch {
+    return true; // 502 with non-JSON body — still worth retrying
+  }
+}
 
-// composeSelStory has been migrated to useCreateStory hook
+/** Full compose. Persists the story server-side and returns `story_id`. */
+export async function composeSelStory(input: ComposeStoryInput): Promise<SelStoryResponse> {
+  const MAX_ATTEMPTS = 3;
+  const BACKOFF_MS = [800, 1800];
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase.functions.invoke("compose-story", {
+      body: { ...input, mode: "full" },
+    });
+    if (!error) {
+      assertComposeOk(data);
+      return data as SelStoryResponse;
+    }
+    lastError = error;
+    const retry = await shouldRetryComposeError(error);
+    if (!retry || attempt === MAX_ATTEMPTS - 1) break;
+    console.warn(`[composeSelStory] retry ${attempt + 1}/${MAX_ATTEMPTS - 1} after invalid AI JSON / 502`);
+    await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt] ?? 2000));
+  }
+  throw lastError;
+}
+
 
 /** Best-effort extraction of structured details from a compose-story error response. */
 export async function readComposeErrorDetails(err: unknown): Promise<{
@@ -193,49 +204,40 @@ export async function illustrateSelStory(
     throw new Error("illustrate-story must be user-triggered (pass { trigger: 'user' })");
   }
 
-  try {
-    // 1. Trigger the job on NestJS Backend Core
-    await axiosInstance.post(`/media/stories/${input.storyId}/illustrations`);
-    
-    // 2. Poll until completed or failed
-    const maxAttempts = 60; // 60 seconds timeout
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const res = await axiosInstance.get<any>(`/media/stories/${input.storyId}/illustrations`);
-      const job = res.data;
-      
-      if (job.jobStatus === "COMPLETED" || job.jobStatus === "FAILED" || job.completedPages + job.failedPages >= job.totalPages) {
-        return {
-          storyId: input.storyId,
-          illustrations: (job.illustrations || []).map((i: any) => ({
-            index: i.pageNumber,
-            imageUrl: i.imageUrl,
-            status: i.status,
-          })),
-        };
-      }
-    }
-    throw new Error("Illustration generation timed out");
-  } catch (err: any) {
-    if (err.response?.status === 403 || err.response?.data?.message?.includes("limit")) {
-      throw new SubscriptionRequiredError("illustrations");
-    }
-    throw err;
+  const { data, error } = await supabase.functions.invoke("illustrate-story", {
+    body: { ...input, trigger: "user", triggerSource: source },
+  });
+  if (error) throw error;
+  if ((data as { blocked?: boolean })?.blocked) {
+    throw new SubscriptionRequiredError((data as { feature?: string }).feature ?? "illustrations");
   }
+  return data as IllustrateResponse;
 }
 
 
-export async function exportStoryPdf(storyId: string, _opts: { force?: boolean } = {}): Promise<string> {
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/media/stories/${storyId}/export/pdf`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_pdf_url");
-    return url;
-  } catch (err: any) {
-    if (err.response?.status === 403 || err.response?.data?.message?.includes("limit")) {
-      throw new SubscriptionRequiredError("pdf");
-    }
-    throw err;
+export async function exportStoryPdf(storyId: string, opts: { force?: boolean } = {}): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("export-story-pdf", {
+    body: { storyId, force: opts.force === true },
+  });
+  if (error) throw error;
+  const body = data as {
+    blocked?: boolean;
+    feature?: string;
+    success?: boolean;
+    error?: string;
+    message?: string;
+    pdfUrl?: string;
+    download_url?: string;
+  };
+  if (body?.blocked) {
+    throw new SubscriptionRequiredError(body.feature ?? "pdf");
   }
+  if (body?.success === false) {
+    throw new Error(body.message || body.error || "pdf_export_failed");
+  }
+  const url = body?.download_url ?? body?.pdfUrl;
+  if (!url) throw new Error("no_pdf_url");
+  return url;
 }
+
 
