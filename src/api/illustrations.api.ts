@@ -47,10 +47,17 @@ export const fetchIllustrations = async (storyId: string): Promise<IllustrationJ
   if (error) throw error;
 
   const rows = data ?? [];
+  const normalizeStatus = (status: string | null, imageUrl: string | null): string => {
+    const s = (status ?? 'PENDING').toUpperCase();
+    // The `illustrate-story` Edge Function persists 'ready' on success.
+    if (imageUrl && (s === 'READY' || s === 'SUCCESS' || s === 'DONE')) return 'COMPLETED';
+    return s;
+  };
+
   const illustrations: IllustrationResponse[] = rows.map((r) => ({
     pageNumber: (r.page_index ?? 0) + 1,
     imageUrl: r.image_url ?? '',
-    status: (r.status ?? 'PENDING').toUpperCase(),
+    status: normalizeStatus(r.status, r.image_url),
   }));
 
   const completedPages = illustrations.filter((i) => i.status === 'COMPLETED' && !!i.imageUrl).length;
