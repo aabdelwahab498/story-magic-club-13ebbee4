@@ -1,5 +1,8 @@
 // src/api/audio.api.ts
-import { axiosInstance } from './client';
+// DATA SOURCE: Supabase edge functions (`narrate-story-full`, `narrate-story`)
+// and the `ai_story_history.audio_url` column. The legacy NestJS `/media/*`
+// endpoints are gone — never reintroduce axios here.
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AudioJobResponse {
   status: 'NONE' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -7,34 +10,52 @@ export interface AudioJobResponse {
   error?: string | null;
 }
 
+/**
+ * Generate stitched full-story narration. Runs synchronously in the edge
+ * function, so the caller's mutation stays pending until the MP3 is stored.
+ */
 export const generateAudio = async (storyId: string): Promise<{ mediaId: string; status: string }> => {
-  const response = await axiosInstance.post<{ mediaId: string; status: string }>(`/media/stories/${storyId}/audio`);
-  return response.data;
+  const { data, error } = await supabase.functions.invoke('narrate-story-full', {
+    body: { storyId, character: '' },
+  });
+  if (error) throw new Error(error.message || 'narration_failed');
+  if (data?.error) throw new Error(data.message || data.error);
+  return { mediaId: storyId, status: 'COMPLETED' };
 };
 
+/** Read the persisted narration URL for a saved AI story. */
 export const fetchAudio = async (storyId: string): Promise<AudioJobResponse> => {
-  const response = await axiosInstance.get<AudioJobResponse>(`/media/stories/${storyId}/audio`);
-  return response.data;
+  const { data, error } = await supabase
+    .from('ai_story_history')
+    .select('audio_url')
+    .eq('id', storyId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const audioUrl = (data as { audio_url?: string | null } | null)?.audio_url ?? null;
+  return { status: audioUrl ? 'COMPLETED' : 'NONE', audioUrl };
 };
 
-export const retryAudio = async (storyId: string): Promise<{ mediaId: string; status: string }> => {
-  const response = await axiosInstance.post<{ mediaId: string; status: string }>(`/media/stories/${storyId}/audio/retry`);
-  return response.data;
-};
+export const retryAudio = generateAudio;
 
 export const deleteAudio = async (storyId: string): Promise<{ success: boolean }> => {
-  const response = await axiosInstance.delete<{ success: boolean }>(`/media/stories/${storyId}/audio`);
-  return response.data;
+  const { error } = await supabase
+    .from('ai_story_history')
+    .update({ audio_url: null })
+    .eq('id', storyId);
+  if (error) throw new Error(error.message);
+  return { success: true };
 };
 
-// Generic TTS call for client-side play/dynamic narrations, migrating away from direct supabase calls
+/** One-off TTS for inline playback (classic library pages). */
 export const synthesizeDynamicTts = async (args: {
   text: string;
   language: string;
   character?: string;
 }): Promise<{ audioContent: string }> => {
-  // Let's call /media/tts or map to client wrapper
-  // For compatibility with the legacy narrate-story return structure
-  const response = await axiosInstance.post<{ audioContent: string }>('/media/tts', args);
-  return response.data;
+  const { data, error } = await supabase.functions.invoke('narrate-story', {
+    body: { text: args.text, language: args.language, character: args.character ?? '' },
+  });
+  if (error) throw new Error(error.message || 'tts_failed');
+  if (data?.error) throw new Error(data.error);
+  return data as { audioContent: string };
 };
