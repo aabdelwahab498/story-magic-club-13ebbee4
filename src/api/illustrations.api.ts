@@ -54,8 +54,11 @@ export const fetchIllustrations = async (storyId: string): Promise<IllustrationJ
     return s;
   };
 
+  // page_index is persisted 1-based by the Edge Function; tolerate 0-based rows too.
+  const base = rows.some((r) => r.page_index === 0) ? 0 : 1;
+
   const illustrations: IllustrationResponse[] = rows.map((r) => ({
-    pageNumber: (r.page_index ?? 0) + 1,
+    pageNumber: (r.page_index ?? base) - base + 1,
     imageUrl: r.image_url ?? '',
     status: normalizeStatus(r.status, r.image_url),
   }));
