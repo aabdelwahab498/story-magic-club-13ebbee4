@@ -1,20 +1,18 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, Crown, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useUpgrade } from "@/hooks/useUpgrade";
-import { env } from "@/lib/env";
 
-import { usePlans, type PlanAPI } from "@/lib/plansApi";
+import { usePlans } from "@/lib/plansApi";
 
 const Pricing = () => {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
   const navigate = useNavigate();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { plan: currentPlanSlug } = useSubscription();
   const { startUpgrade, isUpgrading } = useUpgrade();
 

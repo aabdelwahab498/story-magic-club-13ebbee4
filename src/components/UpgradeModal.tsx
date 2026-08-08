@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Crown, Check, Sparkles, KeyRound } from "lucide-react";
@@ -12,9 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { env } from "@/lib/env";
 
-import { usePlans, type PlanAPI } from "@/lib/plansApi";
+import { usePlans } from "@/lib/plansApi";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -30,7 +28,7 @@ interface UpgradeModalProps {
 const UpgradeModal = ({ open, onOpenChange, reason }: UpgradeModalProps) => {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language?.startsWith("ar");
-  const { session } = useAuth();
+  
 
   const { data: plans } = usePlans(open);
 
