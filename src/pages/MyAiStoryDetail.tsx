@@ -92,10 +92,23 @@ const MyAiStoryDetail = () => {
   const { mutate: retryAudio, isPending: isRetryingAudio } = useRetryAudio();
   const { mutate: deleteAudio, isPending: isDeletingAudio } = useDeleteAudio();
 
-  const pages = useMemo(() => (story ? pagesFromRow(story) : []), [story]);
+  const basePages = useMemo(() => (story ? pagesFromRow(story) : []), [story]);
+
+  const illustrations = useMemo(() => illustrationJob?.illustrations || [], [illustrationJob]);
+
+  // Merge persisted illustrations (generated_illustrations) into the page objects
+  // handed to downstream consumers (DownloadMenu / ZIP). No DB write, no duplicate source.
+  const pages = useMemo(() => {
+    if (illustrations.length === 0) return basePages;
+    return basePages.map((p, idx) => {
+      const match = illustrations.find((img) => img.pageNumber === idx + 1);
+      const url = match && match.status === "COMPLETED" ? match.imageUrl : null;
+      return url ? { ...p, image_url: url } : p;
+    });
+  }, [basePages, illustrations]);
+
   const current = pages[pageIndex];
 
-  const illustrations = illustrationJob?.illustrations || [];
   const currentIllustration = illustrations.find((img) => img.pageNumber === pageIndex + 1);
   const currentImageUrl = (currentIllustration?.status === "COMPLETED" ? currentIllustration.imageUrl : null) || current?.image_url;
   

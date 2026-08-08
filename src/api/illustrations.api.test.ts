@@ -25,12 +25,9 @@ describe('illustrations.api', () => {
   });
 
   describe('fetchIllustrations', () => {
-    it('should GET illustrations endpoint', async () => {
-      const mockData = [{ pageNumber: 1, imageUrl: 'test.jpg', status: 'COMPLETED' }];
-      mock.onGet('/media/stories/123/illustrations').reply(200, mockData);
-
-      const result = await fetchIllustrations('123');
-      expect(result).toEqual(mockData);
+    it('reads persisted illustrations from the database', async () => {
+      const result = await fetchIllustrations('00000000-0000-0000-0000-000000000000');
+      expect(result).toMatchObject({ illustrations: [], totalPages: 0, jobStatus: 'NONE' });
     });
   });
 });
