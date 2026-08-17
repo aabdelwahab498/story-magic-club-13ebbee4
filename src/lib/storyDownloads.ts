@@ -439,14 +439,28 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   slack_channel_id: null,
 };
 
+/**
+ * Reads download settings.
+ * Admins get the full row (including internal alert contacts) via the table.
+ * Non-admins fall back to a safe subset exposed through an RPC — internal
+ * ops fields (alert_email, slack_channel_id) are never returned to them.
+ */
 export async function fetchDownloadSettings(): Promise<DownloadSettings> {
   const { data } = await supabase
     .from("download_settings" as never)
     .select("*")
     .limit(1)
     .maybeSingle();
-  if (!data) return DEFAULT_DOWNLOAD_SETTINGS;
-  return { ...DEFAULT_DOWNLOAD_SETTINGS, ...(data as Partial<DownloadSettings>) };
+  if (data) {
+    return { ...DEFAULT_DOWNLOAD_SETTINGS, ...(data as Partial<DownloadSettings>) };
+  }
+
+  const { data: publicRows } = await supabase.rpc(
+    "get_download_settings_public" as never,
+  );
+  const row = Array.isArray(publicRows) ? publicRows[0] : publicRows;
+  if (!row) return DEFAULT_DOWNLOAD_SETTINGS;
+  return { ...DEFAULT_DOWNLOAD_SETTINGS, ...(row as Partial<DownloadSettings>) };
 }
 
 export async function updateDownloadSettings(
