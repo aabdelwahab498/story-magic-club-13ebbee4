@@ -458,7 +458,8 @@ export async function fetchDownloadSettings(): Promise<DownloadSettings> {
   const { data: publicRows } = await supabase.rpc(
     "get_download_settings_public" as never,
   );
-  const row = Array.isArray(publicRows) ? publicRows[0] : (publicRows ?? null);
+  const rows = (publicRows ?? null) as Partial<DownloadSettings>[] | Partial<DownloadSettings> | null;
+  const row = Array.isArray(rows) ? rows[0] : rows;
   if (!row) return DEFAULT_DOWNLOAD_SETTINGS;
   return { ...DEFAULT_DOWNLOAD_SETTINGS, ...(row as Partial<DownloadSettings>) };
 }
