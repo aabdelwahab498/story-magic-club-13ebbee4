@@ -1331,13 +1331,6 @@ export type Database = {
             referencedRelation: "audio_voice_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "generated_audio_files_voice_id_fkey"
-            columns: ["voice_id"]
-            isOneToOne: false
-            referencedRelation: "audio_voice_profiles_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       generated_illustrations: {
@@ -3094,81 +3087,6 @@ export type Database = {
       }
     }
     Views: {
-      audio_voice_profiles_public: {
-        Row: {
-          description: string | null
-          gender: string | null
-          id: string | null
-          is_default: boolean | null
-          language: string | null
-          name: string | null
-          provider: string | null
-          sample_url: string | null
-          voice_id: string | null
-        }
-        Insert: {
-          description?: string | null
-          gender?: string | null
-          id?: string | null
-          is_default?: boolean | null
-          language?: string | null
-          name?: string | null
-          provider?: string | null
-          sample_url?: string | null
-          voice_id?: string | null
-        }
-        Update: {
-          description?: string | null
-          gender?: string | null
-          id?: string | null
-          is_default?: boolean | null
-          language?: string | null
-          name?: string | null
-          provider?: string | null
-          sample_url?: string | null
-          voice_id?: string | null
-        }
-        Relationships: []
-      }
-      download_settings_public: {
-        Row: {
-          daily_limit_per_user: number | null
-          enable_docx: boolean | null
-          enable_epub: boolean | null
-          enable_images: boolean | null
-          enable_mp3: boolean | null
-          enable_pack: boolean | null
-          enable_pdf: boolean | null
-          enable_txt: boolean | null
-          id: boolean | null
-          max_file_size_mb: number | null
-        }
-        Insert: {
-          daily_limit_per_user?: number | null
-          enable_docx?: boolean | null
-          enable_epub?: boolean | null
-          enable_images?: boolean | null
-          enable_mp3?: boolean | null
-          enable_pack?: boolean | null
-          enable_pdf?: boolean | null
-          enable_txt?: boolean | null
-          id?: boolean | null
-          max_file_size_mb?: number | null
-        }
-        Update: {
-          daily_limit_per_user?: number | null
-          enable_docx?: boolean | null
-          enable_epub?: boolean | null
-          enable_images?: boolean | null
-          enable_mp3?: boolean | null
-          enable_pack?: boolean | null
-          enable_pdf?: boolean | null
-          enable_txt?: boolean | null
-          id?: boolean | null
-          max_file_size_mb?: number | null
-        }
-        Relationships: []
-      }
       site_stats: {
         Row: {
           total_drawings: number | null
@@ -3197,6 +3115,34 @@ export type Database = {
       }
       expire_due_subscriptions: { Args: never; Returns: number }
       get_active_paddle_tier: { Args: { _user_id: string }; Returns: string }
+      get_active_voice_profiles: {
+        Args: never
+        Returns: {
+          description: string
+          gender: string
+          id: string
+          is_default: boolean
+          language: string
+          name: string
+          provider: string
+          sample_url: string
+          voice_id: string
+        }[]
+      }
+      get_download_settings_public: {
+        Args: never
+        Returns: {
+          daily_limit_per_user: number
+          enable_docx: boolean
+          enable_epub: boolean
+          enable_images: boolean
+          enable_mp3: boolean
+          enable_pack: boolean
+          enable_pdf: boolean
+          enable_txt: boolean
+          max_file_size_mb: number
+        }[]
+      }
       grant_credits: { Args: { _n: number; _user_id: string }; Returns: number }
       has_paid_feature: {
         Args: { _feature: string; _user_id: string }
