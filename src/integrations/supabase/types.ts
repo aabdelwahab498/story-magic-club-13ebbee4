@@ -3115,6 +3115,34 @@ export type Database = {
       }
       expire_due_subscriptions: { Args: never; Returns: number }
       get_active_paddle_tier: { Args: { _user_id: string }; Returns: string }
+      get_active_voice_profiles: {
+        Args: never
+        Returns: {
+          description: string
+          gender: string
+          id: string
+          is_default: boolean
+          language: string
+          name: string
+          provider: string
+          sample_url: string
+          voice_id: string
+        }[]
+      }
+      get_download_settings_public: {
+        Args: never
+        Returns: {
+          daily_limit_per_user: number
+          enable_docx: boolean
+          enable_epub: boolean
+          enable_images: boolean
+          enable_mp3: boolean
+          enable_pack: boolean
+          enable_pdf: boolean
+          enable_txt: boolean
+          max_file_size_mb: number
+        }[]
+      }
       grant_credits: { Args: { _n: number; _user_id: string }; Returns: number }
       has_paid_feature: {
         Args: { _feature: string; _user_id: string }
