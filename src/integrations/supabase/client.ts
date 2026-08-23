@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from '@/lib/env';
 import type { Database } from './types';
+import { brokeredPreviewStorage } from './previewAuthStorage';
 
 const SUPABASE_URL = env.supabaseUrl;
 const SUPABASE_PUBLISHABLE_KEY = env.supabaseKey;
@@ -11,7 +12,7 @@ const SUPABASE_PUBLISHABLE_KEY = env.supabaseKey;
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: brokeredPreviewStorage(),
     persistSession: true,
     autoRefreshToken: true,
   }
