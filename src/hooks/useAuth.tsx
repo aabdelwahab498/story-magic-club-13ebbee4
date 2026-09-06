@@ -11,6 +11,8 @@ interface AuthCtx {
   session: Session | null;
   user: User | null;
   roles: AppRole[];
+  /** True once the user_roles query has resolved (or no user is signed in). */
+  rolesLoaded: boolean;
   permissions: PermissionKey[];
   hasPermission: (key: PermissionKey) => boolean;
   hasRole: (role: AppRole) => boolean;
@@ -28,13 +30,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadRoles = useCallback(async (userId: string | undefined) => {
     if (!userId) {
       setRoles([]);
+      setRolesLoaded(true);
       return;
     }
+    // Mark unresolved until the user_roles query completes so route guards
+    // never make an authorization decision on a stale/empty role list.
+    setRolesLoaded(false);
     try {
       const { data, error } = await supabase
         .from("user_roles")
@@ -44,6 +51,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
     } catch {
       setRoles([]);
+    } finally {
+      setRolesLoaded(true);
     }
   }, []);
 
@@ -93,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         user,
         roles,
+        rolesLoaded,
         permissions,
         hasPermission,
         hasRole,
