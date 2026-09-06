@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ShieldAlert, ArrowLeft, KeyRound } from "lucide-react";
+import { ShieldAlert, ArrowLeft, KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -28,7 +28,16 @@ export default function PermissionGuard({
   children,
 }: Props) {
   const { t } = useTranslation();
-  const { isAdmin, hasPermission, roles } = useAuth();
+  const { isAdmin, hasPermission, roles, rbacLoaded } = useAuth();
+
+  // Never decide (or flash privileged UI) before RBAC resolves.
+  if (!rbacLoaded) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const allowed = adminOnly
     ? isAdmin

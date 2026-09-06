@@ -1,7 +1,20 @@
 import { apiClient } from './client';
 import type { UserContext } from './types';
+import type { AppRole, PermissionKey } from '@/lib/rbac';
 
 export interface MeResponse extends UserContext {}
+
+/**
+ * Canonical identity/RBAC contract returned by `GET /api/v2/me`.
+ * `roles[]` is canonical; `role` is kept for backward compatibility.
+ */
+export interface IdentityContextResponse {
+  id: string;
+  email: string;
+  role: AppRole;
+  roles: AppRole[];
+  permissions: PermissionKey[];
+}
 
 export const authApi = {
   /**
@@ -29,6 +42,17 @@ export const authApi = {
    */
   getMe: () => {
     return apiClient<MeResponse>('/auth/me');
+  },
+
+  /**
+   * Canonical RBAC resolution: `GET /api/v2/me` authenticated with the current
+   * Supabase access token. Supabase remains the session authority; the backend
+   * is the authority for roles/permissions.
+   */
+  getIdentityContext: (accessToken: string) => {
+    return apiClient<IdentityContextResponse>('/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
   },
 
   /**
