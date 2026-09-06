@@ -28,7 +28,16 @@ export default function PermissionGuard({
   children,
 }: Props) {
   const { t } = useTranslation();
-  const { isAdmin, hasPermission, roles } = useAuth();
+  const { isAdmin, hasPermission, roles, rbacLoaded } = useAuth();
+
+  // Never decide (or flash privileged UI) before RBAC resolves.
+  if (!rbacLoaded) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const allowed = adminOnly
     ? isAdmin

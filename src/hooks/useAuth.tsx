@@ -1,19 +1,30 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
-import { AppRole, PermissionKey } from "@/lib/rbac";
+import { AppRole, PermissionKey, ADMIN_ROLES, dedupe } from "@/lib/rbac";
+import { authApi } from "@/api/auth.api";
 
 /**
- * Authentication context backed by Lovable Cloud auth.
- * Roles are read from the `user_roles` table (never from the profile row).
+ * Authentication context.
+ *
+ * - Supabase remains the session authority (login/signup/refresh/logout).
+ * - `GET /api/v2/me` is the canonical RBAC authority: roles[] and permissions[]
+ *   come from the backend, never from a hardcoded frontend matrix.
+ * - If the RBAC endpoint is unreachable, roles fall back to the `user_roles`
+ *   table (read under RLS) and permissions resolve to an empty list, so no
+ *   privileged permission-gated UI is ever granted on failure.
  */
 interface AuthCtx {
   session: Session | null;
   user: User | null;
   roles: AppRole[];
-  /** True once the user_roles query has resolved (or no user is signed in). */
+  /** True once role resolution has completed (or no user is signed in). */
   rolesLoaded: boolean;
   permissions: PermissionKey[];
+  /** True once permission resolution has completed (or no user is signed in). */
+  permissionsLoaded: boolean;
+  /** True once the whole RBAC resolution cycle has completed. */
+  rbacLoaded: boolean;
   hasPermission: (key: PermissionKey) => boolean;
   hasRole: (role: AppRole) => boolean;
   isAdmin: boolean;
@@ -30,70 +41,107 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [rolesLoaded, setRolesLoaded] = useState(false);
+  const [permissions, setPermissions] = useState<PermissionKey[]>([]);
+  const [rbacLoaded, setRbacLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadRoles = useCallback(async (userId: string | undefined) => {
+  /** Monotonic token: results from stale identities are discarded. */
+  const rbacSeq = useRef(0);
+
+  const loadRbac = useCallback(async (nextSession: Session | null) => {
+    const seq = ++rbacSeq.current;
+    const userId = nextSession?.user?.id;
+    const accessToken = nextSession?.access_token;
+
+    // Always clear previous identity's RBAC state before resolving a new one.
+    setRoles([]);
+    setPermissions([]);
+
     if (!userId) {
-      setRoles([]);
-      setRolesLoaded(true);
+      setRbacLoaded(true);
       return;
     }
-    // Mark unresolved until the user_roles query completes so route guards
-    // never make an authorization decision on a stale/empty role list.
-    setRolesLoaded(false);
+
+    setRbacLoaded(false);
+
+    // 1) Canonical source: backend identity context.
+    if (accessToken) {
+      try {
+        const me = await authApi.getIdentityContext(accessToken);
+        if (seq !== rbacSeq.current) return; // stale identity — discard
+        setRoles(dedupe((me?.roles ?? []) as AppRole[]));
+        setPermissions(dedupe(me?.permissions ?? []));
+        setRbacLoaded(true);
+        return;
+      } catch {
+        if (seq !== rbacSeq.current) return;
+        // fall through to role-only resolution below
+      }
+    }
+
+    // 2) Fallback (backend unavailable): roles from `user_roles` under RLS.
+    //    Permissions stay empty — permission-gated UI fails closed.
     try {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId);
       if (error) throw error;
-      setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+      if (seq !== rbacSeq.current) return;
+      setRoles(dedupe(((data ?? []) as { role: AppRole }[]).map((r) => r.role)));
     } catch {
+      if (seq !== rbacSeq.current) return;
       setRoles([]);
     } finally {
-      setRolesLoaded(true);
+      if (seq === rbacSeq.current) {
+        setPermissions([]);
+        setRbacLoaded(true);
+      }
     }
   }, []);
 
   useEffect(() => {
     // Register the listener first, then read the existing session.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setLoading(false);
-      // Defer any additional Supabase call out of the callback.
-      setTimeout(() => void loadRoles(nextSession?.user?.id), 0);
+      // A pure token refresh keeps the same identity: no need to re-resolve RBAC.
+      if (event === "TOKEN_REFRESHED") return;
+      // Defer any additional call out of the auth callback.
+      setTimeout(() => void loadRbac(nextSession), 0);
     });
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       setLoading(false);
-      void loadRoles(data.session?.user?.id);
+      void loadRbac(data.session);
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [loadRoles]);
+  }, [loadRbac]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  const isAdmin = hasRole("admin");
+  const isAdmin = roles.some((r) => ADMIN_ROLES.includes(r));
   const isEditor = hasRole("editor");
   const isStaff = isAdmin || isEditor;
 
-  // Permissions are role-derived for now; admins implicitly hold every key.
-  const permissions: PermissionKey[] = [];
+  // Admin/super_admin mirror the backend's permission bypass for UX gating.
   const hasPermission = (key: PermissionKey) => isAdmin || permissions.includes(key);
 
   const signOut = async () => {
+    rbacSeq.current++; // invalidate any in-flight RBAC request
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
     setRoles([]);
+    setPermissions([]);
+    setRbacLoaded(true);
   };
 
   const refreshAdmin = async () => {
-    await loadRoles(user?.id);
+    await loadRbac(session);
   };
 
   return (
@@ -102,8 +150,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         user,
         roles,
-        rolesLoaded,
+        rolesLoaded: rbacLoaded,
         permissions,
+        permissionsLoaded: rbacLoaded,
+        rbacLoaded,
         hasPermission,
         hasRole,
         isAdmin,
