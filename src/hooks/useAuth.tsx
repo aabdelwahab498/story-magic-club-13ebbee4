@@ -102,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         user,
         roles,
+        rolesLoaded,
         permissions,
         hasPermission,
         hasRole,
