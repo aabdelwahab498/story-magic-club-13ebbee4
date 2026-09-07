@@ -113,30 +113,59 @@ export class TrialServerError extends Error {
   }
 }
 
+// Najmah NestJS public trial endpoint (no Supabase auth, intentionally public).
+const NAJMAH_TRIAL_URL = "https://najmah-api.nextnext-gen.com/api/v2/stories/trial";
+
+interface NajmahErrorBody {
+  success?: boolean;
+  statusCode?: number;
+  error?: string;
+  code?: string;
+  message?: string;
+  trace_id?: string;
+  requestId?: string;
+  retry_after?: number;
+}
+
 export async function generateTrialStory(input: TrialInput): Promise<TrialStoryResponse> {
-  const fingerprint = await getBrowserFingerprint();
-  const { data, error } = await supabase.functions.invoke("trial-story", {
-    body: { ...input, fingerprint },
-  });
-  if (error) {
-    const ctx = (error as { context?: Response }).context;
-    if (ctx instanceof Response) {
-      let body: { error?: string; message?: string; retry_after?: number; requestId?: string } = {};
-      try { body = await ctx.clone().json(); } catch { /* ignore */ }
-      if (ctx.status === 429) {
-        const retry = Number(body.retry_after ?? ctx.headers.get("retry-after") ?? 60);
-        throw new TrialRateLimitedError(retry, body.error === "blocked" ? "blocked" : "rate_limited");
-      }
-      if (body.error === "content_rejected") {
-        throw new TrialContentRejectedError(body.message ?? "Content not suitable.");
-      }
-      if (ctx.status >= 400) {
-        throw new TrialServerError(ctx.status, body.message ?? "Failed to generate trial story.", body.requestId);
-      }
-    }
-    throw error;
+  // Backend DTO fields only — no fingerprint, no auth header.
+  const body: Record<string, unknown> = {
+    childName: input.childName,
+    age: input.age,
+    theme: input.theme,
+  };
+  if (input.language) body.language = input.language;
+  if (input.customPrompt) body.selGoal = input.customPrompt;
+
+  let res: Response;
+  try {
+    res = await fetch(NAJMAH_TRIAL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new TrialServerError(0, e instanceof Error ? e.message : "Network error.");
   }
-  return data as TrialStoryResponse;
+
+  if (!res.ok) {
+    let errBody: NajmahErrorBody = {};
+    try { errBody = await res.clone().json(); } catch { /* ignore */ }
+    const message = errBody.message ?? "Failed to generate trial story.";
+    const requestId = errBody.requestId ?? errBody.trace_id;
+
+    if (res.status === 429) {
+      const retry = Number(errBody.retry_after ?? res.headers.get("retry-after") ?? 60);
+      throw new TrialRateLimitedError(retry, errBody.error === "blocked" ? "blocked" : "rate_limited");
+    }
+    const code = String(errBody.code ?? errBody.error ?? "");
+    if (/content_rejected|content_not_allowed|unsafe_content|moderation/i.test(code)) {
+      throw new TrialContentRejectedError(message);
+    }
+    throw new TrialServerError(res.status, message, requestId);
+  }
+
+  return (await res.json()) as TrialStoryResponse;
 }
 // ---- Step 2: trial illustrations (anonymous, no auth) ----
 export interface TrialIllustration {
