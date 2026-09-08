@@ -18,7 +18,7 @@ const RL_WINDOW_MS = 60 * 60 * 1000;
 const RL_MAX_HITS = 5;
 const RL_BLOCK_MS = 60 * 60 * 1000;
 
-const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
+const ResendConfirmation = ({ email, cooldown = 30 }: Props) => {
   const { t } = useTranslation();
   const [sending, setSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
