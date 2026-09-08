@@ -123,6 +123,14 @@ const Auth = () => {
         },
       })
       .catch(() => { /* logged server-side */ });
+    if (!requiresConfirmation) {
+      await refreshAdmin();
+      toast.success(t("auth.welcome_named", "Welcome back, {{name}}! ✨", {
+        name: displayName || email.split("@")[0],
+      }));
+      navigate(resolveDest(false), { replace: true });
+      return;
+    }
     setSignupSuccess(email);
     toast.success(
       t("auth.check_email", "Check your inbox to confirm your email ✉️"),
