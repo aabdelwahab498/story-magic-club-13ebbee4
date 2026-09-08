@@ -121,6 +121,7 @@ const App = () => (
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/admin/auth" element={<AdminAuth />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
