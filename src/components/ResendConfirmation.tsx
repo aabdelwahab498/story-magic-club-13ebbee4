@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Mail } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { authApi } from "@/api/auth.api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { checkRateLimit, recordHit } from "@/lib/rateLimit";
-import { describeAuthError } from "@/lib/authErrors";
 
 interface Props {
   email: string;
@@ -19,7 +18,7 @@ const RL_WINDOW_MS = 60 * 60 * 1000;
 const RL_MAX_HITS = 5;
 const RL_BLOCK_MS = 60 * 60 * 1000;
 
-const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
+const ResendConfirmation = ({ email, cooldown = 30 }: Props) => {
   const { t } = useTranslation();
   const [sending, setSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -49,19 +48,27 @@ const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
     }
 
     setSending(true);
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
-    });
+    let ok = true;
+    let serverMessage = "";
+    try {
+      const res = await authApi.resendConfirmation(email);
+      serverMessage = typeof res?.message === "string" ? res.message : "";
+    } catch {
+      ok = false;
+    }
     setSending(false);
-    if (error) {
-      toast.error(describeAuthError(error, t, "resend"), { duration: 7000 });
+    if (!ok) {
+      toast.error(
+        t("resend.failed", "We couldn't send the email right now. Please try again."),
+        { duration: 7000 }
+      );
       return;
     }
     recordHit(key, RL_MAX_HITS, RL_WINDOW_MS, RL_BLOCK_MS);
     setSecondsLeft(cooldown);
-    toast.success(t("resend.sent", "Confirmation email re-sent ✉️"));
+    toast.success(
+      serverMessage || t("resend.sent", "Confirmation email re-sent ✉️")
+    );
   };
 
   return (

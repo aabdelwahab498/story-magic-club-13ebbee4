@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { errorMapper } from './errors';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v2';
+const DEFAULT_API_BASE_URL = 'https://najmah-api.nextnext-gen.com/api/v2';
+
+const API_BASE_URL =
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim() || DEFAULT_API_BASE_URL;
 
 // Axios instance with HttpOnly cookie support (withCredentials: true)
 export const axiosInstance = axios.create({
