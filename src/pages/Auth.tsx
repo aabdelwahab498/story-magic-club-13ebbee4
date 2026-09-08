@@ -96,13 +96,17 @@ const Auth = () => {
       return;
     }
     setSubmitting(true);
+    let requiresConfirmation = true;
     try {
-      await authApi.register({
+      const res = await authApi.register({
         email,
         password,
         displayName,
         preferredLanguage: localStorage.getItem("starry-tales-language") || "en",
       });
+      if (res && typeof res.requiresConfirmation === "boolean") {
+        requiresConfirmation = res.requiresConfirmation;
+      }
       setSubmitting(false);
     } catch (error: any) {
       setSubmitting(false);
