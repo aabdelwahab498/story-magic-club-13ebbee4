@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Mail } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { authApi } from "@/api/auth.api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { checkRateLimit, recordHit } from "@/lib/rateLimit";
-import { describeAuthError } from "@/lib/authErrors";
 
 interface Props {
   email: string;
