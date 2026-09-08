@@ -372,6 +372,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_costs: {
+        Row: {
+          created_at: string | null
+          estimated_cost: number | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          provider: string
+          units: number
+        }
+        Insert: {
+          created_at?: string | null
+          estimated_cost?: number | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          provider: string
+          units?: number
+        }
+        Update: {
+          created_at?: string | null
+          estimated_cost?: number | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          units?: number
+        }
+        Relationships: []
+      }
       ai_usage_limits: {
         Row: {
           created_at: string
@@ -818,6 +848,41 @@ export type Database = {
           },
         ]
       }
+      child_learning_progress: {
+        Row: {
+          child_id: string
+          created_at: string
+          id: string
+          new_level: string
+          previous_level: string
+          reason: string | null
+        }
+        Insert: {
+          child_id: string
+          created_at?: string
+          id?: string
+          new_level: string
+          previous_level: string
+          reason?: string | null
+        }
+        Update: {
+          child_id?: string
+          created_at?: string
+          id?: string
+          new_level?: string
+          previous_level?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_learning_progress_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "child_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       child_profiles: {
         Row: {
           age: number | null
@@ -896,6 +961,36 @@ export type Database = {
           subject?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          reference_id: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          transaction_type?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2026,6 +2121,33 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_customers: {
+        Row: {
+          created_at: string | null
+          customer_id: string
+          id: string
+          provider: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id: string
+          id?: string
+          provider: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string
+          id?: string
+          provider?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_settings: {
         Row: {
           bank_account_name: string | null
@@ -2095,6 +2217,42 @@ export type Database = {
           vodafone_currencies?: string[]
           vodafone_enabled?: boolean
           vodafone_number?: string | null
+        }
+        Relationships: []
+      }
+      payment_transactions: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          metadata: Json | null
+          provider: string
+          status: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          provider: string
+          status?: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          status?: string
+          transaction_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -2458,6 +2616,42 @@ export type Database = {
         }
         Relationships: []
       }
+      story_media: {
+        Row: {
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          provider: string
+          status: Database["public"]["Enums"]["media_status"]
+          story_id: string
+          type: Database["public"]["Enums"]["media_type"]
+          updated_at: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          provider: string
+          status?: Database["public"]["Enums"]["media_status"]
+          story_id: string
+          type: Database["public"]["Enums"]["media_type"]
+          updated_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          status?: Database["public"]["Enums"]["media_status"]
+          story_id?: string
+          type?: Database["public"]["Enums"]["media_type"]
+          updated_at?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       story_music_cache: {
         Row: {
           audio_url: string
@@ -2487,6 +2681,59 @@ export type Database = {
           theme?: string
         }
         Relationships: []
+      }
+      story_requests: {
+        Row: {
+          child_id: string | null
+          created_at: string
+          estimated_reading_time: number
+          id: string
+          language: string
+          page_count: number
+          reading_level: string
+          sel_goal: string
+          status: Database["public"]["Enums"]["story_status"]
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          child_id?: string | null
+          created_at?: string
+          estimated_reading_time?: number
+          id?: string
+          language?: string
+          page_count?: number
+          reading_level: string
+          sel_goal: string
+          status?: Database["public"]["Enums"]["story_status"]
+          theme: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          child_id?: string | null
+          created_at?: string
+          estimated_reading_time?: number
+          id?: string
+          language?: string
+          page_count?: number
+          reading_level?: string
+          sel_goal?: string
+          status?: Database["public"]["Enums"]["story_status"]
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_requests_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "child_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       story_safety_reports: {
         Row: {
@@ -2539,6 +2786,33 @@ export type Database = {
           trauma_reject_check?: Json
           user_id?: string
           vygotsky_check?: Json
+        }
+        Relationships: []
+      }
+      subscription_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          plan_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          plan_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          plan_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -2731,6 +3005,33 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          resource_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          resource_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          resource_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_api_keys: {
         Row: {
           api_key: string
@@ -2862,6 +3163,30 @@ export type Database = {
           status?: string
           storage_path?: string
           story_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -3182,6 +3507,17 @@ export type Database = {
         | "custom"
       ai_usage_status: "success" | "error" | "blocked" | "quota_exceeded"
       app_role: "admin" | "user" | "editor" | "super_admin" | "support"
+      media_status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"
+      media_type: "ILLUSTRATION" | "AUDIO" | "PDF"
+      story_status:
+        | "draft"
+        | "queued"
+        | "generating"
+        | "generated"
+        | "illustrating"
+        | "narrating"
+        | "completed"
+        | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3319,6 +3655,18 @@ export const Constants = {
       ],
       ai_usage_status: ["success", "error", "blocked", "quota_exceeded"],
       app_role: ["admin", "user", "editor", "super_admin", "support"],
+      media_status: ["PENDING", "PROCESSING", "COMPLETED", "FAILED"],
+      media_type: ["ILLUSTRATION", "AUDIO", "PDF"],
+      story_status: [
+        "draft",
+        "queued",
+        "generating",
+        "generated",
+        "illustrating",
+        "narrating",
+        "completed",
+        "failed",
+      ],
     },
   },
 } as const
