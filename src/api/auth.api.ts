@@ -16,14 +16,46 @@ export interface IdentityContextResponse {
   permissions: PermissionKey[];
 }
 
+export interface RegisterResponse {
+  requiresConfirmation?: boolean;
+  [key: string]: unknown;
+}
+
+export interface VerifyEmailResponse {
+  success?: boolean;
+  [key: string]: unknown;
+}
+
 export const authApi = {
   /**
    * Register a new user
    */
   register: (data: any) => {
-    return apiClient<any>('/auth/register', {
+    return apiClient<RegisterResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Confirm a signup email using the token_hash from the emailed link.
+   * The backend sets the HttpOnly session cookie (withCredentials is enabled).
+   */
+  verifyEmail: (tokenHash: string) => {
+    return apiClient<VerifyEmailResponse>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token_hash: tokenHash, type: 'signup' }),
+    });
+  },
+
+  /**
+   * Request another confirmation email. The backend always returns a generic
+   * message so account existence is never disclosed.
+   */
+  resendConfirmation: (email: string) => {
+    return apiClient<{ message?: string }>('/auth/resend-confirmation', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   },
 
