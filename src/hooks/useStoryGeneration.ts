@@ -1,30 +1,43 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { storiesApi, CreateStoryRequestDto } from '@/api/stories.api';
+import {
+  storiesApi,
+  pollStoryUntilTerminal,
+  TERMINAL_FAILURE_STATUSES,
+  TERMINAL_SUCCESS_STATUSES,
+  type BackendStoryStatus,
+  type CreateStoryRequestDto,
+  type StoryResponseDto,
+} from '@/api/stories.api';
 
+export { pollStoryUntilTerminal };
+
+const isTerminal = (status?: string) =>
+  !!status &&
+  (TERMINAL_SUCCESS_STATUSES.includes(status as BackendStoryStatus) ||
+    TERMINAL_FAILURE_STATUSES.includes(status as BackendStoryStatus));
+
+/** Creates a story through Backend Core (`POST /api/v2/stories`). */
 export const useCreateStory = () => {
   return useMutation({
-    mutationFn: async (data: CreateStoryRequestDto) => {
+    mutationFn: async (data: CreateStoryRequestDto): Promise<StoryResponseDto> => {
       return storiesApi.createStory(data);
     },
   });
 };
 
+/**
+ * Polls `GET /api/v2/stories/:id` every 3s while the story is still in a
+ * non-terminal lifecycle state (draft/queued/generating/illustrating/narrating).
+ */
 export const useStoryStatus = (storyId: string | null) => {
   return useQuery({
     queryKey: ['story_status', storyId],
     queryFn: async () => {
       if (!storyId) return null;
-      return storiesApi.getStoryStatus(storyId);
+      return storiesApi.getStoryById(storyId);
     },
     enabled: !!storyId,
-    // Poll every 3 seconds while the status is PENDING or PROCESSING
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      if (status === 'PENDING' || status === 'PROCESSING') {
-        return 3000;
-      }
-      return false;
-    },
+    refetchInterval: (query) => (isTerminal(query.state.data?.status) ? false : 3000),
   });
 };
 

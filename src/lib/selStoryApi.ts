@@ -1,5 +1,11 @@
 // Phase 3/4 — client wrappers for SEL story orchestration + illustration.
 import { supabase } from "@/integrations/supabase/client";
+import {
+  storiesApi,
+  pollStoryUntilTerminal,
+  type CreateStoryRequestDto,
+  type StoryResponseDto,
+} from "@/api/stories.api";
 
 
 export interface SelStoryPage {
@@ -92,14 +98,92 @@ function assertComposeOk(data: unknown) {
   }
 }
 
-export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
-  const { data, error } = await supabase.functions.invoke("compose-story", {
-    body: { ...input, mode: "plan" },
-  });
-  if (error) throw error;
-  assertComposeOk(data);
-  return data as SelPlanResponse;
+/** Maps the AIStoryteller form payload to the verified backend-core CreateStoryRequestDto. */
+export function toCreateStoryRequest(input: ComposeStoryInput): CreateStoryRequestDto {
+  const childId = input.childProfileId ?? "";
+  if (!childId) {
+    throw new ComposeStoryError(
+      "child_required",
+      "Please select a child profile before generating a story.",
+    );
+  }
+  const selGoal =
+    (input.emotionalFocus ?? []).filter(Boolean).join(", ") ||
+    input.customPrompt ||
+    input.theme;
+  return {
+    childId,
+    theme: input.theme,
+    selGoal,
+    language: input.language ?? "en",
+    preferences: {
+      childName: input.childName,
+      age: input.age,
+      emotionalFocus: input.emotionalFocus ?? [],
+      ...(input.customPrompt ? { customPrompt: input.customPrompt } : {}),
+      ...(input.presetBlueprint ? { presetBlueprint: input.presetBlueprint } : {}),
+    },
+  };
 }
+
+function ageBandFor(age: number): SelStoryResponse["age_band"] {
+  if (age <= 5) return "3-5";
+  if (age <= 8) return "6-8";
+  return "9-12";
+}
+
+/** Transforms a completed backend-core story into the shape AIStoryteller expects. */
+export function fromBackendStory(
+  story: StoryResponseDto,
+  input: ComposeStoryInput,
+): SelStoryResponse {
+  const meta = (story.metadata ?? {}) as Record<string, unknown>;
+  const pages: SelStoryPage[] = (story.pages ?? []).map((p, i) => ({
+    index: typeof p.pageNumber === "number" ? p.pageNumber : i + 1,
+    text: String(p.text ?? ""),
+    emotionTag: String((p as { emotionTag?: string }).emotionTag ?? ""),
+    illustrationPrompt: String((p as { illustrationPrompt?: string }).illustrationPrompt ?? ""),
+    imageUrl: (p as { illustrationUrl?: string }).illustrationUrl,
+  }));
+  const selGoal = String(meta.selGoal ?? "");
+  return {
+    story_id: story.id,
+    title: story.title ?? String(meta.theme ?? input.theme),
+    pages,
+    sel_outcome: { skill: selGoal, emotion: selGoal, statement: selGoal },
+    character_visual_hash: String(meta.characterVisualHash ?? ""),
+    age_band: ageBandFor(input.age),
+    quality: { total: 0, passed: true, scores: {} },
+    safety: { passed: true, violations: [] },
+    length: { passed: true, pageCount: pages.length },
+    passed: true,
+    regeneration_count: 0,
+    blueprint: (meta.blueprint as Record<string, unknown>) ?? undefined,
+  };
+}
+
+/** Plan preview — backend-core `POST /api/v2/stories/plan`. */
+export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
+  const blueprint = await storiesApi.planStory(toCreateStoryRequest(input));
+  return {
+    requestId: String((blueprint as { requestId?: string }).requestId ?? ""),
+    mode: "plan",
+    blueprint: blueprint as SelPlanResponse["blueprint"],
+    age_band: ageBandFor(input.age),
+  };
+}
+
+/**
+ * Full compose — backend-core `POST /api/v2/stories`, then polls
+ * `GET /api/v2/stories/:id` until the story reaches a terminal status.
+ */
+export async function composeSelStory(input: ComposeStoryInput): Promise<SelStoryResponse> {
+  const created = await storiesApi.createStory(toCreateStoryRequest(input));
+  const finished = await pollStoryUntilTerminal(created);
+  return fromBackendStory(finished, input);
+}
+
+/** ---- Legacy edge-function implementation, preserved for rollback (inactive) ---- */
 
 async function shouldRetryComposeError(err: unknown): Promise<boolean> {
   const ctx = (err as { context?: Response })?.context;
@@ -114,8 +198,18 @@ async function shouldRetryComposeError(err: unknown): Promise<boolean> {
   }
 }
 
-/** Full compose. Persists the story server-side and returns `story_id`. */
-export async function composeSelStory(input: ComposeStoryInput): Promise<SelStoryResponse> {
+/** @deprecated Rollback path only — edge function `compose-story` (mode: plan). */
+export async function planSelStoryViaEdgeFunction(input: ComposeStoryInput): Promise<SelPlanResponse> {
+  const { data, error } = await supabase.functions.invoke("compose-story", {
+    body: { ...input, mode: "plan" },
+  });
+  if (error) throw error;
+  assertComposeOk(data);
+  return data as SelPlanResponse;
+}
+
+/** @deprecated Rollback path only — edge function `compose-story` (mode: full). */
+export async function composeSelStoryViaEdgeFunction(input: ComposeStoryInput): Promise<SelStoryResponse> {
   const MAX_ATTEMPTS = 3;
   const BACKOFF_MS = [800, 1800];
   let lastError: unknown = null;
@@ -135,6 +229,7 @@ export async function composeSelStory(input: ComposeStoryInput): Promise<SelStor
   }
   throw lastError;
 }
+
 
 
 /** Best-effort extraction of structured details from a compose-story error response. */
