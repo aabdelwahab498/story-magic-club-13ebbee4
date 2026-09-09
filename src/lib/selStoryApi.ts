@@ -1,5 +1,11 @@
 // Phase 3/4 — client wrappers for SEL story orchestration + illustration.
 import { supabase } from "@/integrations/supabase/client";
+import {
+  storiesApi,
+  pollStoryUntilTerminal,
+  type CreateStoryRequestDto,
+  type StoryResponseDto,
+} from "@/api/stories.api";
 
 
 export interface SelStoryPage {

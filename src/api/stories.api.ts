@@ -41,6 +41,12 @@ export interface StoryResponseDto {
   status: BackendStoryStatus | string;
   /** Non-identity request fields (theme, selGoal, language, readingLevel, ...) */
   metadata?: Record<string, unknown>;
+  /** Legacy flat fields kept for existing consumers (parent dashboard). */
+  theme?: string;
+  selGoal?: string;
+  language?: string;
+  readingLevel?: string;
+  preferences?: Record<string, unknown>;
   title?: string;
   pages?: Array<{ pageNumber: number; text: string; [k: string]: unknown }>;
   createdAt: string;
@@ -116,4 +122,35 @@ export const storiesApi = {
       method: 'POST',
     });
   },
+};
+
+export class StoryGenerationFailedError extends Error {
+  constructor(public storyId: string, message = 'Story generation failed') {
+    super(message);
+    this.name = 'StoryGenerationFailedError';
+  }
+}
+
+/**
+ * Polls `GET /api/v2/stories/:id` until the story reaches a terminal status.
+ * Success: `generated` | `completed`. Failure: `failed`.
+ */
+export const pollStoryUntilTerminal = async (
+  story: StoryResponseDto,
+  { intervalMs = 3000, timeoutMs = 300000 }: { intervalMs?: number; timeoutMs?: number } = {},
+): Promise<StoryResponseDto> => {
+  const deadline = Date.now() + timeoutMs;
+  let current = story;
+  for (;;) {
+    const status = current.status as BackendStoryStatus;
+    if (TERMINAL_SUCCESS_STATUSES.includes(status)) return current;
+    if (TERMINAL_FAILURE_STATUSES.includes(status)) {
+      throw new StoryGenerationFailedError(current.id);
+    }
+    if (Date.now() >= deadline) {
+      throw new Error('Story generation timed out');
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+    current = await storiesApi.getStoryById(current.id);
+  }
 };
