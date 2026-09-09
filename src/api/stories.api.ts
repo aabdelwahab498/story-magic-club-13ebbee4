@@ -1,4 +1,29 @@
 import { apiClient } from './client';
+import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Backend Core (NestJS) accepts a Supabase access token as a Bearer header
+ * (see backend-core AuthGuard). The token is never logged or persisted here.
+ */
+export const authHeaders = async (): Promise<Record<string, string>> => {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+/** Story lifecycle statuses as defined by backend-core StoryStatus enum. */
+export type BackendStoryStatus =
+  | 'draft'
+  | 'queued'
+  | 'generating'
+  | 'generated'
+  | 'illustrating'
+  | 'narrating'
+  | 'completed'
+  | 'failed';
+
+export const TERMINAL_SUCCESS_STATUSES: BackendStoryStatus[] = ['generated', 'completed'];
+export const TERMINAL_FAILURE_STATUSES: BackendStoryStatus[] = ['failed'];
 
 export interface CreateStoryRequestDto {
   childId: string;
@@ -11,13 +36,13 @@ export interface CreateStoryRequestDto {
 
 export interface StoryResponseDto {
   id: string;
+  userId?: string;
   childId: string;
-  status: string;
-  language: string;
-  theme: string;
-  selGoal: string;
-  readingLevel: string;
-  preferences?: Record<string, unknown>;
+  status: BackendStoryStatus | string;
+  /** Non-identity request fields (theme, selGoal, language, readingLevel, ...) */
+  metadata?: Record<string, unknown>;
+  title?: string;
+  pages?: Array<{ pageNumber: number; text: string; [k: string]: unknown }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,28 +61,37 @@ export interface GeneratedStoryData {
   metadata?: Record<string, unknown>;
 }
 
-export interface FullStoryResponseDto extends StoryResponseDto {
-  generatedStory?: GeneratedStoryData;
-}
+export type FullStoryResponseDto = StoryResponseDto;
 
 export const storiesApi = {
-  createStory: (data: CreateStoryRequestDto) => {
+  createStory: async (data: CreateStoryRequestDto) => {
     return apiClient<StoryResponseDto>('/stories', {
       method: 'POST',
       body: JSON.stringify(data),
+      headers: await authHeaders(),
     });
   },
 
-  getUserStories: () => {
-    return apiClient<StoryResponseDto[]>('/stories');
+  planStory: async (data: CreateStoryRequestDto) => {
+    return apiClient<Record<string, unknown>>('/stories/plan', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: await authHeaders(),
+    });
   },
 
-  getStoriesByChild: (childId: string) => {
-    return apiClient<StoryResponseDto[]>(`/stories/child/${childId}`);
+  getUserStories: async () => {
+    return apiClient<StoryResponseDto[]>('/stories', { headers: await authHeaders() });
   },
 
-  getStoryById: (id: string) => {
-    return apiClient<FullStoryResponseDto>(`/stories/${id}`);
+  getStoriesByChild: async (childId: string) => {
+    return apiClient<StoryResponseDto[]>(`/stories/child/${childId}`, {
+      headers: await authHeaders(),
+    });
+  },
+
+  getStoryById: async (id: string) => {
+    return apiClient<StoryResponseDto>(`/stories/${id}`, { headers: await authHeaders() });
   },
 
   getStoryStatus: (id: string) => {
