@@ -70,13 +70,6 @@ export const authApi = {
   },
 
   /**
-   * Fetch current user's identity, primary role, assigned roles, and permissions from backend.
-   */
-  getMe: () => {
-    return apiClient<MeResponse>('/auth/me');
-  },
-
-  /**
    * Canonical RBAC resolution: `GET /api/v2/me` authenticated with the current
    * Supabase access token. Supabase remains the session authority; the backend
    * is the authority for roles/permissions.
