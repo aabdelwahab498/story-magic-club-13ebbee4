@@ -66,6 +66,15 @@ export async function registerServiceWorker() {
       });
     });
 
+    // A new worker that took control means the cached bundle is stale:
+    // reload once so the freshly published code is actually running.
+    let reloaded = false;
+    wb.addEventListener("controlling", () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    });
+
     await wb.register();
   } catch (err) {
     console.warn("[pwa] SW registration failed", err);
