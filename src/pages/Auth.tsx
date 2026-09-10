@@ -51,8 +51,8 @@ const Auth = () => {
     // Supabase is the canonical session authority: sign in directly so the
     // access_token exists for subsequent authenticated API calls.
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: email.trim(),
+      password: password.trim(),
     });
     if (signInError) {
       setSubmitting(false);
