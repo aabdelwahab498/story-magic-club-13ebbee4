@@ -107,23 +107,25 @@ const Auth = () => {
       return;
     }
     setSubmitting(true);
-    let requiresConfirmation = true;
-    try {
-      const res = await authApi.register({
-        email,
-        password,
-        displayName,
-        preferredLanguage: localStorage.getItem("starry-tales-language") || "en",
-      });
-      if (res && typeof res.requiresConfirmation === "boolean") {
-        requiresConfirmation = res.requiresConfirmation;
-      }
-      setSubmitting(false);
-    } catch (error: any) {
-      setSubmitting(false);
-      toast.error(error.message || t("auth.error_signup", "Failed to sign up"), { duration: 7000 });
+    // Supabase (Lovable Cloud) is the canonical auth authority for signup too,
+    // so the confirmation email is sent by the same project that owns the user.
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: {
+          display_name: displayName.trim() || undefined,
+          preferred_language: localStorage.getItem("starry-tales-language") || "en",
+        },
+      },
+    });
+    setSubmitting(false);
+    if (signUpError) {
+      toast.error(signUpError.message || t("auth.error_signup", "Failed to sign up"), { duration: 7000 });
       return;
     }
+    const requiresConfirmation = !signUpData.session;
     // Fire-and-forget welcome email; never block signup.
     supabase.functions
       .invoke("send-welcome-email", {
