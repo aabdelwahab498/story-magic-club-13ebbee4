@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Loader2, Shield, User as UserIcon, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { authApi } from "@/api/auth.api";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
