@@ -132,7 +132,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     rbacSeq.current++; // invalidate any in-flight RBAC request
-    await supabase.auth.signOut();
+    // Never let a network/expired-session error block sign-out: always clear
+    // local state so the user is signed out in the UI regardless.
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch { /* already gone */ }
+    }
     setSession(null);
     setUser(null);
     setRoles([]);
