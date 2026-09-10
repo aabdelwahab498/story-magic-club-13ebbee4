@@ -48,11 +48,15 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    try {
-      await authApi.login({ email, password });
-    } catch (error: any) {
+    // Supabase is the canonical session authority: sign in directly so the
+    // access_token exists for subsequent authenticated API calls.
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
       setSubmitting(false);
-      toast.error(error.message || t("auth.error_signin", "Failed to sign in"), { duration: 7000 });
+      toast.error(signInError.message || t("auth.error_signin", "Failed to sign in"), { duration: 7000 });
       return;
     }
 
@@ -64,13 +68,20 @@ const Auth = () => {
     await refreshAdmin();
     setSubmitting(false);
     let goStaff = false;
-    let friendlyName = "";
-    
+    let friendlyName = email.split("@")[0] || "";
+
     try {
-      const meData = await authApi.getMe();
-      if (meData) {
-        goStaff = meData.roles?.some((r: any) => r === "admin" || r === "editor") || false;
-        friendlyName = meData.email?.split("@")[0] || "";
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      friendlyName = sessionData.session?.user?.email?.split("@")[0] || friendlyName;
+      if (userId) {
+        const { data: roleRows } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId);
+        goStaff = (roleRows ?? []).some(
+          (r: { role: string }) => r.role === "admin" || r.role === "editor"
+        );
       }
     } catch (e) {
       // ignore
