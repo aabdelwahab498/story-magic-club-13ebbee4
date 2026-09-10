@@ -48,11 +48,15 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    try {
-      await authApi.login({ email, password });
-    } catch (error: any) {
+    // Supabase is the canonical session authority: sign in directly so the
+    // access_token exists for subsequent authenticated API calls.
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
       setSubmitting(false);
-      toast.error(error.message || t("auth.error_signin", "Failed to sign in"), { duration: 7000 });
+      toast.error(signInError.message || t("auth.error_signin", "Failed to sign in"), { duration: 7000 });
       return;
     }
 
