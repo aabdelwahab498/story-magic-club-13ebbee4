@@ -214,10 +214,13 @@ const AIStoryteller = () => {
   const creditsExhausted = !guestMode && !sub.loading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
   const limitReached = creditsExhausted && !byok.bypass;
 
-  const buildSelInput = (): SelInput => {
+  const buildSelInput = async (): Promise<SelInput> => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
-    const focus = activeChild?.emotionalGoals && Array.isArray(activeChild.emotionalGoals)
-      ? (activeChild.emotionalGoals as string[])
+    // Resolve the canonical child from the database when the profile query has
+    // not settled yet — otherwise a fresh page load looks like "no child".
+    const child = activeChild ?? (await resolveActiveChild());
+    const focus = child?.emotionalGoals && Array.isArray(child.emotionalGoals)
+      ? (child.emotionalGoals as string[])
       : [];
     // Auto-detect language from the custom prompt: if the user writes in
     // Arabic (or another supported script) we override the UI locale so the
