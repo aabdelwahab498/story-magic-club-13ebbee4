@@ -14,6 +14,7 @@ export interface ChildInput {
 }
 
 const ACTIVE_KEY = "najmah.active_child_id";
+export const ACTIVE_CHILD_EVENT = "najmah:active-child-changed";
 
 export const getActiveChildId = (): string | null =>
   typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
@@ -22,6 +23,39 @@ export const setActiveChildId = (id: string | null) => {
   if (typeof window === "undefined") return;
   if (id) localStorage.setItem(ACTIVE_KEY, id);
   else localStorage.removeItem(ACTIVE_KEY);
+  // Notify every consumer (header picker, storyteller) in the same tab.
+  window.dispatchEvent(new Event(ACTIVE_CHILD_EVENT));
+};
+
+/** Reactive read of the persisted active-child UUID. */
+const subscribeActiveChildId = (onChange: () => void) => {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener(ACTIVE_CHILD_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(ACTIVE_CHILD_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+};
+
+export const useActiveChildId = (): string | null =>
+  useSyncExternalStore(subscribeActiveChildId, getActiveChildId, () => null);
+
+/**
+ * Async resolution of the canonical selected child — used right before story
+ * generation so a still-loading profile query never looks like "no child".
+ * Returns the stored selection when it still belongs to the user, otherwise
+ * the first owned child (and persists that choice).
+ */
+export const resolveActiveChild = async (): Promise<ChildProfile | null> => {
+  const list = await childrenApi.getChildren();
+  const children = Array.isArray(list) ? list : [];
+  if (children.length === 0) return null;
+  const storedId = getActiveChildId();
+  const match = children.find((c) => c.id === storedId);
+  const chosen = match ?? children[0];
+  if (!match) setActiveChildId(chosen.id);
+  return chosen;
 };
 
 export const useChildren = (enabled = true) =>
