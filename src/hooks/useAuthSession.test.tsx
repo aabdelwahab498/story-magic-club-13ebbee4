@@ -10,6 +10,7 @@ vi.mock("@/api/auth.api", () => ({
 /** In-memory stand-in for the persisted Supabase session. */
 let stored: any = null;
 let authCallback: ((event: string, session: unknown) => void) | null = null;
+const rolesRows = { data: [] as { role: string }[], error: null as unknown };
 const signOutSpy = vi.fn(() => {
   stored = null;
   return Promise.resolve({ error: null });
@@ -25,7 +26,7 @@ vi.mock("@/integrations/supabase/client", () => ({
       getSession: () => Promise.resolve({ data: { session: stored } }),
       signOut: (...args: unknown[]) => signOutSpy(...(args as [])),
     },
-    from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }),
+    from: () => ({ select: () => ({ eq: () => Promise.resolve(rolesRows) }) }),
   },
 }));
 
@@ -41,6 +42,7 @@ describe("canonical Supabase session lifecycle", () => {
     vi.clearAllMocks();
     stored = null;
     authCallback = null;
+    rolesRows.data = [];
     getIdentityContext.mockResolvedValue({
       id: "u1",
       email: "u1@example.com",
