@@ -47,11 +47,7 @@ const ChildPicker = () => {
           children.map((c) => (
             <DropdownMenuItem
               key={c.id}
-              onClick={() => {
-                setActiveChildId(c.id);
-                // soft refresh of any consumers via storage event
-                window.dispatchEvent(new Event("najmah:active-child-changed"));
-              }}
+              onClick={() => setActiveChildId(c.id)}
               className={c.id === active?.id ? "font-bold" : ""}
             >
               <UserIcon className="h-4 w-4 mr-2 opacity-70" />

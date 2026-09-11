@@ -10,7 +10,7 @@ import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
 import { generateClassicIllustrations, saveAiStory, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
-import { useActiveChild } from "@/lib/childProfilesApi";
+import { useActiveChild, resolveActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
 import { planSelStory, composeSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
@@ -214,10 +214,13 @@ const AIStoryteller = () => {
   const creditsExhausted = !guestMode && !sub.loading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
   const limitReached = creditsExhausted && !byok.bypass;
 
-  const buildSelInput = (): SelInput => {
+  const buildSelInput = async (): Promise<SelInput> => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
-    const focus = activeChild?.emotionalGoals && Array.isArray(activeChild.emotionalGoals)
-      ? (activeChild.emotionalGoals as string[])
+    // Resolve the canonical child from the database when the profile query has
+    // not settled yet — otherwise a fresh page load looks like "no child".
+    const child = activeChild ?? (await resolveActiveChild());
+    const focus = child?.emotionalGoals && Array.isArray(child.emotionalGoals)
+      ? (child.emotionalGoals as string[])
       : [];
     // Auto-detect language from the custom prompt: if the user writes in
     // Arabic (or another supported script) we override the UI locale so the
@@ -440,7 +443,13 @@ const AIStoryteller = () => {
     setLastError(null);
     setErrorDetails(null);
     setShowErrorDetails(false);
-    const input = buildSelInput();
+    let input: SelInput;
+    try {
+      input = await buildSelInput();
+    } catch (e) {
+      await handleSelError(e);
+      return;
+    }
     setLastSelInput(input);
 
     // No custom brief → skip preview, go full directly
