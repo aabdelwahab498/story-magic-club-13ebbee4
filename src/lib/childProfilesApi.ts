@@ -128,7 +128,7 @@ export const useActiveChild = () => {
   // Defensive: never assume the query returned an array — a broken API layer
   // used to return HTML here and crashed the whole app.
   const children: ChildProfile[] = Array.isArray(data) ? data : [];
-  const activeId = getActiveChildId();
+  const activeId = useActiveChildId();
   const active = children.find((c) => c.id === activeId) ?? children[0] ?? null;
   return { active, children, ...rest };
 };
