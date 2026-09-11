@@ -64,12 +64,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setRbacLoaded(false);
 
-    // 1) Canonical source: backend identity context.
+    // Lovable Cloud owns the authenticated identity and its privileged roles.
+    // Backend Core may use a different database, so it must never grant or
+    // remove admin access for a user authenticated by this project.
+    let cloudRoles: AppRole[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+      if (error) throw error;
+      if (seq !== rbacSeq.current) return;
+      cloudRoles = dedupe(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+    } catch {
+      if (seq !== rbacSeq.current) return;
+    }
+
+    // Backend Core remains the source of fine-grained permissions and
+    // non-privileged roles. Privileged roles are accepted only from Cloud.
     if (accessToken) {
       try {
         const me = await authApi.getIdentityContext(accessToken);
         if (seq !== rbacSeq.current) return; // stale identity — discard
-        setRoles(dedupe((me?.roles ?? []) as AppRole[]));
+        const backendRoles = ((me?.roles ?? []) as AppRole[]).filter(
+          (role) => !ADMIN_ROLES.includes(role),
+        );
+        setRoles(dedupe([...backendRoles, ...cloudRoles]));
         setPermissions(dedupe(me?.permissions ?? []));
         setRbacLoaded(true);
         return;
@@ -79,24 +99,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    // 2) Fallback (backend unavailable): roles from `user_roles` under RLS.
-    //    Permissions stay empty — permission-gated UI fails closed.
-    try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-      if (error) throw error;
-      if (seq !== rbacSeq.current) return;
-      setRoles(dedupe(((data ?? []) as { role: AppRole }[]).map((r) => r.role)));
-    } catch {
-      if (seq !== rbacSeq.current) return;
-      setRoles([]);
-    } finally {
-      if (seq === rbacSeq.current) {
-        setPermissions([]);
-        setRbacLoaded(true);
-      }
+    // Backend unavailable: retain Cloud roles but fail closed on permissions.
+    if (seq === rbacSeq.current) {
+      setRoles(cloudRoles);
+      setPermissions([]);
+      setRbacLoaded(true);
     }
   }, []);
 

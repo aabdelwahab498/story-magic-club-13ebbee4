@@ -66,6 +66,7 @@ describe("useAuth RBAC", () => {
 
   it("supports multi-role responses and admin bypass", async () => {
     currentSession = makeSession("u2");
+    rolesRows.data = [{ role: "admin" }, { role: "user" }];
     getIdentityContext.mockResolvedValue({
       id: "u2",
       email: "a@example.com",
@@ -83,6 +84,7 @@ describe("useAuth RBAC", () => {
 
   it("treats super_admin as admin", async () => {
     currentSession = makeSession("u3");
+    rolesRows.data = [{ role: "super_admin" }];
     getIdentityContext.mockResolvedValue({
       id: "u3",
       email: "s@example.com",
@@ -95,6 +97,43 @@ describe("useAuth RBAC", () => {
     await waitFor(() => expect(result.current.rbacLoaded).toBe(true));
     expect(result.current.isAdmin).toBe(true);
     expect(result.current.isStaff).toBe(true);
+  });
+
+  it("keeps canonical Cloud admin access when Backend Core returns user", async () => {
+    currentSession = makeSession("cloud-admin");
+    rolesRows.data = [{ role: "user" }, { role: "admin" }];
+    getIdentityContext.mockResolvedValue({
+      id: "cloud-admin",
+      email: "admin@example.com",
+      role: "user",
+      roles: ["user"],
+      permissions: [],
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.rbacLoaded).toBe(true));
+
+    expect(result.current.roles).toEqual(["user", "admin"]);
+    expect(result.current.isAdmin).toBe(true);
+    expect(result.current.hasPermission("manage_rbac")).toBe(true);
+  });
+
+  it("does not accept an admin role that exists only in Backend Core", async () => {
+    currentSession = makeSession("backend-only-admin");
+    rolesRows.data = [{ role: "user" }];
+    getIdentityContext.mockResolvedValue({
+      id: "backend-only-admin",
+      email: "user@example.com",
+      role: "admin",
+      roles: ["admin", "user"],
+      permissions: ["manage_rbac"],
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.rbacLoaded).toBe(true));
+
+    expect(result.current.roles).toEqual(["user"]);
+    expect(result.current.isAdmin).toBe(false);
   });
 
   it("fails closed on /me failure: no permissions granted", async () => {
