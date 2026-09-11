@@ -1,4 +1,5 @@
 // Phase 2 — Child profiles (parent → many children).
+import { useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { childrenApi, ChildProfile } from "@/api/children.api";
 
