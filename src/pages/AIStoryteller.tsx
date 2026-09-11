@@ -10,7 +10,7 @@ import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
 import { generateClassicIllustrations, saveAiStory, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
-import { useActiveChild } from "@/lib/childProfilesApi";
+import { useActiveChild, resolveActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
 import { planSelStory, composeSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
@@ -443,7 +443,13 @@ const AIStoryteller = () => {
     setLastError(null);
     setErrorDetails(null);
     setShowErrorDetails(false);
-    const input = buildSelInput();
+    let input: SelInput;
+    try {
+      input = await buildSelInput();
+    } catch (e) {
+      await handleSelError(e);
+      return;
+    }
     setLastSelInput(input);
 
     // No custom brief → skip preview, go full directly
