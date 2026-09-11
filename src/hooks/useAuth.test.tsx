@@ -159,6 +159,7 @@ describe("useAuth RBAC", () => {
 
   it("clears RBAC on sign out", async () => {
     currentSession = makeSession("u5");
+    rolesRows.data = [{ role: "admin" }];
     getIdentityContext.mockResolvedValue({
       id: "u5",
       email: "e@example.com",
@@ -180,6 +181,7 @@ describe("useAuth RBAC", () => {
 
   it("never leaks the previous user's RBAC when the identity changes", async () => {
     currentSession = makeSession("admin1");
+    rolesRows.data = [{ role: "admin" }];
     getIdentityContext.mockResolvedValue({
       id: "admin1",
       email: "a@example.com",
@@ -199,6 +201,7 @@ describe("useAuth RBAC", () => {
       roles: ["user"],
       permissions: [],
     });
+    rolesRows.data = [{ role: "user" }];
 
     await act(async () => {
       authCallback?.("SIGNED_IN", makeSession("user2"));
