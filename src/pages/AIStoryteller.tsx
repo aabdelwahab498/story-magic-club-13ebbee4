@@ -212,7 +212,8 @@ const AIStoryteller = () => {
   const limitStories = sub.plan?.monthly_story_limit ?? null;
   const storiesCreated = sub.storiesUsedThisMonth || 0;
   const creditsExhausted = !guestMode && !sub.loading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
-  const limitReached = creditsExhausted && !byok.bypass;
+  // Canonical admin/super_admin never hit the client-side monthly quota gate.
+  const limitReached = creditsExhausted && !byok.bypass && !isAdmin;
 
   const buildSelInput = async (): Promise<SelInput> => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;

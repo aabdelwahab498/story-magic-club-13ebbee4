@@ -57,10 +57,12 @@ export function useSubscription(): SubscriptionState {
     plan,
     expiresAt: subQ.data?.expires_at ?? null,
     storiesUsedThisMonth: used,
-    remainingStories: isAdmin && overrides.createStory ? Number.POSITIVE_INFINITY : remaining,
+    // Canonical admin/super_admin (from useAuth RBAC) bypass the monthly story
+    // quota entirely — matches the backend V5 admin quota bypass.
+    remainingStories: isAdmin ? Number.POSITIVE_INFINITY : remaining,
     canIllustrate: (isAdmin && overrides.illustrations) || !!plan?.allow_illustrations,
     canExportPdf: (isAdmin && overrides.pdf) || !!plan?.allow_pdf,
     canAudio: (isAdmin && overrides.audio) || !!plan?.allow_audio,
-    canCreateStory: (isAdmin && overrides.createStory) || remaining > 0,
+    canCreateStory: isAdmin || remaining > 0,
   };
 }
