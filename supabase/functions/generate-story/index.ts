@@ -5,6 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { checkRateLimits, identifierFromRequest, rateLimitResponse } from "../_shared/rateLimit.ts";
 import { enforceStoryFairUse, quotaResponse, userIdFromRequest } from "../_shared/quota.ts";
 import { moderateText, moderationRejectedResponse, ModerationGatewayError } from "../_shared/moderation.ts";
+import { alertLegacyStoryPath } from "../_shared/legacyAlert.ts";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -137,6 +138,15 @@ serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    // DEPRECATED PATH ALERT — authenticated story creation must go through
+    // Backend Core (POST /api/v2/stories). Report any hit here immediately.
+    await alertLegacyStoryPath({
+      userId,
+      fn: "generate-story",
+      req,
+      details: { themeId: themeId || null, ageId: ageId || null, language: language || null, length: length || null },
+    });
+
     const identifier = `u:${userId}`;
     const rl = await checkRateLimits(identifier, "generate-story", [
       { windowSec: 60, max: 3 },
