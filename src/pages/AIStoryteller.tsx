@@ -8,7 +8,7 @@ import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { pauseAudio, resumeAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
 import ReadingMode from "@/components/ReadingMode";
-import { generateClassicIllustrations, saveAiStory, type ClassicIllustration } from "@/lib/aiStoryApi";
+import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/aiStoryApi";
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild, resolveActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
