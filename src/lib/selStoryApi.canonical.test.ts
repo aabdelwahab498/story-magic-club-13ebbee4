@@ -1,19 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const invoke = vi.fn();
-const getSession = vi.fn(async () => ({
-  data: { session: { access_token: "test-access-token" } },
+const mocks = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  apiClient: vi.fn(),
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    functions: { invoke },
-    auth: { getSession, getUser: vi.fn() },
+    functions: { invoke: mocks.invoke },
+    auth: {
+      getSession: vi.fn(async () => ({
+        data: { session: { access_token: "test-access-token" } },
+      })),
+      getUser: vi.fn(),
+    },
   },
 }));
 
-const apiClient = vi.fn();
-vi.mock("@/api/client", () => ({ apiClient: (...a: unknown[]) => apiClient(...a) }));
+vi.mock("@/api/client", () => ({
+  apiClient: (...a: unknown[]) => mocks.apiClient(...a),
+}));
+
+const invoke = mocks.invoke;
+const apiClient = mocks.apiClient;
 
 import { planSelStory, composeSelStory, type ComposeStoryInput } from "@/lib/selStoryApi";
 
