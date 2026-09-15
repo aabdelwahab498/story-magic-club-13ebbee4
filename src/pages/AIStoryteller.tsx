@@ -730,77 +730,15 @@ const AIStoryteller = () => {
     }
   };
 
+  /**
+   * Canonical cutover: authenticated story creation always goes through
+   * Backend Core (`POST /api/v2/stories/plan` → `POST /api/v2/stories` → polling)
+   * via handleGenerateSel. The legacy `generate-story` edge function is no longer
+   * called for authenticated generation. Guests keep the separate trial path.
+   */
   const handleGenerate = async () => {
     if (guestMode) return runGuestTrial();
-    if (limitReached) {
-      setUpgradeOpen(true);
-      return;
-    }
-
-    lastModeRef.current = "classic";
-    setLastError(null);
-    setErrorDetails(null);
-    setShowErrorDetails(false);
-    setGenerating(true);
-    setStory("");
-    setIllustrations([]);
-    setIllustrationsGated(false);
-    startProgressTimeline();
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-story", {
-        body: {
-          character: t(`ai.characters.${characterId}`),
-          characterId,
-          theme: t(`ai.themes.${themeId}`),
-          themeId,
-          ageRange: t(`ai.ages.${ageId}`),
-          ageId,
-          length: lengthId,
-          customPrompt,
-          language: lang,
-        },
-      });
-      if (error) {
-        stopProgressTimeline("idle");
-        const info = await handleEdgeError(error, t, { context: "generate-story" });
-        setErrorDetails(info);
-        const fallback = error.message || info.message || (t("page_ai_storyteller.story_generation_failed", "Story generation failed"));
-        setLastError(fallback);
-        return;
-      }
-      const text = (data as { story?: string })?.story || "";
-      stopProgressTimeline("done");
-      setStory(text);
-      // Persist for signed-in users (silent no-op otherwise).
-      if (text) {
-        saveAiStory({
-          prompt_data: {
-            characterId,
-            themeId,
-            ageId,
-            length: lengthId,
-            customPrompt,
-            child_profile_id: activeChild?.id ?? null,
-          },
-          story_text: text,
-          language: lang,
-          title: `${t(`ai.themes.${themeId}`)} • ${t(`ai.characters.${characterId}`)}`,
-          child_profile_id: activeChild?.id ?? null,
-        })
-          .then(() => {
-            queryClient.invalidateQueries({ queryKey: ["my_ai_stories"] });
-            queryClient.invalidateQueries({ queryKey: ["my_ai_stories_page"] });
-          })
-          .catch(() => {});
-      }
-    } catch (e) {
-      stopProgressTimeline("idle");
-      console.error(e);
-      toast.error(t("ai.errors.generic"));
-      setLastError(e instanceof Error ? e.message : (t("page_ai_storyteller.story_generation_failed", "Story generation failed")));
-    } finally {
-      setGenerating(false);
-    }
+    return handleGenerateSel();
   };
 
 
