@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { waitForCanonicalStoryPdf, CanonicalExportError } from "@/api/storyExports.api";
 
 
 export type ExportKind = "txt" | "mp3" | "pdf";
