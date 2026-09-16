@@ -218,10 +218,23 @@ const AIStoryteller = () => {
 
   const buildSelInput = async (): Promise<SelInput> => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
-    // Resolve the canonical child from the database when the profile query has
-    // not settled yet — otherwise a fresh page load looks like "no child".
-    const child = activeChild ?? (await resolveActiveChild());
-    const focus = child?.emotionalGoals && Array.isArray(child.emotionalGoals)
+    // ONE authoritative resolved child for the whole authenticated journey.
+    // `resolveActiveChild()` validates the stored `najmah.active_child_id`
+    // against the RLS-visible child_profiles rows, deterministically falls back
+    // to the first owned child, and persists that selection. We always trust it
+    // over the (possibly still-loading) cached query result, so plan and create
+    // receive the exact same canonical child UUID.
+    const child = (await resolveActiveChild()) ?? activeChild ?? null;
+    if (!child?.id) {
+      throw new ComposeStoryError(
+        "child_required",
+        t(
+          "family.select_child_first",
+          "Please select a child profile before generating a story.",
+        ),
+      );
+    }
+    const focus = child.emotionalGoals && Array.isArray(child.emotionalGoals)
       ? (child.emotionalGoals as string[])
       : [];
     // Auto-detect language from the custom prompt: if the user writes in
