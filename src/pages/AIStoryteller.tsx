@@ -887,8 +887,8 @@ const AIStoryteller = () => {
                   {t("page_ai_storyteller.hero", "Hero")}
                 </p>
                 <p className="text-sm text-foreground/90">
-                  <strong>{planPreview.hero.name}</strong>
-                  {planPreview.hero.charm ? ` — ${planPreview.hero.charm}` : ""}
+                  <strong>{planPreview.hero?.name}</strong>
+                  {planPreview.hero?.charm ? ` — ${planPreview.hero.charm}` : ""}
                 </p>
               </div>
               {planPreview.companion?.name && (
@@ -907,21 +907,21 @@ const AIStoryteller = () => {
                   {t("page_ai_storyteller.acts", "Acts")}
                 </p>
                 <ol className="space-y-1.5 text-sm text-foreground/90 list-decimal pl-5 rtl:pr-5 rtl:pl-0">
-                  <li>{planPreview.acts.act1_normalWorld}</li>
-                  <li>{planPreview.acts.act2_disturbance}</li>
+                  <li>{planPreview.acts?.act1_normalWorld}</li>
+                  <li>{planPreview.acts?.act2_disturbance}</li>
                   <li>
-                    {Array.isArray(planPreview.acts.act3_attempts)
+                    {Array.isArray(planPreview.acts?.act3_attempts)
                       ? planPreview.acts.act3_attempts.join(" → ")
                       : ""}
                   </li>
-                  <li>{planPreview.acts.act4_resolution}</li>
+                  <li>{planPreview.acts?.act4_resolution}</li>
                 </ol>
               </div>
               <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
                 <p className="text-[11px] uppercase tracking-wide font-bold text-primary mb-1">
                   {t("page_ai_storyteller.emotional_outcome", "Emotional outcome")}
                 </p>
-                <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome.statement}</p>
+                <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome?.statement}</p>
               </div>
             </div>
 
