@@ -1,5 +1,5 @@
 import { axiosInstance } from './client';
-import { supabase } from '@/integrations/supabase/client';
+
 
 export type IllustrationResponse = {
   pageNumber: number;
