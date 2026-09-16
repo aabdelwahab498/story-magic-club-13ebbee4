@@ -218,10 +218,23 @@ const AIStoryteller = () => {
 
   const buildSelInput = async (): Promise<SelInput> => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
-    // Resolve the canonical child from the database when the profile query has
-    // not settled yet — otherwise a fresh page load looks like "no child".
-    const child = activeChild ?? (await resolveActiveChild());
-    const focus = child?.emotionalGoals && Array.isArray(child.emotionalGoals)
+    // ONE authoritative resolved child for the whole authenticated journey.
+    // `resolveActiveChild()` validates the stored `najmah.active_child_id`
+    // against the RLS-visible child_profiles rows, deterministically falls back
+    // to the first owned child, and persists that selection. We always trust it
+    // over the (possibly still-loading) cached query result, so plan and create
+    // receive the exact same canonical child UUID.
+    const child = (await resolveActiveChild()) ?? activeChild ?? null;
+    if (!child?.id) {
+      throw new ComposeStoryError(
+        "child_required",
+        t(
+          "family.select_child_first",
+          "Please select a child profile before generating a story.",
+        ),
+      );
+    }
+    const focus = child.emotionalGoals && Array.isArray(child.emotionalGoals)
       ? (child.emotionalGoals as string[])
       : [];
     // Auto-detect language from the custom prompt: if the user writes in
@@ -237,9 +250,9 @@ const AIStoryteller = () => {
     };
     const effectiveLang = detectPromptLang(trimmedPrompt) ?? lang;
     return {
-      childProfileId: activeChild?.id ?? null,
-      childName: activeChild?.name ?? "the child",
-      age: activeChild?.age ?? ageNum,
+      childProfileId: child.id,
+      childName: child.name || "the child",
+      age: child.age ?? ageNum,
       theme: t(`ai.themes.${themeId}`),
       emotionalFocus: focus,
       language: effectiveLang,
@@ -874,8 +887,8 @@ const AIStoryteller = () => {
                   {t("page_ai_storyteller.hero", "Hero")}
                 </p>
                 <p className="text-sm text-foreground/90">
-                  <strong>{planPreview.hero.name}</strong>
-                  {planPreview.hero.charm ? ` — ${planPreview.hero.charm}` : ""}
+                  <strong>{planPreview.hero?.name}</strong>
+                  {planPreview.hero?.charm ? ` — ${planPreview.hero.charm}` : ""}
                 </p>
               </div>
               {planPreview.companion?.name && (
@@ -894,21 +907,21 @@ const AIStoryteller = () => {
                   {t("page_ai_storyteller.acts", "Acts")}
                 </p>
                 <ol className="space-y-1.5 text-sm text-foreground/90 list-decimal pl-5 rtl:pr-5 rtl:pl-0">
-                  <li>{planPreview.acts.act1_normalWorld}</li>
-                  <li>{planPreview.acts.act2_disturbance}</li>
+                  <li>{planPreview.acts?.act1_normalWorld}</li>
+                  <li>{planPreview.acts?.act2_disturbance}</li>
                   <li>
-                    {Array.isArray(planPreview.acts.act3_attempts)
+                    {Array.isArray(planPreview.acts?.act3_attempts)
                       ? planPreview.acts.act3_attempts.join(" → ")
                       : ""}
                   </li>
-                  <li>{planPreview.acts.act4_resolution}</li>
+                  <li>{planPreview.acts?.act4_resolution}</li>
                 </ol>
               </div>
               <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
                 <p className="text-[11px] uppercase tracking-wide font-bold text-primary mb-1">
                   {t("page_ai_storyteller.emotional_outcome", "Emotional outcome")}
                 </p>
-                <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome.statement}</p>
+                <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome?.statement}</p>
               </div>
             </div>
 

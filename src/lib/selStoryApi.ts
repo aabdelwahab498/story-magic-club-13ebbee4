@@ -162,13 +162,81 @@ export function fromBackendStory(
   };
 }
 
+/**
+ * Normalizes a plan payload into the blueprint shape the preview UI reads.
+ * Backend Core V6R3 returns `{ title, characters[], conflict, resolution,
+ * selGoals[], pageCount }`; the legacy edge function returned
+ * `{ title, hero, acts, selOutcome }`. Both are accepted, and every field the
+ * UI dereferences is guaranteed present so the preview can never crash.
+ */
+export function normalizePlanBlueprint(
+  raw: unknown,
+  fallbackHeroName = "",
+): SelPlanResponse["blueprint"] {
+  const src = (raw ?? {}) as Record<string, unknown>;
+  const characters = Array.isArray(src.characters)
+    ? (src.characters as Array<Record<string, unknown>>)
+    : [];
+  const pick = (role: string) =>
+    characters.find((c) => String(c?.role ?? "").toLowerCase() === role);
+
+  const legacyHero = (src.hero ?? null) as Record<string, unknown> | null;
+  const heroSrc = legacyHero ?? pick("hero") ?? characters[0] ?? null;
+  const hero = {
+    name: String(heroSrc?.name ?? fallbackHeroName ?? ""),
+    charm: heroSrc?.charm ? String(heroSrc.charm) : undefined,
+    problem: heroSrc?.problem ? String(heroSrc.problem) : undefined,
+    sense: heroSrc?.sense ? String(heroSrc.sense) : undefined,
+    engine: heroSrc?.engine ? String(heroSrc.engine) : undefined,
+  };
+
+  const mapSide = (value: unknown) => {
+    const v = (value ?? null) as Record<string, unknown> | null;
+    if (!v?.name) return undefined;
+    return { name: String(v.name), role: String(v.role ?? v.description ?? "") };
+  };
+  const companion = mapSide(src.companion ?? pick("companion"));
+  const mentor = mapSide(src.mentor ?? pick("mentor"));
+
+  const legacyActs = (src.acts ?? null) as Record<string, unknown> | null;
+  const acts = {
+    act1_normalWorld: String(legacyActs?.act1_normalWorld ?? src.setting ?? ""),
+    act2_disturbance: String(legacyActs?.act2_disturbance ?? src.conflict ?? ""),
+    act3_attempts: Array.isArray(legacyActs?.act3_attempts)
+      ? (legacyActs?.act3_attempts as unknown[]).map(String)
+      : Array.isArray(src.attempts)
+        ? (src.attempts as unknown[]).map(String)
+        : [],
+    act4_resolution: String(legacyActs?.act4_resolution ?? src.resolution ?? ""),
+  };
+
+  const legacyOutcome = (src.selOutcome ?? null) as Record<string, unknown> | null;
+  const goals = Array.isArray(src.selGoals) ? (src.selGoals as unknown[]).map(String) : [];
+  const statement = String(legacyOutcome?.statement ?? goals.join(", ") ?? "");
+  const selOutcome = {
+    skill: String(legacyOutcome?.skill ?? goals[0] ?? ""),
+    emotion: String(legacyOutcome?.emotion ?? goals[0] ?? ""),
+    statement,
+  };
+
+  return {
+    ...src,
+    title: String(src.title ?? ""),
+    hero,
+    ...(companion ? { companion } : {}),
+    ...(mentor ? { mentor } : {}),
+    acts,
+    selOutcome,
+  } as SelPlanResponse["blueprint"];
+}
+
 /** Plan preview — backend-core `POST /api/v2/stories/plan`. */
 export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
   const blueprint = await storiesApi.planStory(toCreateStoryRequest(input));
   return {
     requestId: String((blueprint as { requestId?: string }).requestId ?? ""),
     mode: "plan",
-    blueprint: blueprint as SelPlanResponse["blueprint"],
+    blueprint: normalizePlanBlueprint(blueprint, input.childName),
     age_band: ageBandFor(input.age),
   };
 }
