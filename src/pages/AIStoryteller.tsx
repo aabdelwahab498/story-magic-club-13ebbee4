@@ -250,9 +250,9 @@ const AIStoryteller = () => {
     };
     const effectiveLang = detectPromptLang(trimmedPrompt) ?? lang;
     return {
-      childProfileId: activeChild?.id ?? null,
-      childName: activeChild?.name ?? "the child",
-      age: activeChild?.age ?? ageNum,
+      childProfileId: child.id,
+      childName: child.name || "the child",
+      age: child.age ?? ageNum,
       theme: t(`ai.themes.${themeId}`),
       emotionalFocus: focus,
       language: effectiveLang,
