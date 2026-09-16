@@ -36,6 +36,7 @@ import {
   clearTrialResume,
   type TrialStoryResponse,
 } from "@/lib/trialStoryApi";
+import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
 import StoryExportBar from "@/components/story/StoryExportBar";
 
