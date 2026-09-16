@@ -1,5 +1,6 @@
 // Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
+import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 
 import {
   downloadBlob,

@@ -169,6 +169,29 @@ export async function exportStoryAsAudio(input: ExportAudioInput): Promise<Expor
 }
 
 export async function exportStoryAsPdf(input: ExportPdfInput): Promise<ExportPdfResult> {
+  // Canonical authenticated story → Backend Core illustrated export. It waits for
+  // the story-media worker, so the book is never a text-only browser fallback.
+  if (input.storyId) {
+    try {
+      const result = await waitForCanonicalStoryPdf(input.storyId);
+      const fileName =
+        result.filename ??
+        `${(input.title || "story").replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "story"}.pdf`;
+      return {
+        exportId: input.storyId,
+        downloadUrl: result.download_url ?? "",
+        previewUrl: null,
+        fileName,
+        fileSize: null,
+        pageCount: input.pages?.length ?? null,
+        provider: "backend-core",
+        expiresAt: "",
+      };
+    } catch (err) {
+      const code = err instanceof CanonicalExportError ? err.code : "pdf_render_failed";
+      throw new StoryExportError(code, (err as Error)?.message);
+    }
+  }
   const { data, error } = await supabase.functions.invoke("export-story-pdf", {
     body: {
       storyId: input.storyId ?? undefined,
