@@ -16,10 +16,19 @@ export const axiosInstance = axios.create({
   },
 });
 
-// Request Interceptor
+// Request Interceptor — attaches the canonical Supabase access token so every
+// authenticated Backend Core (/api/v2) call carries `Authorization: Bearer <token>`.
+// Supabase Auth stays the single browser authentication authority; callers that
+// already set an Authorization header (e.g. stories.api.ts) are left untouched.
 axiosInstance.interceptors.request.use(
-  (config) => {
-    // We can add tracking, CSRF headers, or logic here in the future
+  async (config) => {
+    const headers = config.headers as Record<string, unknown> | undefined;
+    if (headers && !headers.Authorization && !headers.authorization) {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)
