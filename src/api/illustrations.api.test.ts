@@ -25,8 +25,21 @@ describe('illustrations.api', () => {
   });
 
   describe('fetchIllustrations', () => {
-    it('reads persisted illustrations from the database', async () => {
-      const result = await fetchIllustrations('00000000-0000-0000-0000-000000000000');
+    it('reads canonical illustration state from Backend Core', async () => {
+      mock.onGet('/media/stories/123/illustrations').reply(200, {
+        jobStatus: 'COMPLETED',
+        totalPages: 1,
+        illustrations: [{ pageNumber: 1, imageUrl: 'https://x/1.png', status: 'COMPLETED' }],
+      });
+
+      const result = await fetchIllustrations('123');
+      expect(result).toMatchObject({ jobStatus: 'COMPLETED', totalPages: 1, completedPages: 1 });
+      expect(result.illustrations[0].imageUrl).toBe('https://x/1.png');
+    });
+
+    it('returns an empty job when no media exists yet', async () => {
+      mock.onGet('/media/stories/123/illustrations').reply(200, { jobStatus: 'NONE' });
+      const result = await fetchIllustrations('123');
       expect(result).toMatchObject({ illustrations: [], totalPages: 0, jobStatus: 'NONE' });
     });
   });

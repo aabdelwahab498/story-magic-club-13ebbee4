@@ -36,6 +36,7 @@ import {
   clearTrialResume,
   type TrialStoryResponse,
 } from "@/lib/trialStoryApi";
+import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
 import StoryExportBar from "@/components/story/StoryExportBar";
 
@@ -1063,22 +1064,32 @@ const AIStoryteller = () => {
                     const downloadTarget = prepareTrialPdfDownloadTarget();
                     setPdfLoading(true);
                     try {
-                      const pdf = await generateTrialPdf({
-                        title: selStory.title,
-                        pages: selStory.pages.map((p) => ({
-                          index: p.index,
-                          text: p.text,
-                          emotionTag: p.emotionTag,
-                          imageUrl: p.imageUrl ?? null,
-                        })),
-                        childName: activeChild?.name,
-                        selStatement: selStory.sel_outcome?.statement,
-                      });
                       const safe = (selStory.title || "story")
                         .replace(/[^\p{L}\p{N}\-_ ]+/gu, "")
                         .replace(/\s+/g, "-")
                         .slice(0, 60) || "story";
-                      downloadTrialPdf(pdf.pdfBase64, `${safe}.pdf`, downloadTarget);
+                      // Canonical saved story → Backend Core illustrated PDF export
+                      // (waits for the story-media worker). No browser-built PDF here.
+                      if (selStory.story_id) {
+                        const result = await waitForCanonicalStoryPdf(selStory.story_id);
+                        const url = result.download_url;
+                        if (!url) throw new Error("no_pdf_url");
+                        if (downloadTarget) downloadTarget.location.href = url;
+                        else window.open(url, "_blank", "noopener");
+                      } else {
+                        const pdf = await generateTrialPdf({
+                          title: selStory.title,
+                          pages: selStory.pages.map((p) => ({
+                            index: p.index,
+                            text: p.text,
+                            emotionTag: p.emotionTag,
+                            imageUrl: p.imageUrl ?? null,
+                          })),
+                          childName: activeChild?.name,
+                          selStatement: selStory.sel_outcome?.statement,
+                        });
+                        downloadTrialPdf(pdf.pdfBase64, `${safe}.pdf`, downloadTarget);
+                      }
                       toast.success(t("page_ai_storyteller.your_pdf_is_ready", "Your PDF is ready ✨"));
                     } catch (e) {
                       try { downloadTarget?.close(); } catch { /* ignore */ }
