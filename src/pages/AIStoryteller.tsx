@@ -218,6 +218,25 @@ const AIStoryteller = () => {
     setGenStep(finalStep);
   };
 
+  /**
+   * Backend-side retries can legitimately make a request take longer, so the
+   * frontend never aborts on a short timer — it only softens the waiting copy
+   * after a while. No fake percentages, no provider/retry internals.
+   */
+  const startLongRunningWatch = () => {
+    if (longRunningTimerRef.current !== null) window.clearTimeout(longRunningTimerRef.current);
+    setLongRunning(false);
+    longRunningTimerRef.current = window.setTimeout(() => setLongRunning(true), 12000);
+  };
+  const stopLongRunningWatch = () => {
+    if (longRunningTimerRef.current !== null) {
+      window.clearTimeout(longRunningTimerRef.current);
+      longRunningTimerRef.current = null;
+    }
+    setLongRunning(false);
+  };
+  useEffect(() => () => stopLongRunningWatch(), []);
+
   // Gating: signed-in users have a real limit; guests are allowed a couple of trial stories per session.
   const guestMode = !user;
 
@@ -458,14 +477,21 @@ const AIStoryteller = () => {
       setUpgradeOpen(true);
       return;
     }
+    // Double-submit protection at the action boundary (not just the disabled
+    // attribute): a second click/Enter while a canonical request is in flight is
+    // dropped, so the same interaction never creates two stories.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     lastModeRef.current = "sel";
     setLastError(null);
     setErrorDetails(null);
+    setNormalizedError(null);
     setShowErrorDetails(false);
     let input: SelInput;
     try {
       input = await buildSelInput();
     } catch (e) {
+      inFlightRef.current = false;
       await handleSelError(e);
       return;
     }
@@ -473,16 +499,20 @@ const AIStoryteller = () => {
 
     // No custom brief → skip preview, go full directly
     if (!input.customPrompt) {
+      inFlightRef.current = false;
       return runFullCompose(input);
     }
 
     setPlanning(true);
+    startLongRunningWatch();
     try {
       const plan = await planSelStory(input);
       setPlanPreview(plan.blueprint);
     } catch (e) {
       await handleSelError(e);
     } finally {
+      inFlightRef.current = false;
+      stopLongRunningWatch();
       setPlanning(false);
     }
   };
