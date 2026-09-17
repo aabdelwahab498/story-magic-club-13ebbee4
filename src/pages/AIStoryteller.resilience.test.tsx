@@ -188,7 +188,7 @@ describe("AIStoryteller resilience", () => {
     renderPage();
     fireEvent.click(await screen.findByText("ai.generate"));
     await waitFor(() => expect(mocks.planSelStory).toHaveBeenCalledTimes(1));
-    await screen.findByText(/couldn't reach|connection/i);
+    expect((await screen.findAllByText(/reach Najmah/i)).length).toBeGreaterThan(0);
     expect(screen.getByText("ai.generate")).toBeTruthy();
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(mocks.planSelStory.mock.calls[0][0].childProfileId).toBe(CHILD_UUID);
@@ -212,7 +212,7 @@ describe("AIStoryteller resilience", () => {
     );
     renderPage();
     fireEvent.click(await screen.findByText("ai.generate"));
-    await screen.findByText(/illustration credits/i);
+    expect((await screen.findAllByText(/illustration credits/i)).length).toBeGreaterThan(0);
   });
 
   // H: 401 is auth handling, not a generic generation failure.
