@@ -14,7 +14,7 @@ import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/ai
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild, resolveActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
-import { planSelStory, composeSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
+import { planSelStory, composeSelStory, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
@@ -138,7 +138,18 @@ const AIStoryteller = () => {
   const [readingOpen, setReadingOpen] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<EdgeErrorInfo | null>(null);
+  /** Normalized (category + retryability) view of the last generation failure. */
+  const [normalizedError, setNormalizedError] = useState<NormalizedApiError | null>(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  /**
+   * In-flight guard at the action boundary: the same user interaction can never
+   * produce two concurrent canonical requests, no matter how the click/Enter
+   * events arrive or how fast the button re-renders.
+   */
+  const inFlightRef = useRef(false);
+  /** True once a request has been running long enough to reassure the user. */
+  const [longRunning, setLongRunning] = useState(false);
+  const longRunningTimerRef = useRef<number | null>(null);
   type GenStep = "idle" | "planning" | "writing" | "evaluating" | "saving" | "done";
   const [genStep, setGenStep] = useState<GenStep>("idle");
   const stepTimersRef = useRef<number[]>([]);
