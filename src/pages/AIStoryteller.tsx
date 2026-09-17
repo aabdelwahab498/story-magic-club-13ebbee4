@@ -522,13 +522,19 @@ const AIStoryteller = () => {
     input: SelInput,
     presetBlueprint?: Record<string, unknown>,
   ) => {
+    // Same in-flight guard for the story-creation request.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setPlanPreview(null);
     setGenerating(true);
     setSelStory(null);
     setLastError(null);
     setErrorDetails(null);
+    setNormalizedError(null);
     setShowErrorDetails(false);
     startProgressTimeline();
+    startLongRunningWatch();
+
 
     try {
       console.log("[SEL] composeSelStory → start", input);
