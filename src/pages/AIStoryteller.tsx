@@ -1119,26 +1119,46 @@ const AIStoryteller = () => {
               )}
             </div>
           </div>
-          <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+          {/* Story reader: a malformed optional page field degrades only this
+              section — the generated story, media and downloads stay available. */}
+          <SectionErrorBoundary
+            sectionLabel={t("page_ai_storyteller.story_view_unavailable", "We couldn't display this story view")}
+            hint={t(
+              "page_ai_storyteller.story_view_unavailable_hint",
+              "Your story is saved — you can still download it below.",
+            )}
+          >
+            <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+          </SectionErrorBoundary>
 
-          <StoryExportBar
-            title={selStory.title}
-            fullText={selStory.pages.map((p) => p.text).join("\n\n")}
-            language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
-            storyId={selStory.story_id ?? null}
-            childId={activeChild?.id ?? null}
-            childName={activeChild?.name ?? null}
-            emotionTags={
-              (selStory.pages.map((p) => p.emotionTag).filter(Boolean) as string[])
-            }
-            pageCount={selStory.pages.length}
-            pages={selStory.pages.map((p, i) => ({
-              pageNumber: (p.index ?? i) + 1,
-              text: p.text,
-              illustrationUrl: p.imageUrl ?? null,
-              emotionTag: p.emotionTag ?? null,
-            }))}
-          />
+          {/* Audio / illustrations / PDF / downloads: one failing capability
+              never invalidates the generated story. */}
+          <SectionErrorBoundary
+            sectionLabel={t("page_ai_storyteller.downloads_unavailable", "Downloads are unavailable right now")}
+            hint={t(
+              "page_ai_storyteller.downloads_unavailable_hint",
+              "Your story and pictures are safe. Please try the downloads again in a moment.",
+            )}
+          >
+            <StoryExportBar
+              title={selStory.title}
+              fullText={(selStory.pages ?? []).map((p) => p.text).join("\n\n")}
+              language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
+              storyId={selStory.story_id ?? null}
+              childId={activeChild?.id ?? null}
+              childName={activeChild?.name ?? null}
+              emotionTags={
+                ((selStory.pages ?? []).map((p) => p.emotionTag).filter(Boolean) as string[])
+              }
+              pageCount={(selStory.pages ?? []).length}
+              pages={(selStory.pages ?? []).map((p, i) => ({
+                pageNumber: (p.index ?? i) + 1,
+                text: p.text,
+                illustrationUrl: p.imageUrl ?? null,
+                emotionTag: p.emotionTag ?? null,
+              }))}
+            />
+          </SectionErrorBoundary>
 
         </div>
       ) : !story ? (
