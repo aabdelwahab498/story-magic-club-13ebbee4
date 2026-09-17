@@ -1513,15 +1513,22 @@ const AIStoryteller = () => {
                 </span>
               )}
               {!guestMode && (
-                <BrowserNarratorSettings
-                  language={lang}
-                  onChange={() => {
-                    // Restart if currently playing so new speed/voice takes effect.
-                    if (narrationState === "playing" || narrationState === "paused") {
-                      stopAllNarration();
-                    }
-                  }}
-                />
+                /* Listening controls degrade on their own — a voice problem
+                   never makes the story itself unusable. */
+                <SectionErrorBoundary
+                  sectionLabel={t("page_ai_storyteller.audio_unavailable", "Listening isn't available right now")}
+                  hint={t("page_ai_storyteller.audio_unavailable_hint", "You can still read and download the story.")}
+                >
+                  <BrowserNarratorSettings
+                    language={lang}
+                    onChange={() => {
+                      // Restart if currently playing so new speed/voice takes effect.
+                      if (narrationState === "playing" || narrationState === "paused") {
+                        stopAllNarration();
+                      }
+                    }}
+                  />
+                </SectionErrorBoundary>
               )}
               {!guestMode && (
                 <button
