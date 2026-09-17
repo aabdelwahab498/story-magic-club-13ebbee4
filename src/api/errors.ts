@@ -63,3 +63,23 @@ export const errorMapper = (error: any): never => {
   // Standard fallback
   throw new ApiError(500, error instanceof Error ? error.message : 'An unknown error occurred');
 };
+
+export const AI_PROVIDER_UNAVAILABLE_CODE = 'AI_PROVIDER_TEMPORARILY_UNAVAILABLE';
+
+/**
+ * True when the backend answered with the controlled, retryable
+ * "AI provider temporarily unavailable" contract (HTTP 503 +
+ * AI_PROVIDER_TEMPORARILY_UNAVAILABLE). Callers should keep the user's form
+ * state intact and offer a single manual "Try again" action — the backend has
+ * already exhausted its own bounded retry policy.
+ */
+export const isProviderTemporarilyUnavailable = (error: unknown): boolean => {
+  const err = error as
+    | { status?: number; data?: { code?: string; retryable?: boolean }; response?: { status?: number; data?: { code?: string } } }
+    | null;
+  if (!err) return false;
+  const status = err.status ?? err.response?.status;
+  const code = err.data?.code ?? err.response?.data?.code;
+  if (code === AI_PROVIDER_UNAVAILABLE_CODE) return true;
+  return status === 503;
+};

@@ -41,6 +41,7 @@ describe('GeminiProvider', () => {
               if (key === 'GEMINI_API_KEY') return 'test-key';
               if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash';
               if (key === 'GEMINI_TIMEOUT') return 1000;
+              if (key === 'GEMINI_RETRY_BASE_DELAY_MS') return 0;
               return null;
             }),
           },
@@ -101,14 +102,13 @@ describe('GeminiProvider', () => {
     });
 
     it('should throw AIProviderException if all attempts fail', async () => {
-      mockGenerateContent
-        .mockRejectedValueOnce(new Error('Fail 1'))
-        .mockRejectedValueOnce(new Error('Fail 2'));
+      mockGenerateContent.mockRejectedValue(new Error('network Fail'));
 
       await expect(provider.generateBlueprint(mockPrompt)).rejects.toThrow(
         AIProviderException,
       );
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+      // Bounded retry policy: 4 total provider attempts.
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4);
     });
 
     it('should throw AIProviderException on timeout', async () => {
@@ -118,9 +118,9 @@ describe('GeminiProvider', () => {
       });
 
       await expect(provider.generateStory(mockPrompt)).rejects.toThrow(
-        'Gemini API timeout',
+        AIProviderException,
       );
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2); // Retries once and times out again
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4); // bounded retries, all timing out
     });
   });
 });
