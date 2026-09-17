@@ -4,7 +4,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen, Crown, Lock, RotateCcw, AlertTriangle, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AI_PROVIDER_UNAVAILABLE_CODE, isProviderTemporarilyUnavailable } from "@/api/errors";
+import { normalizeApiError, isSessionExpired, type NormalizedApiError } from "@/lib/apiErrorNormalization";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { pauseAudio, resumeAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
@@ -264,68 +265,43 @@ const AIStoryteller = () => {
 
 
 
+  /**
+   * ONE error path for the whole authenticated generation journey.
+   * Every failure is folded through `normalizeApiError` (see
+   * src/lib/apiErrorNormalization.ts), so the user only ever sees friendly,
+   * localized copy — never raw JSON, provider text or stack traces — and the
+   * form/child/prompt/settings are always left intact for a manual retry.
+   */
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
-    // Log the raw error server-side only; surface only friendly text to the user.
+    // Raw error stays in the console only; the UI shows friendly text.
     console.error("[compose-story] failed", e);
 
-    // Controlled, retryable provider outage (HTTP 503 +
-    // AI_PROVIDER_TEMPORARILY_UNAVAILABLE): the backend already exhausted its
-    // bounded retry policy. Keep the form, child and prompt intact and let the
-    // user retry manually — never auto-retry from the browser.
-    if (isProviderTemporarilyUnavailable(e)) {
-      const busy = t(
-        "page_ai_storyteller.story_service_busy",
-        "The story service is temporarily busy. Please try again shortly.",
-      );
-      setErrorDetails({ status: 503, code: AI_PROVIDER_UNAVAILABLE_CODE, message: busy, raw: { code: AI_PROVIDER_UNAVAILABLE_CODE } });
-      toast.warning(busy);
-      setLastError(busy);
-      return;
-    }
+    const normalized = normalizeApiError(e, t);
+    setNormalizedError(normalized);
+    setErrorDetails({
+      status: normalized.status,
+      code: normalized.code,
+      message: normalized.message,
+      requestId: normalized.correlationId,
+      // Sanitized developer details only — no tokens, headers or prompts.
+      raw: { code: normalized.code, category: normalized.category, retryable: normalized.retryable },
+    });
+    setLastError(normalized.message);
 
-    // Standardized {success:false, code, message} response from the edge function
-    if (e instanceof ComposeStoryError) {
-      setErrorDetails({ status: 200, message: e.friendlyMessage, raw: { code: e.code, message: e.friendlyMessage }, requestId: undefined });
-      if (e.code === "unauthorized") {
-        try { await supabase.auth.signOut(); } catch { /* ignore */ }
-        toast.error(e.friendlyMessage);
-        setLastError(e.friendlyMessage);
-        navigate("/auth", { state: { from: "/ai-storyteller" } });
-        return;
-      }
-      toast.error(e.friendlyMessage);
-      setLastError(e.friendlyMessage);
-      return;
-    }
-
-    const info = await handleEdgeError(e, t, { context: "compose-story" });
-    const extra = await readComposeErrorDetails(e);
-    const mergedInfo: EdgeErrorInfo = {
-      ...info,
-      requestId: info.requestId ?? extra.requestId,
-      raw: info.raw ?? extra.body,
-      status: info.status || extra.status || 0,
-    };
-    setErrorDetails(mergedInfo);
-    // Always show a friendly generic message — never leak requestId / raw body / status.
-    const friendly = t(
-      "page_ai_storyteller.story_generation_failed_friendly",
-      "Unable to generate the story right now. Please try again in a few moments.",
-    );
-    // Session expired mid-flight → sign back in
-    const rawBlob = `${mergedInfo.message ?? ""} ${JSON.stringify(mergedInfo.raw ?? {})}`.toLowerCase();
-    if (mergedInfo.status === 401 || /unauthorized|session/.test(rawBlob)) {
+    // Session genuinely expired → controlled sign-in-required state.
+    // (No refresh loops: useAuth owns the single supported refresh behaviour.)
+    if (isSessionExpired(e)) {
       try { await supabase.auth.signOut(); } catch { /* ignore */ }
-      const msg = t("ai.errors.sign_in_required", "Please sign in to generate a story.");
-      toast.error(msg);
-      setLastError(msg);
+      toast.error(normalized.message);
       navigate("/auth", { state: { from: "/ai-storyteller" } });
       return;
     }
-    toast.error(friendly);
-    setLastError(friendly);
+
+    if (normalized.retryable) toast.warning(normalized.message);
+    else toast.error(normalized.message);
   };
+
 
 
   // Guest path: route to the trial-story edge function (anonymous-friendly).
