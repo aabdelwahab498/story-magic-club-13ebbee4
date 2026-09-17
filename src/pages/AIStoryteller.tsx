@@ -1600,20 +1600,30 @@ const AIStoryteller = () => {
 
             <div className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed text-foreground dark:text-white font-bold">{story}</div>
 
-            {/* Additional scene illustrations (paid tier) */}
-            {illustrations.length > 1 && (
-              <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {illustrations.slice(1).map((ill, i) =>
-                  ill.imageUrl ? (
-                    <img
-                      key={i}
-                      src={ill.imageUrl}
-                      alt=""
-                      className="w-full h-32 sm:h-40 object-cover rounded-xl shadow"
-                    />
-                  ) : null,
+            {/* Additional scene illustrations (paid tier). Pages that are still
+                pending or failed simply don't render here — completed pictures
+                stay visible and the story remains fully usable. */}
+            {(illustrations?.length ?? 0) > 1 && (
+              <SectionErrorBoundary
+                sectionLabel={t("page_ai_storyteller.pictures_unavailable", "Some pictures couldn't be shown")}
+                hint={t(
+                  "page_ai_storyteller.pictures_unavailable_hint",
+                  "Your story is safe — you can try drawing the missing pictures again.",
                 )}
-              </div>
+              >
+                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(illustrations ?? []).slice(1).map((ill, i) =>
+                    ill?.imageUrl ? (
+                      <img
+                        key={i}
+                        src={ill.imageUrl}
+                        alt=""
+                        className="w-full h-32 sm:h-40 object-cover rounded-xl shadow"
+                      />
+                    ) : null,
+                  )}
+                </div>
+              </SectionErrorBoundary>
             )}
 
             {illustrationsGated && (
