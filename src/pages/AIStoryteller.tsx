@@ -563,6 +563,8 @@ const AIStoryteller = () => {
       stopProgressTimeline("idle");
       await handleSelError(e);
     } finally {
+      inFlightRef.current = false;
+      stopLongRunningWatch();
       setGenerating(false);
     }
   };
