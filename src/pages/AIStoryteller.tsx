@@ -897,22 +897,37 @@ const AIStoryteller = () => {
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
             <p className="font-bold text-foreground">
-              {t("page_ai_storyteller.planning_your_story", "Planning your story…")}
+              {longRunning
+                ? t("page_ai_storyteller.still_working_magic", "Najmah is still working its magic…")
+                : t("page_ai_storyteller.planning_your_story", "Planning your story…")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {t("page_ai_storyteller.a_few_seconds_before_the_preview", "A few seconds before the preview")}
+              {longRunning
+                ? t("page_ai_storyteller.thanks_for_waiting", "Thanks for waiting — your story settings are safe.")
+                : t("page_ai_storyteller.a_few_seconds_before_the_preview", "A few seconds before the preview")}
             </p>
           </div>
         </div>
       )}
 
-      {/* Blueprint preview modal — user approves before the full 10–15 page write */}
+      {/* Blueprint preview modal — user approves before the full 10–15 page write.
+          Wrapped so a malformed optional plan field can never take down the page. */}
       {planPreview && !generating && (
-        <StoryPlanPreview
-          plan={planPreview}
-          onEdit={() => setPlanPreview(null)}
-          onApprove={handleApprovePlan}
-        />
+        <SectionErrorBoundary
+          sectionLabel={t("page_ai_storyteller.plan_preview_unavailable", "We couldn't show the story plan")}
+          hint={t(
+            "page_ai_storyteller.plan_preview_unavailable_hint",
+            "Your story settings are safe. You can write the story anyway or start again.",
+          )}
+          retryLabel={t("page_ai_storyteller.write_the_story", "Write the story")}
+          onRetry={handleApprovePlan}
+        >
+          <StoryPlanPreview
+            plan={planPreview}
+            onEdit={() => setPlanPreview(null)}
+            onApprove={handleApprovePlan}
+          />
+        </SectionErrorBoundary>
       )}
 
 
