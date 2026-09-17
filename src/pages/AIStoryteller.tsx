@@ -39,6 +39,7 @@ import {
 import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
 import StoryExportBar from "@/components/story/StoryExportBar";
+import StoryPlanPreview from "@/components/StoryPlanPreview";
 
 
 
@@ -866,84 +867,11 @@ const AIStoryteller = () => {
 
       {/* Blueprint preview modal — user approves before the full 10–15 page write */}
       {planPreview && !generating && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-5 sm:p-6 max-w-2xl w-full my-8 text-left rtl:text-right">
-            <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">
-              {t("page_ai_storyteller.story_preview", "Story preview")}
-            </h2>
-            <p className="text-xs text-muted-foreground mb-4">
-              {t("page_ai_storyteller.review_the_plan_before_the_full_story_is", "Review the plan before the full story is written. If it doesn't match, go back and edit your brief.")}
-            </p>
-
-            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 rtl:pl-2 rtl:pr-0">
-              <div>
-                <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                  {t("page_ai_storyteller.title", "Title")}
-                </p>
-                <p className="text-base font-bold text-foreground">{planPreview.title}</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                  {t("page_ai_storyteller.hero", "Hero")}
-                </p>
-                <p className="text-sm text-foreground/90">
-                  <strong>{planPreview.hero?.name}</strong>
-                  {planPreview.hero?.charm ? ` — ${planPreview.hero.charm}` : ""}
-                </p>
-              </div>
-              {planPreview.companion?.name && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                    {t("page_ai_storyteller.companion", "Companion")}
-                  </p>
-                  <p className="text-sm text-foreground/90">
-                    <strong>{planPreview.companion.name}</strong>
-                    {planPreview.companion.role ? ` — ${planPreview.companion.role}` : ""}
-                  </p>
-                </div>
-              )}
-              <div>
-                <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-1">
-                  {t("page_ai_storyteller.acts", "Acts")}
-                </p>
-                <ol className="space-y-1.5 text-sm text-foreground/90 list-decimal pl-5 rtl:pr-5 rtl:pl-0">
-                  <li>{planPreview.acts?.act1_normalWorld}</li>
-                  <li>{planPreview.acts?.act2_disturbance}</li>
-                  <li>
-                    {Array.isArray(planPreview.acts?.act3_attempts)
-                      ? planPreview.acts.act3_attempts.join(" → ")
-                      : ""}
-                  </li>
-                  <li>{planPreview.acts?.act4_resolution}</li>
-                </ol>
-              </div>
-              <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-[11px] uppercase tracking-wide font-bold text-primary mb-1">
-                  {t("page_ai_storyteller.emotional_outcome", "Emotional outcome")}
-                </p>
-                <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome?.statement}</p>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2 justify-end rtl:justify-start">
-              <button
-                type="button"
-                onClick={() => setPlanPreview(null)}
-                className="px-4 py-2 rounded-full bg-muted text-foreground font-bold text-sm hover:bg-muted/80 transition"
-              >
-                {t("page_ai_storyteller.edit_brief", "Edit brief")}
-              </button>
-              <button
-                type="button"
-                onClick={handleApprovePlan}
-                className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition inline-flex items-center gap-2"
-              >
-                <Check className="h-4 w-4" />
-                {t("page_ai_storyteller.write_the_story", "Write the story")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <StoryPlanPreview
+          plan={planPreview}
+          onEdit={() => setPlanPreview(null)}
+          onApprove={handleApprovePlan}
+        />
       )}
 
 
