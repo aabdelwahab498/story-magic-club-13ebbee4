@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JobHandler, JobPayload, JobResult } from '../../../common/jobs/job.interface.js';
 import { StoryGenerationOrchestrator } from '../../ai/orchestrator/story-generation.orchestrator.js';
+import { AIProviderUnavailableException } from '../../ai/exceptions/ai.exceptions.js';
 import type { UserContext } from '../../rbac/interfaces/user-context.interface.js';
 
 export interface StoryGenerationPayload extends JobPayload {
@@ -25,6 +26,9 @@ export class StoryGenerationJobHandler implements JobHandler<StoryGenerationPayl
         data: story,
       };
     } catch (err: any) {
+      // A temporary provider outage must stay retryable for the caller
+      // (HTTP 503) instead of collapsing into a generic job failure.
+      if (err instanceof AIProviderUnavailableException) throw err;
       return {
         success: false,
         jobId: '',

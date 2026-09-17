@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { AIProviderUnavailableException } from '../../modules/ai/exceptions/ai.exceptions.js';
 
 /** Canonical error response shape returned by every failed API call. */
 interface ErrorResponse {
@@ -39,6 +40,28 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     let message: string | string[] = 'Internal server error';
     let code = 'INTERNAL_SERVER_ERROR';
+
+    // Temporary AI provider outage → controlled, retryable 503 (never an
+    // opaque 500). No provider payloads, prompts or credentials are exposed.
+    if (exception instanceof AIProviderUnavailableException) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ai_provider_unavailable_response',
+          trace_id: traceId,
+          code: AIProviderUnavailableException.CODE,
+          httpStatus: 503,
+          ...exception.meta,
+        }),
+      );
+      response.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+        success: false,
+        code: AIProviderUnavailableException.CODE,
+        message: AIProviderUnavailableException.USER_MESSAGE,
+        retryable: true,
+        trace_id: traceId,
+      } satisfies ErrorResponse & { retryable: boolean });
+      return;
+    }
 
     if (exception instanceof HttpException) {
       const res = exception.getResponse();

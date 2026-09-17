@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen, Crown, Lock, RotateCcw, AlertTriangle, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AI_PROVIDER_UNAVAILABLE_CODE, isProviderTemporarilyUnavailable } from "@/api/errors";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { pauseAudio, resumeAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
@@ -267,6 +268,21 @@ const AIStoryteller = () => {
     stopProgressTimeline("idle");
     // Log the raw error server-side only; surface only friendly text to the user.
     console.error("[compose-story] failed", e);
+
+    // Controlled, retryable provider outage (HTTP 503 +
+    // AI_PROVIDER_TEMPORARILY_UNAVAILABLE): the backend already exhausted its
+    // bounded retry policy. Keep the form, child and prompt intact and let the
+    // user retry manually — never auto-retry from the browser.
+    if (isProviderTemporarilyUnavailable(e)) {
+      const busy = t(
+        "page_ai_storyteller.story_service_busy",
+        "The story service is temporarily busy. Please try again shortly.",
+      );
+      setErrorDetails({ status: 503, code: AI_PROVIDER_UNAVAILABLE_CODE, message: busy, raw: { code: AI_PROVIDER_UNAVAILABLE_CODE } });
+      toast.warning(busy);
+      setLastError(busy);
+      return;
+    }
 
     // Standardized {success:false, code, message} response from the edge function
     if (e instanceof ComposeStoryError) {

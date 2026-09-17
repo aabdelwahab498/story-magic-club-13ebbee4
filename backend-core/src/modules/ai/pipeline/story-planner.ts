@@ -7,6 +7,7 @@ import { StoryPlan } from '../interfaces/story-plan.interface.js';
 
 import {
   AIProviderException,
+  AIProviderUnavailableException,
   AIParseException,
   AIValidationException,
 } from '../exceptions/ai.exceptions.js';
@@ -52,6 +53,18 @@ export class StoryPlanner {
     try {
       rawResponse = await this.llmProvider.generateBlueprint(prompt);
     } catch (error) {
+      // A temporary provider outage must keep its retryable identity so the
+      // HTTP layer answers 503 + AI_PROVIDER_TEMPORARILY_UNAVAILABLE.
+      if (error instanceof AIProviderUnavailableException) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'ai_provider_unavailable',
+            stage: 'planner',
+            ...error.meta,
+          }),
+        );
+        throw error;
+      }
       this.logger.error('Provider failed during blueprint generation', error);
       throw new AIProviderException('Failed to generate blueprint', error);
     }

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JobDispatcher, JobHandler, JobPayload, JobResult } from './job.interface.js';
 import { randomUUID } from 'crypto';
+import { AIProviderUnavailableException } from '../../modules/ai/exceptions/ai.exceptions.js';
 
 @Injectable()
 export class SyncJobDispatcher implements JobDispatcher {
@@ -36,6 +37,7 @@ export class SyncJobDispatcher implements JobDispatcher {
         jobId,
       };
     } catch (err: any) {
+      if (err instanceof AIProviderUnavailableException) throw err;
       this.logger.error(`Failed to execute job ${jobId} of type ${type}`, err);
       return {
         success: false,

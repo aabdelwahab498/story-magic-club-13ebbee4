@@ -7,6 +7,7 @@ import { StoryContext } from '../context/story-context.interface.js';
 import { GeneratedStory } from '../interfaces/generated-story.interface.js';
 import {
   AIProviderException,
+  AIProviderUnavailableException,
   AIParseException,
   AIValidationException,
 } from '../exceptions/ai.exceptions.js';
@@ -39,6 +40,17 @@ export class StoryWriter {
     try {
       rawResponse = await this.llmProvider.generateStory(prompt);
     } catch (error) {
+      // Keep temporary provider outages retryable end-to-end (HTTP 503).
+      if (error instanceof AIProviderUnavailableException) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'ai_provider_unavailable',
+            stage: 'writer',
+            ...error.meta,
+          }),
+        );
+        throw error;
+      }
       this.logger.error('Provider failed during story writing', error);
       throw new AIProviderException('Failed to generate story text', error);
     }
