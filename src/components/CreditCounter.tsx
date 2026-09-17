@@ -17,7 +17,9 @@ const CreditCounter = () => {
 
   if (!user) return null;
 
-  const label = t("nav.credits", "Credits");
+  // These are illustration/media credits — a different balance from the plan's
+  // monthly story quota shown on the storyteller page. Labels only; no logic change.
+  const label = t("nav.illustration_credits", "Illustration credits");
   const value = creditsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : balance;
 
   const low = !creditsLoading && balance <= 2;

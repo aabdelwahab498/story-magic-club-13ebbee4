@@ -967,8 +967,11 @@ const AIStoryteller = () => {
             <Crown className="h-4 w-4 text-amber-400" />
             <span className="capitalize">{getLocalized(sub.plan?.name, lang) || sub.tier}</span>
             <span className="opacity-70">·</span>
+            {/* Story-generation quota for the current plan — a different concept
+                from the illustration credits shown in the header. Values and
+                billing rules are unchanged; only the label is explicit. */}
             <span>
-              {t("page_ai_storyteller.remaining", "Remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
+              {t("page_ai_storyteller.stories_remaining", "Stories remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
             </span>
             {byok.bypass && creditsExhausted && (
               <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
