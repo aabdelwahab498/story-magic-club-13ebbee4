@@ -1373,17 +1373,18 @@ const AIStoryteller = () => {
                   <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-destructive dark:text-red-300">
-                      {errorDetails?.status === 402 && (errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota")
-                        ? (t("page_ai_storyteller.ai_service_is_temporarily_out_of_credits", "AI service is temporarily out of credits"))
-                        : errorDetails?.status === 402
-                          ? (t("page_ai_storyteller.you_ve_reached_your_monthly_plan_limit", "You've reached your monthly plan limit"))
-                          : (t("page_ai_storyteller.couldn_t_generate_the_story_right_now", "Couldn't generate the story right now"))}
+                      {normalizedError?.category === "AI_TEMPORARILY_UNAVAILABLE"
+                        ? t("page_ai_storyteller.story_service_busy_title", "Najmah is a little busy right now")
+                        : normalizedError?.category === "NETWORK_TEMPORARY_FAILURE"
+                          ? t("page_ai_storyteller.connection_problem_title", "We couldn't reach Najmah")
+                          : normalizedError?.category === "STORY_QUOTA_EXCEEDED"
+                            ? t("page_ai_storyteller.story_quota_title", "Story limit reached")
+                            : normalizedError?.category === "INSUFFICIENT_CREDITS"
+                              ? t("page_ai_storyteller.illustration_credits_title", "Not enough illustration credits")
+                              : t("page_ai_storyteller.couldn_t_generate_the_story_right_now", "Couldn't generate the story right now")}
                     </p>
-                    <p className="text-xs text-muted-foreground dark:text-white/70 mt-1">
-                      {errorDetails?.status === 402 && (errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota")
-                        ? (t("page_ai_storyteller.you_can_try_the_free_listen_feature_or_c", "You can try the free Listen feature or contact support while we restore service."))
-                        : lastError}
-                    </p>
+                    {/* Friendly, user-safe copy only — normalized centrally. */}
+                    <p className="text-xs text-muted-foreground dark:text-white/70 mt-1">{lastError}</p>
                   </div>
                 </div>
 
