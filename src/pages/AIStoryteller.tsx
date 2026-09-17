@@ -1030,7 +1030,7 @@ const AIStoryteller = () => {
               <button
                 onClick={() => {
                   const header = `${selStory.title}\n\n`;
-                  const body = selStory.pages
+                  const body = (selStory.pages ?? [])
                     .map((p) => `— Page ${p.index} —\n${p.text}`)
                     .join("\n\n");
                   const footer = selStory.sel_outcome?.statement
@@ -1079,7 +1079,7 @@ const AIStoryteller = () => {
                       } else {
                         const pdf = await generateTrialPdf({
                           title: selStory.title,
-                          pages: selStory.pages.map((p) => ({
+                          pages: (selStory.pages ?? []).map((p) => ({
                             index: p.index,
                             text: p.text,
                             emotionTag: p.emotionTag,
