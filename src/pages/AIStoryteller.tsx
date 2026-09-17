@@ -1448,7 +1448,7 @@ const AIStoryteller = () => {
                       if (lastModeRef.current === "classic") handleGenerate();
                       else handleGenerateSel();
                     }}
-                    disabled={generating || limitReached}
+                    disabled={generating || planning || limitReached}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full font-bold text-sm shadow hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <RotateCcw className="h-4 w-4" />
