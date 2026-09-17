@@ -39,6 +39,7 @@ import {
 import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
 import StoryExportBar from "@/components/story/StoryExportBar";
+import StoryPlanPreview from "@/components/StoryPlanPreview";
 
 
 
