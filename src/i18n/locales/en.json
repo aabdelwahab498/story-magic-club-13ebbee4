@@ -43,7 +43,8 @@
     "thriller": "Thrilling Stories",
     "group_explore": "Explore",
     "group_community": "Community",
-    "group_shop": "Shop"
+    "group_shop": "Shop",
+    "illustration_credits": "Illustration credits"
   },
   "language_suggestion": {
     "title": "Switch language?",
@@ -961,7 +962,24 @@
     "building_pdf": "Building PDF...",
     "download_story_pdf": "Download story PDF",
     "subscribe_for_unlimited_stories": "Subscribe for unlimited stories",
-    "illustrate_download": "Illustrate & Download"
+    "illustrate_download": "Illustrate & Download",
+    "still_working_magic": "Najmah is still working its magic…",
+    "thanks_for_waiting": "Thanks for waiting — your story settings are safe.",
+    "plan_preview_unavailable": "We couldn't show the story plan",
+    "plan_preview_unavailable_hint": "Your story settings are safe. You can write the story anyway or start again.",
+    "story_view_unavailable": "We couldn't display this story view",
+    "story_view_unavailable_hint": "Your story is saved — you can still download it below.",
+    "downloads_unavailable": "Downloads are unavailable right now",
+    "downloads_unavailable_hint": "Your story and pictures are safe. Please try the downloads again in a moment.",
+    "pictures_unavailable": "Some pictures couldn't be shown",
+    "pictures_unavailable_hint": "Your story is safe — you can try drawing the missing pictures again.",
+    "audio_unavailable": "Listening isn't available right now",
+    "audio_unavailable_hint": "You can still read and download the story.",
+    "stories_remaining": "Stories remaining",
+    "story_service_busy_title": "Najmah is a little busy right now",
+    "connection_problem_title": "We couldn't reach Najmah",
+    "story_quota_title": "Story limit reached",
+    "illustration_credits_title": "Not enough illustration credits"
   },
   "admin_settings": {
     "trial_features_admin_only": "Trial features (admin only)",
@@ -1143,5 +1161,18 @@
     "extra_user_prompt_instructions": "Extra User Prompt instructions",
     "extra_instructions_appended_to_every_sto": "Extra instructions appended to every story",
     "save_settings": "Save settings"
+  },
+  "errors": {
+    "ai_temporarily_unavailable": "Najmah is a little busy creating stories right now. Your story settings are safe. Please try again shortly.",
+    "network_temporary": "We couldn't reach Najmah right now. Your story settings are safe. Please check your connection and try again.",
+    "rate_limited": "Too many stories at once. Your story settings are safe. Please wait a moment and try again.",
+    "session_expired": "Your session has expired. Please sign in again.",
+    "story_quota_exceeded": "You've reached your story limit for the current plan.",
+    "insufficient_illustration_credits": "You don't have enough illustration credits for this action.",
+    "entitlement_required": "This feature isn't included in your current plan.",
+    "forbidden": "You don't have permission to do this.",
+    "validation": "Something in the story settings needs a small fix. Please review and try again.",
+    "conflict": "This action was already in progress. Please refresh and try again.",
+    "internal": "Something went wrong on our side. Your story settings are safe. Please try again in a moment."
   }
 }

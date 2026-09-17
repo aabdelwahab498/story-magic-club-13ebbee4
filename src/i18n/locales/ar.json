@@ -44,7 +44,8 @@
     "group_explore": "استكشف",
     "group_community": "المجتمع",
     "group_shop": "المتجر والاشتراك",
-    "about": "About"
+    "about": "About",
+    "illustration_credits": "أرصدة الرسم"
   },
   "language_suggestion": {
     "title": "تغيير اللغة؟",
@@ -885,7 +886,24 @@
     "building_pdf": "جارٍ تحضير الـ PDF...",
     "download_story_pdf": "تنزيل القصة PDF",
     "subscribe_for_unlimited_stories": "اشترك لقصص بلا حدود",
-    "illustrate_download": "ارسم وحمّل القصة"
+    "illustrate_download": "ارسم وحمّل القصة",
+    "still_working_magic": "نجمة ما زالت تنسج السحر…",
+    "thanks_for_waiting": "شكرًا لانتظارك — إعداداتك محفوظة.",
+    "plan_preview_unavailable": "لم نتمكن من عرض خطة القصة",
+    "plan_preview_unavailable_hint": "إعداداتك محفوظة. يمكنك كتابة القصة على أي حال أو البدء من جديد.",
+    "story_view_unavailable": "لم نتمكن من عرض هذه القصة",
+    "story_view_unavailable_hint": "قصتك محفوظة — ويمكنك تحميلها من الأسفل.",
+    "downloads_unavailable": "التحميلات غير متاحة الآن",
+    "downloads_unavailable_hint": "قصتك وصورها محفوظة. جرّب التحميل مرة أخرى بعد لحظات.",
+    "pictures_unavailable": "بعض الصور لم يمكن عرضها",
+    "pictures_unavailable_hint": "قصتك محفوظة — يمكنك محاولة رسم الصور الناقصة مرة أخرى.",
+    "audio_unavailable": "الاستماع غير متاح الآن",
+    "audio_unavailable_hint": "يمكنك قراءة القصة وتحميلها كما هي.",
+    "stories_remaining": "القصص المتبقية",
+    "story_service_busy_title": "نجمة مشغولة قليلًا الآن",
+    "connection_problem_title": "لم نتمكن من الوصول إلى نجمة",
+    "story_quota_title": "وصلت إلى حد القصص",
+    "illustration_credits_title": "أرصدة الرسم غير كافية"
   },
   "admin_settings": {
     "trial_features_admin_only": "مزايا التجربة (للأدمن فقط)",
@@ -1067,5 +1085,18 @@
     "extra_user_prompt_instructions": "تعليمات إضافية للـUser Prompt",
     "extra_instructions_appended_to_every_sto": "تعليمات إضافية تتضاف على كل قصة",
     "save_settings": "حفظ الإعدادات"
+  },
+  "errors": {
+    "ai_temporarily_unavailable": "نجمة مشغولة قليلًا بصناعة القصص الآن. إعداداتك محفوظة — من فضلك حاول بعد لحظات.",
+    "network_temporary": "لم نتمكن من الوصول إلى نجمة الآن. إعداداتك محفوظة — تحقق من الاتصال وحاول مرة أخرى.",
+    "rate_limited": "طلبات كثيرة في وقت واحد. إعداداتك محفوظة — انتظر لحظة ثم حاول مرة أخرى.",
+    "session_expired": "انتهت صلاحية جلستك. من فضلك سجّل الدخول مرة أخرى.",
+    "story_quota_exceeded": "لقد وصلت إلى حد القصص في خطتك الحالية.",
+    "insufficient_illustration_credits": "لا تتوفر لديك أرصدة رسم كافية لهذا الإجراء.",
+    "entitlement_required": "هذه الميزة غير متضمنة في خطتك الحالية.",
+    "forbidden": "لا تملك صلاحية القيام بذلك.",
+    "validation": "هناك تفصيل بسيط في إعدادات القصة يحتاج تعديلًا. راجعه وحاول مرة أخرى.",
+    "conflict": "هذا الإجراء قيد التنفيذ بالفعل. حدّث الصفحة وحاول مرة أخرى.",
+    "internal": "حدث خطأ من جانبنا. إعداداتك محفوظة — حاول مرة أخرى بعد لحظات."
   }
 }

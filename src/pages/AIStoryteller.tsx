@@ -4,7 +4,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen, Crown, Lock, RotateCcw, AlertTriangle, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AI_PROVIDER_UNAVAILABLE_CODE, isProviderTemporarilyUnavailable } from "@/api/errors";
+import { normalizeApiError, isSessionExpired, type NormalizedApiError } from "@/lib/apiErrorNormalization";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import type { BrowserTtsHandle } from "@/lib/browserTts";
 import { pauseAudio, resumeAudio } from "@/lib/audioDebug";
 import NarratorAvatar from "@/components/NarratorAvatar";
@@ -13,7 +14,7 @@ import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/ai
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild, resolveActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
-import { planSelStory, composeSelStory, readComposeErrorDetails, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
+import { planSelStory, composeSelStory, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
@@ -137,7 +138,18 @@ const AIStoryteller = () => {
   const [readingOpen, setReadingOpen] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<EdgeErrorInfo | null>(null);
+  /** Normalized (category + retryability) view of the last generation failure. */
+  const [normalizedError, setNormalizedError] = useState<NormalizedApiError | null>(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  /**
+   * In-flight guard at the action boundary: the same user interaction can never
+   * produce two concurrent canonical requests, no matter how the click/Enter
+   * events arrive or how fast the button re-renders.
+   */
+  const inFlightRef = useRef(false);
+  /** True once a request has been running long enough to reassure the user. */
+  const [longRunning, setLongRunning] = useState(false);
+  const longRunningTimerRef = useRef<number | null>(null);
   type GenStep = "idle" | "planning" | "writing" | "evaluating" | "saving" | "done";
   const [genStep, setGenStep] = useState<GenStep>("idle");
   const stepTimersRef = useRef<number[]>([]);
@@ -206,6 +218,25 @@ const AIStoryteller = () => {
     setGenStep(finalStep);
   };
 
+  /**
+   * Backend-side retries can legitimately make a request take longer, so the
+   * frontend never aborts on a short timer — it only softens the waiting copy
+   * after a while. No fake percentages, no provider/retry internals.
+   */
+  const startLongRunningWatch = () => {
+    if (longRunningTimerRef.current !== null) window.clearTimeout(longRunningTimerRef.current);
+    setLongRunning(false);
+    longRunningTimerRef.current = window.setTimeout(() => setLongRunning(true), 12000);
+  };
+  const stopLongRunningWatch = () => {
+    if (longRunningTimerRef.current !== null) {
+      window.clearTimeout(longRunningTimerRef.current);
+      longRunningTimerRef.current = null;
+    }
+    setLongRunning(false);
+  };
+  useEffect(() => () => stopLongRunningWatch(), []);
+
   // Gating: signed-in users have a real limit; guests are allowed a couple of trial stories per session.
   const guestMode = !user;
 
@@ -264,68 +295,43 @@ const AIStoryteller = () => {
 
 
 
+  /**
+   * ONE error path for the whole authenticated generation journey.
+   * Every failure is folded through `normalizeApiError` (see
+   * src/lib/apiErrorNormalization.ts), so the user only ever sees friendly,
+   * localized copy — never raw JSON, provider text or stack traces — and the
+   * form/child/prompt/settings are always left intact for a manual retry.
+   */
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
-    // Log the raw error server-side only; surface only friendly text to the user.
+    // Raw error stays in the console only; the UI shows friendly text.
     console.error("[compose-story] failed", e);
 
-    // Controlled, retryable provider outage (HTTP 503 +
-    // AI_PROVIDER_TEMPORARILY_UNAVAILABLE): the backend already exhausted its
-    // bounded retry policy. Keep the form, child and prompt intact and let the
-    // user retry manually — never auto-retry from the browser.
-    if (isProviderTemporarilyUnavailable(e)) {
-      const busy = t(
-        "page_ai_storyteller.story_service_busy",
-        "The story service is temporarily busy. Please try again shortly.",
-      );
-      setErrorDetails({ status: 503, code: AI_PROVIDER_UNAVAILABLE_CODE, message: busy, raw: { code: AI_PROVIDER_UNAVAILABLE_CODE } });
-      toast.warning(busy);
-      setLastError(busy);
-      return;
-    }
+    const normalized = normalizeApiError(e, t);
+    setNormalizedError(normalized);
+    setErrorDetails({
+      status: normalized.status,
+      code: normalized.code,
+      message: normalized.message,
+      requestId: normalized.correlationId,
+      // Sanitized developer details only — no tokens, headers or prompts.
+      raw: { code: normalized.code, category: normalized.category, retryable: normalized.retryable },
+    });
+    setLastError(normalized.message);
 
-    // Standardized {success:false, code, message} response from the edge function
-    if (e instanceof ComposeStoryError) {
-      setErrorDetails({ status: 200, message: e.friendlyMessage, raw: { code: e.code, message: e.friendlyMessage }, requestId: undefined });
-      if (e.code === "unauthorized") {
-        try { await supabase.auth.signOut(); } catch { /* ignore */ }
-        toast.error(e.friendlyMessage);
-        setLastError(e.friendlyMessage);
-        navigate("/auth", { state: { from: "/ai-storyteller" } });
-        return;
-      }
-      toast.error(e.friendlyMessage);
-      setLastError(e.friendlyMessage);
-      return;
-    }
-
-    const info = await handleEdgeError(e, t, { context: "compose-story" });
-    const extra = await readComposeErrorDetails(e);
-    const mergedInfo: EdgeErrorInfo = {
-      ...info,
-      requestId: info.requestId ?? extra.requestId,
-      raw: info.raw ?? extra.body,
-      status: info.status || extra.status || 0,
-    };
-    setErrorDetails(mergedInfo);
-    // Always show a friendly generic message — never leak requestId / raw body / status.
-    const friendly = t(
-      "page_ai_storyteller.story_generation_failed_friendly",
-      "Unable to generate the story right now. Please try again in a few moments.",
-    );
-    // Session expired mid-flight → sign back in
-    const rawBlob = `${mergedInfo.message ?? ""} ${JSON.stringify(mergedInfo.raw ?? {})}`.toLowerCase();
-    if (mergedInfo.status === 401 || /unauthorized|session/.test(rawBlob)) {
+    // Session genuinely expired → controlled sign-in-required state.
+    // (No refresh loops: useAuth owns the single supported refresh behaviour.)
+    if (isSessionExpired(e)) {
       try { await supabase.auth.signOut(); } catch { /* ignore */ }
-      const msg = t("ai.errors.sign_in_required", "Please sign in to generate a story.");
-      toast.error(msg);
-      setLastError(msg);
+      toast.error(normalized.message);
       navigate("/auth", { state: { from: "/ai-storyteller" } });
       return;
     }
-    toast.error(friendly);
-    setLastError(friendly);
+
+    if (normalized.retryable) toast.warning(normalized.message);
+    else toast.error(normalized.message);
   };
+
 
 
   // Guest path: route to the trial-story edge function (anonymous-friendly).
@@ -471,14 +477,21 @@ const AIStoryteller = () => {
       setUpgradeOpen(true);
       return;
     }
+    // Double-submit protection at the action boundary (not just the disabled
+    // attribute): a second click/Enter while a canonical request is in flight is
+    // dropped, so the same interaction never creates two stories.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     lastModeRef.current = "sel";
     setLastError(null);
     setErrorDetails(null);
+    setNormalizedError(null);
     setShowErrorDetails(false);
     let input: SelInput;
     try {
       input = await buildSelInput();
     } catch (e) {
+      inFlightRef.current = false;
       await handleSelError(e);
       return;
     }
@@ -486,16 +499,20 @@ const AIStoryteller = () => {
 
     // No custom brief → skip preview, go full directly
     if (!input.customPrompt) {
+      inFlightRef.current = false;
       return runFullCompose(input);
     }
 
     setPlanning(true);
+    startLongRunningWatch();
     try {
       const plan = await planSelStory(input);
       setPlanPreview(plan.blueprint);
     } catch (e) {
       await handleSelError(e);
     } finally {
+      inFlightRef.current = false;
+      stopLongRunningWatch();
       setPlanning(false);
     }
   };
@@ -505,13 +522,19 @@ const AIStoryteller = () => {
     input: SelInput,
     presetBlueprint?: Record<string, unknown>,
   ) => {
+    // Same in-flight guard for the story-creation request.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setPlanPreview(null);
     setGenerating(true);
     setSelStory(null);
     setLastError(null);
     setErrorDetails(null);
+    setNormalizedError(null);
     setShowErrorDetails(false);
     startProgressTimeline();
+    startLongRunningWatch();
+
 
     try {
       console.log("[SEL] composeSelStory → start", input);
@@ -540,6 +563,8 @@ const AIStoryteller = () => {
       stopProgressTimeline("idle");
       await handleSelError(e);
     } finally {
+      inFlightRef.current = false;
+      stopLongRunningWatch();
       setGenerating(false);
     }
   };
@@ -872,22 +897,37 @@ const AIStoryteller = () => {
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
             <p className="font-bold text-foreground">
-              {t("page_ai_storyteller.planning_your_story", "Planning your story…")}
+              {longRunning
+                ? t("page_ai_storyteller.still_working_magic", "Najmah is still working its magic…")
+                : t("page_ai_storyteller.planning_your_story", "Planning your story…")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {t("page_ai_storyteller.a_few_seconds_before_the_preview", "A few seconds before the preview")}
+              {longRunning
+                ? t("page_ai_storyteller.thanks_for_waiting", "Thanks for waiting — your story settings are safe.")
+                : t("page_ai_storyteller.a_few_seconds_before_the_preview", "A few seconds before the preview")}
             </p>
           </div>
         </div>
       )}
 
-      {/* Blueprint preview modal — user approves before the full 10–15 page write */}
+      {/* Blueprint preview modal — user approves before the full 10–15 page write.
+          Wrapped so a malformed optional plan field can never take down the page. */}
       {planPreview && !generating && (
-        <StoryPlanPreview
-          plan={planPreview}
-          onEdit={() => setPlanPreview(null)}
-          onApprove={handleApprovePlan}
-        />
+        <SectionErrorBoundary
+          sectionLabel={t("page_ai_storyteller.plan_preview_unavailable", "We couldn't show the story plan")}
+          hint={t(
+            "page_ai_storyteller.plan_preview_unavailable_hint",
+            "Your story settings are safe. You can write the story anyway or start again.",
+          )}
+          retryLabel={t("page_ai_storyteller.write_the_story", "Write the story")}
+          onRetry={handleApprovePlan}
+        >
+          <StoryPlanPreview
+            plan={planPreview}
+            onEdit={() => setPlanPreview(null)}
+            onApprove={handleApprovePlan}
+          />
+        </SectionErrorBoundary>
       )}
 
 
@@ -927,8 +967,11 @@ const AIStoryteller = () => {
             <Crown className="h-4 w-4 text-amber-400" />
             <span className="capitalize">{getLocalized(sub.plan?.name, lang) || sub.tier}</span>
             <span className="opacity-70">·</span>
+            {/* Story-generation quota for the current plan — a different concept
+                from the illustration credits shown in the header. Values and
+                billing rules are unchanged; only the label is explicit. */}
             <span>
-              {t("page_ai_storyteller.remaining", "Remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
+              {t("page_ai_storyteller.stories_remaining", "Stories remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
             </span>
             {byok.bypass && creditsExhausted && (
               <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
@@ -987,7 +1030,7 @@ const AIStoryteller = () => {
               <button
                 onClick={() => {
                   const header = `${selStory.title}\n\n`;
-                  const body = selStory.pages
+                  const body = (selStory.pages ?? [])
                     .map((p) => `— Page ${p.index} —\n${p.text}`)
                     .join("\n\n");
                   const footer = selStory.sel_outcome?.statement
@@ -1036,7 +1079,7 @@ const AIStoryteller = () => {
                       } else {
                         const pdf = await generateTrialPdf({
                           title: selStory.title,
-                          pages: selStory.pages.map((p) => ({
+                          pages: (selStory.pages ?? []).map((p) => ({
                             index: p.index,
                             text: p.text,
                             emotionTag: p.emotionTag,
@@ -1076,26 +1119,46 @@ const AIStoryteller = () => {
               )}
             </div>
           </div>
-          <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+          {/* Story reader: a malformed optional page field degrades only this
+              section — the generated story, media and downloads stay available. */}
+          <SectionErrorBoundary
+            sectionLabel={t("page_ai_storyteller.story_view_unavailable", "We couldn't display this story view")}
+            hint={t(
+              "page_ai_storyteller.story_view_unavailable_hint",
+              "Your story is saved — you can still download it below.",
+            )}
+          >
+            <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+          </SectionErrorBoundary>
 
-          <StoryExportBar
-            title={selStory.title}
-            fullText={selStory.pages.map((p) => p.text).join("\n\n")}
-            language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
-            storyId={selStory.story_id ?? null}
-            childId={activeChild?.id ?? null}
-            childName={activeChild?.name ?? null}
-            emotionTags={
-              (selStory.pages.map((p) => p.emotionTag).filter(Boolean) as string[])
-            }
-            pageCount={selStory.pages.length}
-            pages={selStory.pages.map((p, i) => ({
-              pageNumber: (p.index ?? i) + 1,
-              text: p.text,
-              illustrationUrl: p.imageUrl ?? null,
-              emotionTag: p.emotionTag ?? null,
-            }))}
-          />
+          {/* Audio / illustrations / PDF / downloads: one failing capability
+              never invalidates the generated story. */}
+          <SectionErrorBoundary
+            sectionLabel={t("page_ai_storyteller.downloads_unavailable", "Downloads are unavailable right now")}
+            hint={t(
+              "page_ai_storyteller.downloads_unavailable_hint",
+              "Your story and pictures are safe. Please try the downloads again in a moment.",
+            )}
+          >
+            <StoryExportBar
+              title={selStory.title}
+              fullText={(selStory.pages ?? []).map((p) => p.text).join("\n\n")}
+              language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
+              storyId={selStory.story_id ?? null}
+              childId={activeChild?.id ?? null}
+              childName={activeChild?.name ?? null}
+              emotionTags={
+                ((selStory.pages ?? []).map((p) => p.emotionTag).filter(Boolean) as string[])
+              }
+              pageCount={(selStory.pages ?? []).length}
+              pages={(selStory.pages ?? []).map((p, i) => ({
+                pageNumber: (p.index ?? i) + 1,
+                text: p.text,
+                illustrationUrl: p.imageUrl ?? null,
+                emotionTag: p.emotionTag ?? null,
+              }))}
+            />
+          </SectionErrorBoundary>
 
         </div>
       ) : !story ? (
@@ -1333,17 +1396,18 @@ const AIStoryteller = () => {
                   <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-destructive dark:text-red-300">
-                      {errorDetails?.status === 402 && (errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota")
-                        ? (t("page_ai_storyteller.ai_service_is_temporarily_out_of_credits", "AI service is temporarily out of credits"))
-                        : errorDetails?.status === 402
-                          ? (t("page_ai_storyteller.you_ve_reached_your_monthly_plan_limit", "You've reached your monthly plan limit"))
-                          : (t("page_ai_storyteller.couldn_t_generate_the_story_right_now", "Couldn't generate the story right now"))}
+                      {normalizedError?.category === "AI_TEMPORARILY_UNAVAILABLE"
+                        ? t("page_ai_storyteller.story_service_busy_title", "Najmah is a little busy right now")
+                        : normalizedError?.category === "NETWORK_TEMPORARY_FAILURE"
+                          ? t("page_ai_storyteller.connection_problem_title", "We couldn't reach Najmah")
+                          : normalizedError?.category === "STORY_QUOTA_EXCEEDED"
+                            ? t("page_ai_storyteller.story_quota_title", "Story limit reached")
+                            : normalizedError?.category === "INSUFFICIENT_CREDITS"
+                              ? t("page_ai_storyteller.illustration_credits_title", "Not enough illustration credits")
+                              : t("page_ai_storyteller.couldn_t_generate_the_story_right_now", "Couldn't generate the story right now")}
                     </p>
-                    <p className="text-xs text-muted-foreground dark:text-white/70 mt-1">
-                      {errorDetails?.status === 402 && (errorDetails?.code === "ai_credits_exhausted" || errorDetails?.reason === "ai_provider_quota")
-                        ? (t("page_ai_storyteller.you_can_try_the_free_listen_feature_or_c", "You can try the free Listen feature or contact support while we restore service."))
-                        : lastError}
-                    </p>
+                    {/* Friendly, user-safe copy only — normalized centrally. */}
+                    <p className="text-xs text-muted-foreground dark:text-white/70 mt-1">{lastError}</p>
                   </div>
                 </div>
 
@@ -1384,7 +1448,7 @@ const AIStoryteller = () => {
                       if (lastModeRef.current === "classic") handleGenerate();
                       else handleGenerateSel();
                     }}
-                    disabled={generating || limitReached}
+                    disabled={generating || planning || limitReached}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full font-bold text-sm shadow hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -1449,15 +1513,22 @@ const AIStoryteller = () => {
                 </span>
               )}
               {!guestMode && (
-                <BrowserNarratorSettings
-                  language={lang}
-                  onChange={() => {
-                    // Restart if currently playing so new speed/voice takes effect.
-                    if (narrationState === "playing" || narrationState === "paused") {
-                      stopAllNarration();
-                    }
-                  }}
-                />
+                /* Listening controls degrade on their own — a voice problem
+                   never makes the story itself unusable. */
+                <SectionErrorBoundary
+                  sectionLabel={t("page_ai_storyteller.audio_unavailable", "Listening isn't available right now")}
+                  hint={t("page_ai_storyteller.audio_unavailable_hint", "You can still read and download the story.")}
+                >
+                  <BrowserNarratorSettings
+                    language={lang}
+                    onChange={() => {
+                      // Restart if currently playing so new speed/voice takes effect.
+                      if (narrationState === "playing" || narrationState === "paused") {
+                        stopAllNarration();
+                      }
+                    }}
+                  />
+                </SectionErrorBoundary>
               )}
               {!guestMode && (
                 <button
@@ -1536,20 +1607,30 @@ const AIStoryteller = () => {
 
             <div className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed text-foreground dark:text-white font-bold">{story}</div>
 
-            {/* Additional scene illustrations (paid tier) */}
-            {illustrations.length > 1 && (
-              <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {illustrations.slice(1).map((ill, i) =>
-                  ill.imageUrl ? (
-                    <img
-                      key={i}
-                      src={ill.imageUrl}
-                      alt=""
-                      className="w-full h-32 sm:h-40 object-cover rounded-xl shadow"
-                    />
-                  ) : null,
+            {/* Additional scene illustrations (paid tier). Pages that are still
+                pending or failed simply don't render here — completed pictures
+                stay visible and the story remains fully usable. */}
+            {(illustrations?.length ?? 0) > 1 && (
+              <SectionErrorBoundary
+                sectionLabel={t("page_ai_storyteller.pictures_unavailable", "Some pictures couldn't be shown")}
+                hint={t(
+                  "page_ai_storyteller.pictures_unavailable_hint",
+                  "Your story is safe — you can try drawing the missing pictures again.",
                 )}
-              </div>
+              >
+                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(illustrations ?? []).slice(1).map((ill, i) =>
+                    ill?.imageUrl ? (
+                      <img
+                        key={i}
+                        src={ill.imageUrl}
+                        alt=""
+                        className="w-full h-32 sm:h-40 object-cover rounded-xl shadow"
+                      />
+                    ) : null,
+                  )}
+                </div>
+              </SectionErrorBoundary>
             )}
 
             {illustrationsGated && (
