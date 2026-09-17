@@ -28,16 +28,26 @@ vi.mock("react-i18next", () => ({
   Trans: ({ children }: { children?: unknown }) => children ?? null,
 }));
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    functions: { invoke: vi.fn() },
-    from: vi.fn(() => ({ select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(async () => ({ data: null, error: null })) })) })) })),
-    auth: {
-      getSession: vi.fn(async () => ({ data: { session: null } })),
-      getUser: vi.fn(async () => ({ data: { user: null } })),
+vi.mock("@/integrations/supabase/client", () => {
+  // Fully chainable stub so page-level effects (voice lists, etc.) resolve.
+  const chain: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "order", "limit", "in", "neq", "is"]) {
+    chain[m] = vi.fn(() => chain);
+  }
+  chain.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+  chain.single = vi.fn(async () => ({ data: null, error: null }));
+  chain.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(res);
+  return {
+    supabase: {
+      functions: { invoke: vi.fn() },
+      from: vi.fn(() => chain),
+      auth: {
+        getSession: vi.fn(async () => ({ data: { session: null } })),
+        getUser: vi.fn(async () => ({ data: { user: null } })),
+      },
     },
-  },
-}));
+  };
+});
 
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "user-1" }, session: null, isAdmin: false }),
