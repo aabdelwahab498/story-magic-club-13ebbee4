@@ -178,8 +178,9 @@ export const normalizeApiError = (
   // anything else falls back to the category copy so raw text never leaks.
   const clientFriendly =
     typeof err.friendlyMessage === "string" && err.friendlyMessage.trim() ? err.friendlyMessage : undefined;
-  const message =
-    category === "VALIDATION_ERROR" && clientFriendly ? clientFriendly : clientFriendly && category === "SESSION_EXPIRED" ? clientFriendly : friendlyMessageFor(category, t);
+  const keepsClientCopy = category === "VALIDATION_ERROR" || category === "SESSION_EXPIRED";
+  const message = keepsClientCopy && clientFriendly ? clientFriendly : friendlyMessageFor(category, t);
+
 
   const correlationId =
     (typeof data?.trace_id === "string" && data.trace_id) ||
