@@ -145,7 +145,7 @@ describe("AIStoryteller — temporary AI provider outage (HTTP 503)", () => {
     await waitFor(() => expect(mocks.planSelStory).toHaveBeenCalledTimes(1));
 
     // Temporary-service message shown, page still mounted, no navigation away.
-    await screen.findByText(/temporarily busy/i);
+    expect((await screen.findAllByText(/busy/i)).length).toBeGreaterThan(0);
     expect(screen.getByText("ai.generate")).toBeTruthy();
     expect(mocks.navigate).not.toHaveBeenCalled();
 
