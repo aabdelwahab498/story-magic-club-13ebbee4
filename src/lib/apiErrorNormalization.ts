@@ -197,7 +197,17 @@ export const normalizeApiError = (
   const retryable =
     typeof data?.retryable === "boolean" ? data.retryable || RETRYABLE.includes(category) : RETRYABLE.includes(category);
 
-  return { status, code: rawCode, category, retryable, message, correlationId };
+  // Safe developer diagnostics: the backend envelope message/error text only,
+  // flattened and truncated. Never tokens, headers, credentials or prompts.
+  const rawServer = data?.message ?? data?.error ?? undefined;
+  const serverMessage =
+    typeof rawServer === "string"
+      ? rawServer.slice(0, 300)
+      : Array.isArray(rawServer)
+        ? rawServer.filter((m) => typeof m === "string").join(", ").slice(0, 300)
+        : undefined;
+
+  return { status, code: rawCode, category, retryable, message, correlationId, serverMessage };
 };
 
 /** True for the controlled, retryable "AI provider temporarily unavailable" contract. */
