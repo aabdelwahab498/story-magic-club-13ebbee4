@@ -98,8 +98,12 @@ const categoryFromStatus = (status: number): ApiErrorCategory => {
 const isNetworkFailure = (err: Record<string, unknown>): boolean => {
   const code = String(err.code ?? "");
   if (["ECONNABORTED", "ETIMEDOUT", "ERR_NETWORK", "ECONNRESET"].includes(code)) return true;
+  // A real HTTP response from Backend Core is never a connectivity failure —
+  // even when its message text happens to mention a timeout. Keeping the server
+  // status authoritative stops a genuine 500 being reported as "can't reach".
+  const hasServerResponse = Boolean(err.response) || Boolean(err.data);
   const msg = String((err.message as string) ?? "").toLowerCase();
-  if (/network error|failed to fetch|timed out|timeout|load failed/.test(msg)) return true;
+  if (!hasServerResponse && /network error|failed to fetch|timed out|timeout|load failed/.test(msg)) return true;
   // Axios error with a config but no response at all = the request never landed.
   return Boolean(err.config) && !err.response && !err.status;
 };

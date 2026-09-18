@@ -10,7 +10,10 @@ const API_BASE_URL =
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  timeout: 10000, // 10 second timeout
+  // 90s: story plan/creation are long AI calls and the backend runs its own
+  // bounded retry policy. A short client timeout would abort healthy work and
+  // surface it as a connectivity failure.
+  timeout: 90000,
   headers: {
     'Content-Type': 'application/json',
   },
