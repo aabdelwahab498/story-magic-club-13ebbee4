@@ -315,7 +315,13 @@ const AIStoryteller = () => {
       message: normalized.message,
       requestId: normalized.correlationId,
       // Sanitized developer details only — no tokens, headers or prompts.
-      raw: { code: normalized.code, category: normalized.category, retryable: normalized.retryable },
+      raw: {
+        code: normalized.code,
+        category: normalized.category,
+        retryable: normalized.retryable,
+        // Backend envelope text (sanitized + truncated) so a 500 is diagnosable.
+        serverMessage: normalized.serverMessage,
+      },
     });
     setLastError(normalized.message);
 
