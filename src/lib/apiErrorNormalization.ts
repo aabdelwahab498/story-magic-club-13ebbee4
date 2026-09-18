@@ -34,6 +34,12 @@ export interface NormalizedApiError {
   /** Friendly, localized, user-safe text. Never raw provider output. */
   message: string;
   correlationId?: string;
+  /**
+   * Sanitized, truncated backend message/code text for developer diagnostics
+   * only (never rendered as the user-facing copy). Secrets, tokens, headers and
+   * prompts are never part of the backend error envelope we read here.
+   */
+  serverMessage?: string;
 }
 
 export const AI_PROVIDER_UNAVAILABLE_CODE = "AI_PROVIDER_TEMPORARILY_UNAVAILABLE";
