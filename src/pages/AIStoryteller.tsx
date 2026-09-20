@@ -474,8 +474,9 @@ const AIStoryteller = () => {
     }
   };
 
-  // Phase 1: plan only. Shows the blueprint in a modal so the user can approve before
-  // the full 10–15 page write. When customPrompt is empty we skip preview and go straight to full.
+  // Phase 1: plan only. Shows the blueprint in a modal so the user can approve
+  // before the full 10–15 page write. The canonical flow is always
+  // POST /stories/plan → POST /stories, whether or not a custom brief was typed.
   const handleGenerateSel = async () => {
     if (guestMode) return runGuestTrial();
 
@@ -503,11 +504,7 @@ const AIStoryteller = () => {
     }
     setLastSelInput(input);
 
-    // No custom brief → skip preview, go full directly
-    if (!input.customPrompt) {
-      inFlightRef.current = false;
-      return runFullCompose(input);
-    }
+
 
     setPlanning(true);
     startLongRunningWatch();
