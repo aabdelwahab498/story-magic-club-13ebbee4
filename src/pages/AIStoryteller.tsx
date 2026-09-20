@@ -590,19 +590,23 @@ const AIStoryteller = () => {
 
 
   // Prefill age + custom focus from active child profile (Phase 2).
+  // A user-authored story brief is NEVER overwritten: child sync only fills
+  // the prompt while it is still empty. Child identity travels via
+  // childId / preferences.childName / preferences.age, not the prompt.
   useEffect(() => {
     if (!activeChild) return;
     const a = activeChild.age ?? 0;
     if (a >= 9) setAgeId("9-12");
     else if (a >= 6) setAgeId("6-8");
     else if (a >= 3) setAgeId("3-5");
-    if (Array.isArray(activeChild.emotionalGoals) && activeChild.emotionalGoals.length) {
-      setCustomPrompt(
-        `Focus emotion: ${activeChild.emotionalGoals.join(", ")}. Hero name: ${activeChild.name}.`,
-      );
-    } else if (activeChild.name) {
-      setCustomPrompt(`Hero name: ${activeChild.name}.`);
-    }
+    setCustomPrompt((prev) => {
+      if (prev.trim()) return prev; // user-authored brief — preserve it
+      if (Array.isArray(activeChild.emotionalGoals) && activeChild.emotionalGoals.length) {
+        return `Focus emotion: ${activeChild.emotionalGoals.join(", ")}. Hero name: ${activeChild.name}.`;
+      }
+      if (activeChild.name) return `Hero name: ${activeChild.name}.`;
+      return prev;
+    });
   }, [activeChild?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Accept an incoming idea from /stories ("Tell us your idea") and auto-generate.
