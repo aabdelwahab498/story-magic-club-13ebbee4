@@ -92,16 +92,20 @@ const USER_BRIEF =
 
 const OMAR = { id: CHILD_UUID, name: "Omar", age: 7, emotionalGoals: ["courage"] };
 
-const renderPage = () =>
-  render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={["/ai-storyteller"]}>
-        <AIStoryteller />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const pageJsx = (
+  <QueryClientProvider client={qc}>
+    <MemoryRouter initialEntries={["/ai-storyteller"]}>
+      <AIStoryteller />
+    </MemoryRouter>
+  </QueryClientProvider>
+);
+const renderPage = () => render(pageJsx);
 
-const promptBox = () => screen.getByPlaceholderText(/ai\.prompt_placeholder|story/i) as HTMLTextAreaElement;
+const getPromptBox = async () =>
+  (await screen.findAllByRole("textbox")).find(
+    (el) => el.tagName === "TEXTAREA",
+  ) as HTMLTextAreaElement;
 
 describe("AIStoryteller — user-authored custom prompt is never clobbered", () => {
   beforeEach(() => {
