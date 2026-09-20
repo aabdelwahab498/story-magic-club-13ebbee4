@@ -75,23 +75,23 @@ export class IllustratedStoryExportService {
     // 2. Fetch Child Name
     let childName = 'Little Reader';
     if (story.child_id) {
-      const { data: child } = await supabase
-        .from('profiles')
-        .select('display_name, first_name')
+      const { data: childRow } = await supabase
+        .from('child_profiles')
+        .select('name')
         .eq('id', story.child_id)
         .maybeSingle();
 
-      if (child) {
-        childName = child.display_name || child.first_name || 'Little Reader';
+      if (childRow?.name) {
+        childName = childRow.name;
       } else {
-        const { data: childRow } = await supabase
-          .from('children')
-          .select('name')
+        const { data: child } = await supabase
+          .from('profiles')
+          .select('display_name')
           .eq('id', story.child_id)
           .maybeSingle();
 
-        if (childRow?.name) {
-          childName = childRow.name;
+        if (child?.display_name) {
+          childName = child.display_name;
         }
       }
     }

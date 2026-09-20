@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { fetchPermissions, setPermission, type RbacPermission } from "@/lib/aiAdminApi";
+import { useAuth } from "@/hooks/useAuth";
 
 const ROLES = ["super_admin", "admin", "editor", "support", "user"];
 const PERMISSIONS = [
@@ -18,6 +19,7 @@ const PERMISSIONS = [
 ];
 
 export default function AdminRbacPage() {
+  const { session, loading: authLoading } = useAuth();
   const [perms, setPerms] = useState<RbacPermission[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +28,14 @@ export default function AdminRbacPage() {
     try { setPerms(await fetchPermissions()); } catch { toast.error("Failed to load"); }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  // Only query once Supabase has hydrated the session, otherwise the request
+  // reaches Postgres as `anon` and fails with "permission denied".
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) { setLoading(false); return; }
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session?.access_token]);
 
   const matrix = useMemo(() => {
     const m: Record<string, Record<string, boolean>> = {};
