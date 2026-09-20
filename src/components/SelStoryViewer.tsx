@@ -35,6 +35,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
   const [pageStatus, setPageStatus] = useState<Record<number, "idle" | "pending" | "ready" | "failed">>({});
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
+  // Non-blocking illustration failure notice. The story text always stays
+  // readable; this only offers an explicit, user-triggered retry for the pages
+  // that still have no picture.
+  const [illustrationError, setIllustrationError] = useState<string | null>(null);
+
   // Per-page queued/started timestamps surfaced in the progress strip tooltip
   // so users can see exactly when an illustration entered each phase.
   const [pageQueuedAt, setPageQueuedAt] = useState<Record<number, number>>(() =>
