@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { fetchPermissions, setPermission, type RbacPermission } from "@/lib/aiAdminApi";
+import { useAuth } from "@/hooks/useAuth";
 
 const ROLES = ["super_admin", "admin", "editor", "support", "user"];
 const PERMISSIONS = [
