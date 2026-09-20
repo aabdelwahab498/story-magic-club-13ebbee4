@@ -122,7 +122,7 @@ export const friendlyMessageFor = (
     case "AI_TEMPORARILY_UNAVAILABLE":
       return tr(
         "errors.ai_temporarily_unavailable",
-        "Najmah is a little busy creating stories right now. Your story settings are safe. Please try again shortly.",
+        "Najmah's story generator is temporarily busy. Your story settings are safe. Please try again shortly.",
       );
     case "NETWORK_TEMPORARY_FAILURE":
       return tr(

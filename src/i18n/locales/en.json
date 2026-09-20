@@ -1163,7 +1163,7 @@
     "save_settings": "Save settings"
   },
   "errors": {
-    "ai_temporarily_unavailable": "Najmah is a little busy creating stories right now. Your story settings are safe. Please try again shortly.",
+    "ai_temporarily_unavailable": "Najmah's story generator is temporarily busy. Your story settings are safe. Please try again shortly.",
     "network_temporary": "We couldn't reach Najmah right now. Your story settings are safe. Please check your connection and try again.",
     "rate_limited": "Too many stories at once. Your story settings are safe. Please wait a moment and try again.",
     "session_expired": "Your session has expired. Please sign in again.",
