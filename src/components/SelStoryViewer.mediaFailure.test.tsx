@@ -120,3 +120,55 @@ describe("completed story survives downstream media failures", () => {
     expect(illustrateMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("explicit retry for failed illustrations", () => {
+  beforeEach(() => {
+    illustrateMock.mockReset();
+    exportMock.mockReset();
+  });
+
+  it("offers a retry action after a failed run while the story stays readable", async () => {
+    illustrateMock.mockRejectedValueOnce(new ApiError(503, "busy", { code: "AI_PROVIDER_TEMPORARILY_UNAVAILABLE" }));
+    renderViewer();
+    fireEvent.click(screen.getByTestId("illustrate-download-button"));
+
+    const notice = await screen.findByTestId("illustration-retry-notice");
+    expect(notice.textContent).toMatch(/temporarily busy/i);
+    expect(screen.getByText("Leo's Brave Hello")).toBeTruthy();
+    expect(screen.getByText(/Leo woke up early/)).toBeTruthy();
+
+    illustrateMock.mockResolvedValueOnce({
+      storyId: "s1",
+      illustrations: [
+        { index: 1, imageUrl: "https://img/1.png", status: "ready" },
+        { index: 2, imageUrl: "https://img/2.png", status: "ready" },
+      ],
+    });
+    fireEvent.click(screen.getByTestId("illustration-retry-button"));
+    await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByTestId("illustration-retry-notice")).toBeNull(),
+    );
+    expect(screen.getByText(/Leo woke up early/)).toBeTruthy();
+  });
+
+  it("retries only the pages that still have no picture", async () => {
+    illustrateMock.mockResolvedValueOnce({
+      storyId: "s1",
+      illustrations: [
+        { index: 1, imageUrl: "https://img/1.png", status: "ready" },
+        { index: 2, imageUrl: null, status: "failed", error: "provider" },
+      ],
+    });
+    exportMock.mockResolvedValue("https://example.com/x.pdf");
+    renderViewer();
+    fireEvent.click(screen.getByTestId("illustrate-download-button"));
+    await screen.findByTestId("illustration-retry-notice");
+
+    illustrateMock.mockResolvedValueOnce({ storyId: "s1", illustrations: [] });
+    fireEvent.click(screen.getByTestId("illustration-retry-button"));
+    await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(2));
+    const retriedPages = (illustrateMock.mock.calls[1][0] as { pages: { index: number }[] }).pages;
+    expect(retriedPages.map((p) => p.index)).toEqual([2]);
+  });
+});

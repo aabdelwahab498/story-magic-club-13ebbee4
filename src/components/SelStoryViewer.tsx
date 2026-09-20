@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Volume2, Pause, Square } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Volume2, Pause, Square, RefreshCw } from "lucide-react";
 import type { SelStoryResponse, SelStoryPage } from "@/lib/selStoryApi";
 import { illustrateSelStory, exportStoryPdf, SubscriptionRequiredError } from "@/lib/selStoryApi";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
@@ -15,6 +15,7 @@ import { speakWithBrowser, type BrowserTtsHandle } from "@/lib/browserTts";
 import { logAudio } from "@/lib/audioDebug";
 import { handleEdgeError } from "@/lib/edgeErrors";
 import PremiumBadge from "@/components/PremiumBadge";
+import { normalizeApiError } from "@/lib/apiErrorNormalization";
 
 interface Props {
   story: SelStoryResponse;
@@ -35,6 +36,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
   const [pageStatus, setPageStatus] = useState<Record<number, "idle" | "pending" | "ready" | "failed">>({});
   const [pageError, setPageError] = useState<Record<number, string | undefined>>({});
+  // Non-blocking illustration failure notice. The story text always stays
+  // readable; this only offers an explicit, user-triggered retry for the pages
+  // that still have no picture.
+  const [illustrationError, setIllustrationError] = useState<string | null>(null);
+
   // Per-page queued/started timestamps surfaced in the progress strip tooltip
   // so users can see exactly when an illustration entered each phase.
   const [pageQueuedAt, setPageQueuedAt] = useState<Record<number, number>>(() =>
@@ -110,6 +116,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       .join("-")}:${Date.now()}`;
 
     setIllustrating(true);
+    setIllustrationError(null);
     const queuedAt = Date.now();
     setPageQueuedAt((s) => {
       const n = { ...s };
@@ -221,6 +228,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       );
       const failed = res.illustrations.filter((r) => r.status !== "ready").length;
       if (failed === 0) {
+        setIllustrationError(null);
         toast.success(t("sel.toast_success", "Illustrations ready"), { id: batchKey });
         setLiveAnnouncement(
           t("sel.live_all_ready", `All ${res.illustrations.length} illustrations are ready.`),
@@ -229,6 +237,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         // Quiet partial-fail: no scary red toast. Users see the neutral
         // placeholder on affected pages and can tap Illustrate again.
         console.info("[illustrate-story] partial fail", { ready: res.illustrations.length - failed, failed });
+        setIllustrationError(
+          t(
+            "sel.illustrations_partial_failed",
+            "Some pictures couldn't be drawn. Your story is safe — you can try again.",
+          ),
+        );
         setLiveAnnouncement(
           t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} pending. Tap Illustrate to retry.`),
         );
@@ -245,6 +259,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         // Quiet hard-fail: log for debugging but don't surface the scary
         // "Illustration job failed" toast to end users.
         console.warn("[illustrate-story] job failed", e);
+        setIllustrationError(normalizeApiError(e, t).message);
       }
       setPageStatus((s) => {
         const n = { ...s };
@@ -271,6 +286,15 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   };
 
   const handleIllustrate = () => runIllustrate(pages);
+  /**
+   * Explicit user retry after a failed illustration run. Only pages that still
+   * have no picture are re-requested, and the story text is never unmounted or
+   * hidden while this runs.
+   */
+  const handleRetryIllustrations = () => {
+    const missing = pages.filter((p) => !p.imageUrl);
+    runIllustrate(missing.length ? missing : pages);
+  };
   const handleRetryPage = () => runIllustrate([page]);
 
 
@@ -624,6 +648,26 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
               })}
             </div>
+            {illustrationError && !illustrating && (
+              <div
+                data-testid="illustration-retry-notice"
+                role="alert"
+                className="flex flex-col sm:flex-row items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center"
+              >
+                <span className="text-[11px] text-amber-800 dark:text-amber-200">
+                  {illustrationError}
+                </span>
+                <button
+                  data-testid="illustration-retry-button"
+                  onClick={handleRetryIllustrations}
+                  className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold shadow inline-flex items-center gap-1"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  {t("sel.retry_illustrations", "Try pictures again")}
+                </button>
+              </div>
+            )}
+
             {/* Retry-failed pill removed — failed pages fall back to the
                 neutral placeholder with an inline Illustrate button, so users
                 never see the loud red "Retry N failed" chip. */}
