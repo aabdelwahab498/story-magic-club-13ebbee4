@@ -29,6 +29,13 @@
       "when": 1789921344163,
       "tag": "0003_harden_order_pricing_and_story_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789936885329,
+      "tag": "0004_fix_story_persistence_and_credits",
+      "breakpoints": true
     }
   ]
 }
