@@ -142,35 +142,29 @@ describe("AIStoryteller — user-authored custom prompt is never clobbered", () 
 
   it("CASE A: a typed brief survives child resolution", async () => {
     const { rerender } = renderPage();
-    const box = await screen.findByDisplayValue("", { selector: "textarea" }) as HTMLTextAreaElement;
+    const box = await getPromptBox();
     fireEvent.change(box, { target: { value: USER_BRIEF } });
 
     // Child profile resolves AFTER the user typed.
     mocks.activeChild.current = OMAR;
-    rerender(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={["/ai-storyteller"]}>
-          <AIStoryteller />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    rerender(pageJsx);
 
-    expect((screen.getByDisplayValue(USER_BRIEF) as HTMLTextAreaElement).value).toBe(USER_BRIEF);
+    expect((await getPromptBox()).value).toBe(USER_BRIEF);
   });
 
   it("CASE B: a typed brief survives a child switch while metadata updates", async () => {
     mocks.activeChild.current = OMAR;
-    renderPage();
-    const box = (await screen.findAllByDisplayValue(/Hero name|Focus emotion/, { selector: "textarea" }))[0] as HTMLTextAreaElement;
+    const { rerender } = renderPage();
+    const box = await getPromptBox();
     // The user replaces the prefill with their own brief.
     fireEvent.change(box, { target: { value: USER_BRIEF } });
 
-    // Switch to a different child.
+    // Switch to a different child and re-render: metadata updates,
+    // the brief must not.
     mocks.activeChild.current = { id: "11111111-1111-1111-1111-111111111111", name: "Lina", age: 5, emotionalGoals: ["kindness"] };
-    // Force the prefill effect to re-run via a remount-style rerender.
-    renderPage();
+    rerender(pageJsx);
 
-    expect(screen.getAllByDisplayValue(USER_BRIEF).length).toBeGreaterThan(0);
+    expect((await getPromptBox()).value).toBe(USER_BRIEF);
   });
 
   it("CASE C: an empty prompt needs no artificial 'Hero name' for API correctness", () => {
