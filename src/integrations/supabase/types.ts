@@ -2521,8 +2521,11 @@ export type Database = {
           gallery: Json
           id: string
           image: string | null
+          metadata: Json | null
+          pages: Json | null
           pdf_url: string | null
           published: boolean
+          request_id: string | null
           title: Json
           updated_at: string
           video_embed_url: string | null
@@ -2540,8 +2543,11 @@ export type Database = {
           gallery?: Json
           id?: string
           image?: string | null
+          metadata?: Json | null
+          pages?: Json | null
           pdf_url?: string | null
           published?: boolean
+          request_id?: string | null
           title?: Json
           updated_at?: string
           video_embed_url?: string | null
@@ -2559,8 +2565,11 @@ export type Database = {
           gallery?: Json
           id?: string
           image?: string | null
+          metadata?: Json | null
+          pages?: Json | null
           pdf_url?: string | null
           published?: boolean
+          request_id?: string | null
           title?: Json
           updated_at?: string
           video_embed_url?: string | null
