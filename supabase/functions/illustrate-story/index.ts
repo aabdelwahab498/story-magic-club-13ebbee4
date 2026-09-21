@@ -162,37 +162,44 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
   let lastStatus = 500;
   let lastBody = "no_image";
   for (const model of IMAGE_MODELS) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 80_000);
     try {
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
-        signal: ctrl.signal,
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, modalities: ["image", "text"], messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1 }),
       });
-      clearTimeout(timer);
       if (!r.ok) {
         lastStatus = r.status;
         lastBody = (await r.text().catch(() => "")).slice(0, 300);
         continue;
       }
       const data = await r.json();
-      const url = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (typeof url !== "string" || !url.startsWith("data:image/")) {
-        lastStatus = 502;
-        lastBody = "missing_image_data";
-        continue;
+      const item = data?.data?.[0];
+      const b64 = item?.b64_json;
+      if (typeof b64 === "string" && b64.length > 0) {
+        const fmt = typeof data?.output_format === "string" ? data.output_format : "png";
+        return base64ToBytes(b64, `image/${fmt === "jpeg" ? "jpeg" : fmt}`);
       }
-      return dataUrlToBytes(url);
+      const url = item?.url;
+      if (typeof url === "string" && url.startsWith("data:image/")) return dataUrlToBytes(url);
+      if (typeof url === "string" && url.startsWith("http")) {
+        const ir = await fetch(url);
+        if (ir.ok) {
+          const buf = new Uint8Array(await ir.arrayBuffer());
+          const mime = ir.headers.get("content-type") ?? "image/png";
+          return { ok: true, bytes: buf, mime, ext: mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg" };
+        }
+      }
+      lastStatus = 502;
+      lastBody = "missing_image_data";
     } catch (e) {
-      clearTimeout(timer);
       lastStatus = 0;
       lastBody = e instanceof Error ? e.message : "unknown";
     }
   }
   return { ok: false, status: lastStatus, body: lastBody };
 }
+
 
 interface PageIn {
   index: number;
