@@ -404,7 +404,22 @@ export async function illustrateSelStory(
   const { data, error } = await supabase.functions.invoke("illustrate-story", {
     body: { ...input, trigger: "user", triggerSource: source },
   });
-  if (error) throw error;
+  if (error) {
+    // Surface the function's own error code (e.g. missing_or_invalid_fields)
+    // so the UI shows a normalized message instead of a generic failure.
+    const ctx = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
+    let code = "";
+    try {
+      const payload = ctx?.json ? ((await ctx.json()) as { error?: string; message?: string }) : null;
+      code = payload?.message || payload?.error || "";
+    } catch { /* body already consumed or not JSON */ }
+    if (code) {
+      const err = new Error(code) as Error & { status?: number };
+      err.status = ctx?.status;
+      throw err;
+    }
+    throw error;
+  }
   if ((data as { blocked?: boolean })?.blocked) {
     throw new SubscriptionRequiredError((data as { feature?: string }).feature ?? "illustrations");
   }
