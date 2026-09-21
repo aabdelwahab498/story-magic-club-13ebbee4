@@ -180,8 +180,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         storyId: story.story_id,
         pages: pending.map((p) => ({
           index: p.index,
-          illustrationPrompt: p.illustrationPrompt,
+          // Prompt derives from the canonical page content only.
+          illustrationPrompt: (p.illustrationPrompt || p.text || "").trim().slice(0, 600),
           emotionTag: p.emotionTag,
+          text: p.text,
         })),
         characterVisualHash: story.character_visual_hash,
         characterProfile: (story.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? null,
@@ -259,7 +261,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         // Quiet hard-fail: log for debugging but don't surface the scary
         // "Illustration job failed" toast to end users.
         console.warn("[illustrate-story] job failed", e);
-        setIllustrationError(normalizeApiError(e, t).message);
+        const normalized = normalizeApiError(e, t).message;
+        setIllustrationError(normalized);
+        // Replace the in-progress toast so the UI can never stay stuck on
+        // "Generating illustrations…" after a 4xx/5xx response.
+        toast.error(normalized, { id: batchKey });
       }
       setPageStatus((s) => {
         const n = { ...s };
@@ -282,6 +288,13 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     } finally {
       pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
       setIllustrating(false);
+      setPageStatus((s) => {
+        const n = { ...s };
+        pending.forEach((p) => {
+          if (n[p.index] === "pending") n[p.index] = "failed";
+        });
+        return n;
+      });
     }
   };
 

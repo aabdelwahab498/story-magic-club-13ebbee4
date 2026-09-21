@@ -132,26 +132,59 @@ function ageBandFor(age: number): SelStoryResponse["age_band"] {
   return "9-12";
 }
 
+/**
+ * Character consistency key. Backend Core does not always emit
+ * `metadata.characterVisualHash`; when it is missing we derive a deterministic
+ * key from the canonical story identity + character context so every page of
+ * the SAME story shares one locked character reference. Never invented data —
+ * only a stable projection of the story that already exists.
+ */
+export function deriveCharacterVisualHash(
+  story: { id?: string; title?: string | null },
+  meta: Record<string, unknown>,
+): string {
+  const supplied = String(meta.characterVisualHash ?? "").trim();
+  if (supplied) return supplied;
+  const blueprint = (meta.blueprint ?? {}) as Record<string, unknown>;
+  const hero = (blueprint.hero ?? {}) as Record<string, unknown>;
+  const parts = [
+    `story:${story.id ?? ""}`,
+    hero.name ? `${String(hero.name)}` : "",
+    hero.age ? `age:${String(hero.age)}` : "",
+    hero.hair ? `hair:${String(hero.hair)}` : "",
+    hero.outfitColor ? `outfit:${String(hero.outfitColor)}` : "",
+    hero.signatureItem ? `item:${String(hero.signatureItem)}` : "",
+    story.title ? `title:${String(story.title)}` : "",
+  ].filter(Boolean);
+  return parts.join("|");
+}
+
 /** Transforms a completed backend-core story into the shape AIStoryteller expects. */
 export function fromBackendStory(
   story: StoryResponseDto,
   input: ComposeStoryInput,
 ): SelStoryResponse {
   const meta = (story.metadata ?? {}) as Record<string, unknown>;
-  const pages: SelStoryPage[] = (story.pages ?? []).map((p, i) => ({
-    index: typeof p.pageNumber === "number" ? p.pageNumber : i + 1,
-    text: String(p.text ?? ""),
-    emotionTag: String((p as { emotionTag?: string }).emotionTag ?? ""),
-    illustrationPrompt: String((p as { illustrationPrompt?: string }).illustrationPrompt ?? ""),
-    imageUrl: (p as { illustrationUrl?: string }).illustrationUrl,
-  }));
+  const pages: SelStoryPage[] = (story.pages ?? []).map((p, i) => {
+    const text = String(p.text ?? "");
+    const planned = String((p as { illustrationPrompt?: string }).illustrationPrompt ?? "").trim();
+    return {
+      index: typeof p.pageNumber === "number" ? p.pageNumber : i + 1,
+      text,
+      emotionTag: String((p as { emotionTag?: string }).emotionTag ?? ""),
+      // Prompts always derive from THIS story's canonical content: the
+      // planner's prompt when present, otherwise the page's own text.
+      illustrationPrompt: planned || text.trim().slice(0, 600),
+      imageUrl: (p as { illustrationUrl?: string }).illustrationUrl,
+    };
+  });
   const selGoal = String(meta.selGoal ?? "");
   return {
     story_id: story.id,
     title: story.title ?? String(meta.theme ?? input.theme),
     pages,
     sel_outcome: { skill: selGoal, emotion: selGoal, statement: selGoal },
-    character_visual_hash: String(meta.characterVisualHash ?? ""),
+    character_visual_hash: deriveCharacterVisualHash(story, meta),
     age_band: ageBandFor(input.age),
     quality: { total: 0, passed: true, scores: {} },
     safety: { passed: true, violations: [] },
@@ -327,8 +360,9 @@ export async function readComposeErrorDetails(err: unknown): Promise<{
 
 export interface IllustrateInput {
   storyId: string;
-  pages: { index: number; illustrationPrompt: string; emotionTag: string }[];
-  characterVisualHash: string;
+  pages: { index: number; illustrationPrompt: string; emotionTag: string; text?: string }[];
+  /** Optional — the edge function derives a stable key when it is missing. */
+  characterVisualHash?: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
   /**
@@ -370,7 +404,22 @@ export async function illustrateSelStory(
   const { data, error } = await supabase.functions.invoke("illustrate-story", {
     body: { ...input, trigger: "user", triggerSource: source },
   });
-  if (error) throw error;
+  if (error) {
+    // Surface the function's own error code (e.g. missing_or_invalid_fields)
+    // so the UI shows a normalized message instead of a generic failure.
+    const ctx = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
+    let code = "";
+    try {
+      const payload = ctx?.json ? ((await ctx.json()) as { error?: string; message?: string }) : null;
+      code = payload?.message || payload?.error || "";
+    } catch { /* body already consumed or not JSON */ }
+    if (code) {
+      const err = new Error(code) as Error & { status?: number };
+      err.status = ctx?.status;
+      throw err;
+    }
+    throw error;
+  }
   if ((data as { blocked?: boolean })?.blocked) {
     throw new SubscriptionRequiredError((data as { feature?: string }).feature ?? "illustrations");
   }
