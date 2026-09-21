@@ -19,10 +19,11 @@ import { colorPaletteFor } from "../_shared/sel/visual.ts";
 // Primary: User-supplied image API key (if present). Fallback: Lovable AI image
 // model. Final fallback: Pollinations.ai (no key needed).
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// Native Lovable image generation endpoint (platform-managed, no external account).
+const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
 const IMAGE_MODELS = [
-  "google/gemini-3.1-flash-image-preview",
-  "google/gemini-2.5-flash-image",
+  "lovable/image-fast",
+  "lovable/image-standard",
 ];
 const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt";
 
