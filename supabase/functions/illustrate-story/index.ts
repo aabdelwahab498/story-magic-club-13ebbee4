@@ -197,11 +197,13 @@ interface PageIn {
   index: number;
   illustrationPrompt: string;
   emotionTag: string;
+  /** Canonical page text — used to derive the prompt when none was planned. */
+  text?: string;
 }
 interface ReqBody {
   storyId: string;
   pages: PageIn[];
-  characterVisualHash: string;
+  characterVisualHash?: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
   idempotencyKey?: string;
@@ -285,11 +287,34 @@ serve(async (req) => {
       console.error("[illustrate-story] BLOCKED non-user trigger", { trigger: body?.trigger, source: body?.triggerSource });
       return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
     }
-    if (!body?.storyId || typeof body.storyId !== "string" || body.storyId.length > 64
-        || !Array.isArray(body?.pages) || body.pages.length === 0
-        || !body?.characterVisualHash || typeof body.characterVisualHash !== "string") {
-      return json({ error: "missing_or_invalid_fields" }, 400, corsHeaders);
+    const storyIdOk = typeof body?.storyId === "string" && body.storyId.length > 0 && body.storyId.length <= 64;
+    // A page is valid when it carries an index plus SOME canonical content to
+    // illustrate: either the planner's illustrationPrompt or the page text.
+    const pagesOk = Array.isArray(body?.pages) && body.pages.length > 0 && body.pages.every((p) =>
+      p && typeof p.index === "number"
+      && ((typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim().length > 0)
+        || (typeof p.text === "string" && p.text.trim().length > 0))
+    );
+    if (!storyIdOk || !pagesOk) {
+      return json({
+        error: "missing_or_invalid_fields",
+        details: { storyId: storyIdOk ? "ok" : "missing_or_invalid", pages: pagesOk ? "ok" : "missing_page_content" },
+      }, 400, corsHeaders);
     }
+    // Character consistency data is OPTIONAL: when the canonical story has no
+    // visual hash we derive a deterministic one from the story + character
+    // context so every page of THIS story shares one locked reference.
+    const suppliedHash = typeof body.characterVisualHash === "string" ? body.characterVisualHash.trim() : "";
+    body.characterVisualHash = suppliedHash
+      || `story:${body.storyId}|seed:${stableSeed(`${body.storyId}|${JSON.stringify(body.characterProfile ?? {})}`)}`;
+    // Derive each page prompt from the ACTUAL canonical page content.
+    body.pages = body.pages.map((p) => ({
+      ...p,
+      illustrationPrompt: (typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim())
+        ? p.illustrationPrompt.trim().slice(0, 600)
+        : String(p.text ?? "").trim().slice(0, 600),
+      emotionTag: typeof p.emotionTag === "string" ? p.emotionTag : "",
+    }));
     // Hard cap: max 8 illustrated pages per story (business model rule).
     if (body.pages.length > MAX_ILLUSTRATION_PAGES) {
       body.pages = body.pages.slice(0, MAX_ILLUSTRATION_PAGES);
