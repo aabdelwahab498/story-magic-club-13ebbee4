@@ -203,7 +203,7 @@ interface PageIn {
 interface ReqBody {
   storyId: string;
   pages: PageIn[];
-  characterVisualHash?: string;
+  characterVisualHash: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
   idempotencyKey?: string;
@@ -304,7 +304,9 @@ serve(async (req) => {
     // Character consistency data is OPTIONAL: when the canonical story has no
     // visual hash we derive a deterministic one from the story + character
     // context so every page of THIS story shares one locked reference.
-    const suppliedHash = typeof body.characterVisualHash === "string" ? body.characterVisualHash.trim() : "";
+    const suppliedHash = typeof (body as { characterVisualHash?: unknown }).characterVisualHash === "string"
+      ? String(body.characterVisualHash).trim()
+      : "";
     body.characterVisualHash = suppliedHash
       || `story:${body.storyId}|seed:${stableSeed(`${body.storyId}|${JSON.stringify(body.characterProfile ?? {})}`)}`;
     // Derive each page prompt from the ACTUAL canonical page content.
