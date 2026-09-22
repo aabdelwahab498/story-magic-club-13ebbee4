@@ -92,20 +92,23 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   };
 
 
-  const runIllustrate = async (targetPages: SelStoryPage[]) => {
-    if (!requireSubscription("illustrate")) return;
+  const runIllustrate = async (
+    targetPages: SelStoryPage[],
+  ): Promise<{ ok: boolean; readyIndexes: number[] }> => {
+    if (!requireSubscription("illustrate")) return { ok: false, readyIndexes: [] };
     if (!story.story_id) {
       toast.error("Sign in to generate illustrations");
-      return;
+      return { ok: false, readyIndexes: [] };
     }
     // Idempotency / dedup — drop pages already being illustrated. If the user
     // mashes Retry the second press becomes a no-op (no duplicate jobs).
     const pending = targetPages.filter((p) => !inFlightPagesRef.current.has(p.index));
     if (pending.length === 0) {
       toast.message(t("sel.illustrations_already_running", "Illustration already in progress"));
-      return;
+      return { ok: false, readyIndexes: [] };
     }
     pending.forEach((p) => inFlightPagesRef.current.add(p.index));
+
 
 
     const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
@@ -249,7 +252,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} pending. Tap Illustrate to retry.`),
         );
       }
+      return {
+        ok: failed === 0,
+        readyIndexes: res.illustrations.filter((r) => r.status === "ready" && !!r.imageUrl).map((r) => r.index),
+      };
     } catch (e) {
+
       console.error(e);
       if (e instanceof SubscriptionRequiredError) {
         toast.error(t("paywall.feature_requires_paid", "This feature requires a paid plan"), {
@@ -285,7 +293,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       setLiveAnnouncement(
         t("sel.live_failed", "Illustration job failed. You can retry."),
       );
+      return { ok: false, readyIndexes: [] };
     } finally {
+
       pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
       setIllustrating(false);
       setPageStatus((s) => {
@@ -330,8 +340,19 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     setExporting(true);
     try {
       const url = await exportStoryPdf(story.story_id);
-      window.open(url, "_blank");
+      // Anchor-based download: window.open() after an await is treated as an
+      // unrequested popup by published-site popup blockers, so the file never
+      // reached the customer. An <a download> click always starts the download.
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(story.title || "story").replace(/[^\w\u0600-\u06FF -]/g, "").trim() || "story"}.pdf`;
+      a.rel = "noopener";
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       toast.success("PDF ready");
+
     } catch (e) {
       console.error(e);
       if (e instanceof SubscriptionRequiredError) {
@@ -760,10 +781,23 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                 data-testid="illustrate-download-button"
                 data-all-ready={allReady ? "true" : "false"}
                 onClick={async () => {
-                  if (!allReady) await runIllustrate(pages);
+                  // Reuse existing pictures; only draw the missing pages, then
+                  // WAIT for real completion before touching the PDF export.
+                  if (!allReady) {
+                    const missing = pages.filter((p) => !p.imageUrl);
+                    const res = await runIllustrate(missing.length ? missing : pages);
+                    const stillMissing = (missing.length ? missing : pages).filter(
+                      (p) => !res.readyIndexes.includes(p.index),
+                    );
+                    if (!res.ok || stillMissing.length > 0) {
+                      // Never continue to PDF with pending/failed illustrations.
+                      return;
+                    }
+                  }
                   if (!requireSubscription("pdf")) return;
                   await handleExportPdf();
                 }}
+
                 disabled={illustrating || exporting}
                 title={allReady ? t("sel.illustrations_ready_title", "Illustrations already generated — will export PDF") : undefined}
                 className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
