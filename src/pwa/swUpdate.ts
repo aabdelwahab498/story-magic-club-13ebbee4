@@ -1,6 +1,7 @@
 // Defers Service Worker updates until a safe moment (e.g. story ended).
 // Workbox waiting -> store pending instance -> wait for `story:ended` or manual apply.
 import type { Workbox } from "workbox-window";
+import { isBusy } from "./busy";
 
 type Listener = (pending: boolean) => void;
 
@@ -30,7 +31,14 @@ export function applyPendingSwUpdate() {
   if (!pending) return;
   const wb = pending;
   wb.addEventListener("controlling", () => {
-    window.location.reload();
+    const reloadWhenIdle = () => {
+      if (isBusy()) {
+        window.setTimeout(reloadWhenIdle, 3000);
+        return;
+      }
+      window.location.reload();
+    };
+    reloadWhenIdle();
   });
   wb.messageSkipWaiting();
   pending = null;

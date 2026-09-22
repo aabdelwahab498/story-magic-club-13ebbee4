@@ -2,6 +2,7 @@
 // Only registers in production, real origins, never inside iframe/preview.
 import { toast } from "sonner";
 import { setPendingSwUpdate, applyPendingSwUpdate } from "./swUpdate";
+import { isBusy } from "./busy";
 
 const SW_URL = "/sw.js";
 
@@ -69,10 +70,21 @@ export async function registerServiceWorker() {
     // A new worker that took control means the cached bundle is stale:
     // reload once so the freshly published code is actually running.
     let reloaded = false;
-    wb.addEventListener("controlling", () => {
+    wb.addEventListener("controlling", (event: Event & { isUpdate?: boolean }) => {
       if (reloaded) return;
+      // First-ever install claims the page immediately (clientsClaim). That is
+      // NOT a stale bundle — reloading there killed in-flight story generation
+      // on the published site. Only a real update warrants a reload.
+      if (!event.isUpdate) return;
       reloaded = true;
-      window.location.reload();
+      const reloadWhenIdle = () => {
+        if (isBusy()) {
+          window.setTimeout(reloadWhenIdle, 3000);
+          return;
+        }
+        window.location.reload();
+      };
+      reloadWhenIdle();
     });
 
     await wb.register();
