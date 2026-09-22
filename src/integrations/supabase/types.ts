@@ -2699,6 +2699,7 @@ export type Database = {
           id: string
           language: string
           page_count: number
+          preferences: Json
           reading_level: string
           sel_goal: string
           status: Database["public"]["Enums"]["story_status"]
@@ -2713,6 +2714,7 @@ export type Database = {
           id?: string
           language?: string
           page_count?: number
+          preferences?: Json
           reading_level: string
           sel_goal: string
           status?: Database["public"]["Enums"]["story_status"]
@@ -2727,6 +2729,7 @@ export type Database = {
           id?: string
           language?: string
           page_count?: number
+          preferences?: Json
           reading_level?: string
           sel_goal?: string
           status?: Database["public"]["Enums"]["story_status"]
