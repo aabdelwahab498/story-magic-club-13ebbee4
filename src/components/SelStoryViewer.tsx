@@ -340,8 +340,19 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     setExporting(true);
     try {
       const url = await exportStoryPdf(story.story_id);
-      window.open(url, "_blank");
+      // Anchor-based download: window.open() after an await is treated as an
+      // unrequested popup by published-site popup blockers, so the file never
+      // reached the customer. An <a download> click always starts the download.
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(story.title || "story").replace(/[^\w\u0600-\u06FF -]/g, "").trim() || "story"}.pdf`;
+      a.rel = "noopener";
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       toast.success("PDF ready");
+
     } catch (e) {
       console.error(e);
       if (e instanceof SubscriptionRequiredError) {
