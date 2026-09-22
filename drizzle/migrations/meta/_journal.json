@@ -50,6 +50,13 @@
       "when": 1790081324429,
       "tag": "0006_admin_trial_credits_and_single_free_trial",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790108861740,
+      "tag": "0007_restrict_permissive_select_policies",
+      "breakpoints": true
     }
   ]
 }
