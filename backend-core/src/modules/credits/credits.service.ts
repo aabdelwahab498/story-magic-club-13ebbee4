@@ -17,7 +17,7 @@ export class CreditsService {
    */
   async getBalance(userId: string): Promise<{ balance: number }> {
     const { data, error } = await this.supabase
-      .getClient()
+      .getAdminClient()
       .from('user_credits')
       .select('balance')
       .eq('user_id', userId)
@@ -61,7 +61,7 @@ export class CreditsService {
 
     // Update balance
     const { error: updateError } = await this.supabase
-      .getClient()
+      .getAdminClient()
       .from('user_credits')
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
@@ -76,7 +76,7 @@ export class CreditsService {
 
     // Insert transaction
     const { error: txError } = await this.supabase
-      .getClient()
+      .getAdminClient()
       .from('credit_transactions')
       .insert({
         user_id: userId,
@@ -112,7 +112,7 @@ export class CreditsService {
     let updateError;
     // Check if record exists
     const { data } = await this.supabase
-      .getClient()
+      .getAdminClient()
       .from('user_credits')
       .select('id')
       .eq('user_id', userId)
@@ -121,14 +121,14 @@ export class CreditsService {
     if (!data) {
       // Insert new
       const { error } = await this.supabase
-        .getClient()
+        .getAdminClient()
         .from('user_credits')
         .insert({ user_id: userId, balance: newBalance });
       updateError = error;
     } else {
       // Update existing
       const { error } = await this.supabase
-        .getClient()
+        .getAdminClient()
         .from('user_credits')
         .update({ balance: newBalance, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
@@ -142,7 +142,7 @@ export class CreditsService {
 
     // Insert transaction
     const { error: txError } = await this.supabase
-      .getClient()
+      .getAdminClient()
       .from('credit_transactions')
       .insert({
         user_id: userId,

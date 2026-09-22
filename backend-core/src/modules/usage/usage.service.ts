@@ -18,7 +18,7 @@ export class UsageService {
   ): Promise<void> {
     try {
       const { error } = await this.supabase
-        .getClient()
+        .getAdminClient()
         .from('usage_events')
         .insert({
           user_id: userId,
@@ -50,7 +50,7 @@ export class UsageService {
     pdfExports: number;
   }> {
     const { data, error } = await this.supabase
-      .getClient()
+      .getAdminClient()
       .from('usage_events')
       .select('event_type')
       .eq('user_id', userId);
