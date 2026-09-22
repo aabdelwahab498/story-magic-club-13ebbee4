@@ -293,7 +293,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       setLiveAnnouncement(
         t("sel.live_failed", "Illustration job failed. You can retry."),
       );
+      return { ok: false, readyIndexes: [] };
     } finally {
+
       pending.forEach((p) => inFlightPagesRef.current.delete(p.index));
       setIllustrating(false);
       setPageStatus((s) => {
