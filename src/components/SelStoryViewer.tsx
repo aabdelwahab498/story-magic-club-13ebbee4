@@ -92,20 +92,23 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   };
 
 
-  const runIllustrate = async (targetPages: SelStoryPage[]) => {
-    if (!requireSubscription("illustrate")) return;
+  const runIllustrate = async (
+    targetPages: SelStoryPage[],
+  ): Promise<{ ok: boolean; readyIndexes: number[] }> => {
+    if (!requireSubscription("illustrate")) return { ok: false, readyIndexes: [] };
     if (!story.story_id) {
       toast.error("Sign in to generate illustrations");
-      return;
+      return { ok: false, readyIndexes: [] };
     }
     // Idempotency / dedup — drop pages already being illustrated. If the user
     // mashes Retry the second press becomes a no-op (no duplicate jobs).
     const pending = targetPages.filter((p) => !inFlightPagesRef.current.has(p.index));
     if (pending.length === 0) {
       toast.message(t("sel.illustrations_already_running", "Illustration already in progress"));
-      return;
+      return { ok: false, readyIndexes: [] };
     }
     pending.forEach((p) => inFlightPagesRef.current.add(p.index));
+
 
 
     const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
