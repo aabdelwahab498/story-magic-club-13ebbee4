@@ -162,11 +162,14 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
   let lastStatus = 500;
   let lastBody = "no_image";
   for (const model of IMAGE_MODELS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 80_000);
     try {
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1 }),
+        signal: ctrl.signal,
       });
       if (!r.ok) {
         lastStatus = r.status;
@@ -183,7 +186,7 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
       const url = item?.url;
       if (typeof url === "string" && url.startsWith("data:image/")) return dataUrlToBytes(url);
       if (typeof url === "string" && url.startsWith("http")) {
-        const ir = await fetch(url);
+        const ir = await fetch(url, { signal: ctrl.signal });
         if (ir.ok) {
           const buf = new Uint8Array(await ir.arrayBuffer());
           const mime = ir.headers.get("content-type") ?? "image/png";
@@ -195,8 +198,11 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
     } catch (e) {
       lastStatus = 0;
       lastBody = e instanceof Error ? e.message : "unknown";
+    } finally {
+      clearTimeout(timer);
     }
   }
+
   return { ok: false, status: lastStatus, body: lastBody };
 }
 
