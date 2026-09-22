@@ -292,6 +292,10 @@ serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
 
+  let chargedUserId: string | null = null;
+  let deliveredReadyImage = false;
+  let refundCompleted = false;
+
   // Body size guard (~64KB — pages array can carry prompts)
   const cl = Number(req.headers.get("content-length") || "0");
     if (cl > 65_536) return json({ error: "payload_too_large" }, 413, corsHeaders);
@@ -429,6 +433,7 @@ serve(async (req) => {
       const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
       if (debit.success) {
         creditsCharged = true;
+        chargedUserId = userId;
       } else {
         const byokOk = await hasValidImageByok(userId);
         if (!byokOk) {
@@ -562,6 +567,7 @@ serve(async (req) => {
       idempotencyCache.set(cacheKey, { promise, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
     }
     const payload = await promise;
+    deliveredReadyImage = payload.illustrations.some((r) => r.status === "ready" && !!r.imageUrl);
 
     // Refund credits if every new page failed (user got nothing for their credits).
     if (creditsCharged) {
@@ -572,6 +578,7 @@ serve(async (req) => {
       if (allFailed) {
         try {
           await refundIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+          refundCompleted = true;
           console.info("[illustrate] credits refunded after total failure", { userId, storyId: body.storyId });
         } catch (e) {
           console.error("[illustrate] refund failed", e instanceof Error ? e.message : e);
@@ -618,6 +625,17 @@ serve(async (req) => {
 
   } catch (e) {
     console.error("illustrate-story error", e);
+    // Covers failures after debit but before a normal payload exists (cache,
+    // storage, or orchestration exceptions). Never charge a zero-image run.
+    if (chargedUserId && !deliveredReadyImage && !refundCompleted) {
+      try {
+        await refundIllustrationCredits(chargedUserId, ILLUSTRATION_CREDIT_COST);
+        refundCompleted = true;
+        console.info("[illustrate] credits refunded after aborted total failure", { userId: chargedUserId });
+      } catch (refundError) {
+        console.error("[illustrate] emergency refund failed", refundError instanceof Error ? refundError.message : refundError);
+      }
+    }
     return json({ error: e instanceof Error ? e.message : "unknown" }, 500, corsHeaders);
   }
 });

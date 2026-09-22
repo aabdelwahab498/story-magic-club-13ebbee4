@@ -78,7 +78,11 @@ describe("story request contract", () => {
     expect(dto.theme).toBe("Adventure");
     expect(dto.selGoal).toBe("courage");
     expect(dto.language).toBe("en");
-    expect(dto.preferences).toMatchObject({ childName: "Omar", age: 7 });
+    expect(dto.preferences).toMatchObject({
+      childName: "Omar",
+      age: 7,
+      customPrompt: "Hero name: Omar.",
+    });
   });
 
   it("blocks generation when no child is selected", () => {

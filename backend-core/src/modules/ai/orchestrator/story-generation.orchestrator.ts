@@ -5,7 +5,7 @@ import { ChildrenService } from '../../children/children.service.js';
 import { StoryStatus } from '../../stories/enums/story-status.enum.js';
 import { AI_GATEWAY } from '../gateway/ai-gateway.interface.js';
 import type { IAIGateway } from '../gateway/ai-gateway.interface.js';
-import { GeneratedStory } from '@najmah/shared';
+import { GeneratedStory, StoryPlan } from '@najmah/shared';
 import { AIValidationException } from '../exceptions/ai.exceptions.js';
 import { StoryLifecycleManager } from '../../stories/lifecycle/story-lifecycle.manager.js';
 import { StoryMetricsService } from '../../stories/lifecycle/story-metrics.service.js';
@@ -81,6 +81,9 @@ export class StoryGenerationOrchestrator {
         request.theme,
         request.selGoal,
         request.readingLevel,
+        typeof request.preferences.customPrompt === 'string'
+          ? request.preferences.customPrompt
+          : undefined,
       );
 
       // Step 3: Planner
@@ -92,13 +95,19 @@ export class StoryGenerationOrchestrator {
         20,
       );
       const plannerStart = Date.now();
-      const blueprint = await this.aiGateway.planStory(
-        child.age,
-        request.language,
-        request.theme,
-        request.selGoal,
-        request.readingLevel,
-      );
+      const approvedPlan = request.preferences.presetBlueprint;
+      const blueprint = this.isStoryPlan(approvedPlan)
+        ? approvedPlan
+        : await this.aiGateway.planStory(
+            child.age,
+            request.language,
+            request.theme,
+            request.selGoal,
+            request.readingLevel,
+            typeof request.preferences.customPrompt === 'string'
+              ? request.preferences.customPrompt
+              : undefined,
+          );
       this.metricsService.recordStageDuration(
         'planner',
         Date.now() - plannerStart,
@@ -225,6 +234,7 @@ export class StoryGenerationOrchestrator {
     theme: string,
     selGoal: string,
     readingLevel?: string,
+    customPrompt?: string,
   ): Promise<any> {
     const child = await this.childrenService.getChild(user.id, childId);
     const level = readingLevel || 'level_1';
@@ -234,6 +244,20 @@ export class StoryGenerationOrchestrator {
       theme,
       selGoal,
       level,
+      customPrompt,
+    );
+  }
+
+  private isStoryPlan(value: unknown): value is StoryPlan {
+    if (!value || typeof value !== 'object') return false;
+    const plan = value as Record<string, unknown>;
+    return (
+      typeof plan.title === 'string' &&
+      Array.isArray(plan.characters) &&
+      typeof plan.conflict === 'string' &&
+      typeof plan.resolution === 'string' &&
+      Array.isArray(plan.selGoals) &&
+      typeof plan.pageCount === 'number'
     );
   }
 }

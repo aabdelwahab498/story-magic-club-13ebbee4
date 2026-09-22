@@ -120,6 +120,7 @@ describe("Illustrate & Download request contract (5-page story)", () => {
     renderViewer();
     fireEvent.click(screen.getByTestId("illustrate-download-button"));
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(exportMock).toHaveBeenCalledWith(story.story_id, { force: true }));
 
     const payload = illustrateMock.mock.calls[0][0] as {
       storyId: string;

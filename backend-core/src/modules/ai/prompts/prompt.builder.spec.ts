@@ -56,4 +56,34 @@ describe('PromptBuilder', () => {
     expect(prompt.userPrompt).toContain('Leo (hero)');
     expect(prompt.userPrompt).toContain('"pageNumber": 1');
   });
+
+  it('keeps the explicit custom brief primary in planner and writer prompts', () => {
+    const customPrompt =
+      'Create a story about Omar and the Lost Star. Omar must remain the main character and return the star.';
+    const context = {
+      targetAge: 7,
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'courage',
+      readingLevel: 'level_2',
+      customPrompt,
+    };
+    const plan = {
+      title: 'Omar and the Lost Star',
+      characters: [{ name: 'Omar', role: 'hero', description: '' }],
+      conflict: 'A star is missing',
+      resolution: 'Omar returns it',
+      selGoals: ['courage'],
+      pageCount: 5,
+    };
+
+    expect(builder.buildPlannerPrompt(context).userPrompt).toContain(customPrompt);
+    expect(builder.buildPlannerPrompt(context).userPrompt).toContain(
+      'Never replace a protagonist explicitly named in the brief',
+    );
+    expect(builder.buildWriterPrompt(context, plan).userPrompt).toContain(customPrompt);
+    expect(builder.buildWriterPrompt(context, plan).userPrompt).toContain(
+      'must remain the protagonist on every page',
+    );
+  });
 });
