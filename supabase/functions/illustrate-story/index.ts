@@ -168,7 +168,10 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1 }),
+        // JPEG keeps each illustration around ~150KB instead of ~2.6MB PNG,
+        // which keeps storage light and lets the PDF export embed every page
+        // without exceeding the function memory budget.
+        body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1, output_format: "jpeg" }),
         signal: ctrl.signal,
       });
       if (!r.ok) {

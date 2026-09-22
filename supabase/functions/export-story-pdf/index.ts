@@ -12,8 +12,11 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PDF_BUCKET = "story-pdfs";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const MAX_PAGES = 30;
-const MAX_IMAGES = 4;
+// One illustration per story page (canonical stories are 10-15 pages).
+const MAX_IMAGES = 15;
 const MAX_IMAGE_BYTES = 2_500_000;
+// Total embedded image budget: keeps the export inside the function memory limit.
+const MAX_TOTAL_IMAGE_BYTES = 6_000_000;
 const ARABIC_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
 const ARABIC_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
 const LATIN_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf";
@@ -299,6 +302,32 @@ Deno.serve(async (req) => {
   if (pages.length === 0) return friendly("pages_required", 400);
   if (pages.length > MAX_PAGES) return friendly("too_many_pages", 400, { max_pages: MAX_PAGES });
 
+  // ONE illustrated PDF behaviour: whenever the story has illustrations
+  // persisted by `illustrate-story`, attach them to the matching page so the
+  // customer-facing download is the illustrated book (never a text-only file).
+  // Pages that already carry an image keep it; missing ones stay text-only.
+  if (storyId && !skipImages && pages.some((p) => !p.imageUrl)) {
+    const { data: illus, error: illusErr } = await admin
+      .from("generated_illustrations")
+      .select("page_index,image_url,status")
+      .eq("story_id", storyId)
+      .eq("status", "ready");
+    if (illusErr) {
+      console.warn("[export-story-pdf] illustration lookup failed", illusErr.message);
+    } else {
+      const byIndex = new Map<number, string>();
+      for (const row of illus ?? []) {
+        const idx = Number(row.page_index);
+        const url = typeof row.image_url === "string" ? row.image_url : "";
+        if (Number.isFinite(idx) && url) byIndex.set(idx, url);
+      }
+      if (byIndex.size > 0) {
+        pages = pages.map((p) => (p.imageUrl ? p : { ...p, imageUrl: byIndex.get(p.pageNumber) ?? null }));
+        console.info("[export-story-pdf] attached illustrations", { storyId, matched: pages.filter((p) => !!p.imageUrl).length });
+      }
+    }
+  }
+
   const { data: exportRow, error: insertErr } = await admin.from("exports").insert({
     user_id: userId,
     story_id: storyId,
@@ -363,12 +392,13 @@ Deno.serve(async (req) => {
     cover.drawText("Najmah Story Studio", { x: margin, y: 58, size: 11, font: latinFont, color: rgb(0.78, 0.84, 1) });
 
     let embedded = 0;
+    let embeddedBytes = 0;
     for (const p of pages) {
       const page = doc.addPage([pageW, pageH]);
       page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(0.99, 0.98, 0.95) });
       let cursorY = pageH - margin;
 
-      if (p.imageUrl && !skipImages && embedded < maxImages) {
+      if (p.imageUrl && !skipImages && embedded < maxImages && embeddedBytes < MAX_TOTAL_IMAGE_BYTES) {
         try {
           const imgBytes = await fetchBytes(p.imageUrl);
           const lowerUrl = p.imageUrl.toLowerCase();
@@ -381,6 +411,7 @@ Deno.serve(async (req) => {
           page.drawImage(img, { x: (pageW - w) / 2, y: cursorY - h, width: w, height: h });
           cursorY -= h + 20;
           embedded++;
+          embeddedBytes += imgBytes.byteLength;
         } catch (imageErr) {
           console.warn("[export-story-pdf] image skipped", imageErr);
         }
