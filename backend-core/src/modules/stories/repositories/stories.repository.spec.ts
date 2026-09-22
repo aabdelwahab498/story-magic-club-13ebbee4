@@ -47,6 +47,9 @@ describe('StoriesRepository', () => {
       'L1',
     );
     expect(result.id).toBe('1');
+    expect(mockSupabaseClient.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ preferences: {} }),
+    );
   });
 
   it('should throw on create request error', async () => {

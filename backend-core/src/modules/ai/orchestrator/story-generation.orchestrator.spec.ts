@@ -87,6 +87,7 @@ describe('StoryGenerationOrchestrator', () => {
       theme: 'space',
       selGoal: 'bravery',
       readingLevel: 'level_1',
+      preferences: {},
     };
     const mockChild = { age: 5 };
     const mockContext = { targetAge: 5 };
@@ -127,6 +128,7 @@ describe('StoryGenerationOrchestrator', () => {
       'space',
       'bravery',
       'level_1',
+      undefined,
     );
     expect(aiGateway.writeStory).toHaveBeenCalledWith(
       mockContext,
