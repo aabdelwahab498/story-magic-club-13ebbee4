@@ -390,12 +390,13 @@ Deno.serve(async (req) => {
     cover.drawText("Najmah Story Studio", { x: margin, y: 58, size: 11, font: latinFont, color: rgb(0.78, 0.84, 1) });
 
     let embedded = 0;
+    let embeddedBytes = 0;
     for (const p of pages) {
       const page = doc.addPage([pageW, pageH]);
       page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(0.99, 0.98, 0.95) });
       let cursorY = pageH - margin;
 
-      if (p.imageUrl && !skipImages && embedded < maxImages) {
+      if (p.imageUrl && !skipImages && embedded < maxImages && embeddedBytes < MAX_TOTAL_IMAGE_BYTES) {
         try {
           const imgBytes = await fetchBytes(p.imageUrl);
           const lowerUrl = p.imageUrl.toLowerCase();
@@ -408,6 +409,7 @@ Deno.serve(async (req) => {
           page.drawImage(img, { x: (pageW - w) / 2, y: cursorY - h, width: w, height: h });
           cursorY -= h + 20;
           embedded++;
+          embeddedBytes += imgBytes.byteLength;
         } catch (imageErr) {
           console.warn("[export-story-pdf] image skipped", imageErr);
         }
