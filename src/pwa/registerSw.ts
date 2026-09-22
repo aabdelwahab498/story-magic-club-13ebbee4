@@ -70,7 +70,7 @@ export async function registerServiceWorker() {
     // A new worker that took control means the cached bundle is stale:
     // reload once so the freshly published code is actually running.
     let reloaded = false;
-    wb.addEventListener("controlling", (event: Event & { isUpdate?: boolean }) => {
+    wb.addEventListener("controlling", (event) => {
       if (reloaded) return;
       // First-ever install claims the page immediately (clientsClaim). That is
       // NOT a stale bundle — reloading there killed in-flight story generation
