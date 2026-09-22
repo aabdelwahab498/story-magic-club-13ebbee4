@@ -14,7 +14,9 @@ const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const MAX_PAGES = 30;
 // One illustration per story page (canonical stories are 10-15 pages).
 const MAX_IMAGES = 15;
-const MAX_IMAGE_BYTES = 4_000_000;
+const MAX_IMAGE_BYTES = 2_500_000;
+// Total embedded image budget: keeps the export inside the function memory limit.
+const MAX_TOTAL_IMAGE_BYTES = 6_000_000;
 const ARABIC_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
 const ARABIC_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
 const LATIN_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf";
