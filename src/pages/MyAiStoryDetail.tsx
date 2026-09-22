@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Loader2, Headphones, ChevronLeft, ChevronRight, Film, Sparkles, ImagePlus, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,10 +16,12 @@ import { downloadAudioMp3, safeFilename } from "@/lib/storyDownloads";
 import { toast } from "sonner";
 import type { AiStoryRow } from "@/lib/aiStoryApi";
 import { useIllustrations } from "@/hooks/useIllustrations";
-import { useGenerateIllustrations, useRetryIllustrations, useRegeneratePageIllustration, useExportIllustratedStory } from "@/hooks/useGenerateIllustrations";
+import { useRetryIllustrations, useRegeneratePageIllustration } from "@/hooks/useGenerateIllustrations";
 import { Download } from "lucide-react";
 
 import { useStoryAudio, useGenerateAudio, useRetryAudio, useDeleteAudio } from "@/hooks/useStoryAudio";
+import { exportStoryPdf, illustrateSelStory } from "@/lib/selStoryApi";
+import { downloadFromUrl, safeFilename as safeStoryFilename } from "@/lib/storyDownloads";
 
 const splitTextIntoPages = (text: string): StoryVideoPage[] => {
   return text
@@ -45,9 +47,12 @@ const pagesFromRow = (s: AiStoryRow): StoryVideoPage[] => {
 const MyAiStoryDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
   const [pageIndex, setPageIndex] = useState(0);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [isDirectIllustrating, setIsDirectIllustrating] = useState(false);
+  const [isDirectExporting, setIsDirectExporting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -80,11 +85,9 @@ const MyAiStoryDetail = () => {
     },
   });
 
-  const { data: illustrationJob } = useIllustrations(id!);
-  const { mutate: generateIllustrations, isPending: isGenerating } = useGenerateIllustrations();
+  const { data: illustrationJob } = useIllustrations(id ?? "");
   const { mutate: retryIllustrations, isPending: isRetrying } = useRetryIllustrations();
   const { mutate: regeneratePage, isPending: isRegeneratingPage } = useRegeneratePageIllustration();
-  const { mutate: exportIllustratedStory, isPending: isExporting } = useExportIllustratedStory();
 
   // Audio Narration Hooks
   const { data: audioJob } = useStoryAudio(id!);
@@ -112,7 +115,7 @@ const MyAiStoryDetail = () => {
   const currentIllustration = illustrations.find((img) => img.pageNumber === pageIndex + 1);
   const currentImageUrl = (currentIllustration?.status === "COMPLETED" ? currentIllustration.imageUrl : null) || current?.image_url;
   
-  const isCurrentlyGenerating = isGenerating || isRetrying || isRegeneratingPage || ["GENERATING", "PENDING", "PROCESSING"].includes(illustrationJob?.jobStatus || "");
+  const isCurrentlyGenerating = isRetrying || isRegeneratingPage || isDirectIllustrating || ["GENERATING", "PENDING", "PROCESSING"].includes(illustrationJob?.jobStatus || "");
 
   if (isLoading) {
     return (
@@ -137,23 +140,83 @@ const MyAiStoryDetail = () => {
       </div>
     );
   }
-  const handleExportPdf = () => {
-    if (!story) return;
-    exportIllustratedStory(story.id, {
-      onSuccess: (data) => {
-        if (data.status === "WAITING_FOR_ILLUSTRATIONS") {
-          toast.info(t("story_detail.waiting_for_illustrations", { 
-            defaultValue: `Generating illustrations... (${data.progress?.completed}/${data.progress?.total})` 
-          }));
-        } else if (data.download_url) {
-          toast.success(t("story_detail.export_success", { defaultValue: "PDF exported successfully!" }));
-          window.open(data.download_url, "_blank");
-        }
-      },
-      onError: () => {
-        toast.error(t("story_detail.export_error", { defaultValue: "Failed to export PDF." }));
+  const generateMissingIllustrations = async (): Promise<boolean> => {
+    const readyPages = new Set(
+      illustrations
+        .filter((image) => image.status === "COMPLETED" && !!image.imageUrl)
+        .map((image) => image.pageNumber),
+    );
+    const missingPages = basePages
+      .map((page, index) => ({
+        index: index + 1,
+        text: page.text,
+        illustrationPrompt: page.text,
+        emotionTag: "story scene",
+      }))
+      .filter((page) => !readyPages.has(page.index));
+    if (missingPages.length === 0) return true;
+
+    setIsDirectIllustrating(true);
+    const toastId = `saved-story-illustrations-${story.id}`;
+    toast.loading(
+      t("story_detail.generating_count", {
+        count: missingPages.length,
+        defaultValue: `Generating ${missingPages.length} illustrations…`,
+      }),
+      { id: toastId },
+    );
+    try {
+      const result = await illustrateSelStory(
+        {
+          storyId: story.id,
+          pages: missingPages,
+          style: "warm child-friendly storybook illustration",
+          idempotencyKey: `${story.id}:${missingPages.map((page) => page.index).join(",")}:${crypto.randomUUID()}`,
+        },
+        { trigger: "user", source: "MyAiStoryDetail" },
+      );
+      const ready = new Set(
+        result.illustrations
+          .filter((image) => image.status === "ready" && !!image.imageUrl)
+          .map((image) => image.index),
+      );
+      const complete = missingPages.every((page) => ready.has(page.index));
+      await queryClient.invalidateQueries({ queryKey: ["illustrations", story.id] });
+      if (!complete) {
+        const failed = result.illustrations.find((image) => image.status !== "ready")?.error;
+        throw new Error(failed || "Some illustrations could not be generated.");
       }
-    });
+      toast.success(t("story_detail.generate_success", { defaultValue: "All illustrations are ready." }), { id: toastId });
+      return true;
+    } catch (illustrationError) {
+      const message = illustrationError instanceof Error ? illustrationError.message : "Failed to generate illustrations.";
+      toast.error(message, { id: toastId });
+      return false;
+    } finally {
+      setIsDirectIllustrating(false);
+    }
+  };
+
+  const handleGenerateIllustrations = async () => {
+    await generateMissingIllustrations();
+  };
+
+  const handleExportPdf = async (ensureIllustrations = false) => {
+    if (ensureIllustrations && !(await generateMissingIllustrations())) return;
+    setIsDirectExporting(true);
+    try {
+      const url = await exportStoryPdf(story.id, { force: true });
+      await downloadFromUrl(url, `${safeStoryFilename(story.title ?? "story")}.pdf`);
+      toast.success(t("story_detail.export_success", { defaultValue: "PDF download started." }));
+    } catch (exportError) {
+      toast.error(
+        exportError instanceof Error
+          ? exportError.message
+          : t("story_detail.export_error", { defaultValue: "Failed to export PDF." }),
+      );
+    } finally {
+      setIsDirectExporting(false);
+    }
   };
 
   return (
@@ -184,9 +247,9 @@ const MyAiStoryDetail = () => {
             pdfUrl={(story as unknown as { pdf_url?: string | null }).pdf_url ?? null}
             audioUrl={audioJob?.audioUrl || story.audio_url || null}
           />
-          {illustrations.length > 0 && (
-            <Button size="sm" variant="default" onClick={handleExportPdf} disabled={isExporting}>
-              {isExporting ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Download className="h-4 w-4 me-2" />}
+          {pages.length > 0 && pages.every((page) => !!page.image_url) && (
+            <Button size="sm" variant="default" onClick={() => void handleExportPdf()} disabled={isDirectExporting}>
+              {isDirectExporting ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Download className="h-4 w-4 me-2" />}
               {t("story_detail.download_pdf_book", { defaultValue: "Download PDF Book" })}
             </Button>
           )}
@@ -344,17 +407,24 @@ const MyAiStoryDetail = () => {
                 <div className="flex gap-2">
                   <Button 
                     variant="secondary" 
-                    onClick={() => {
-                      if (id) {
-                        generateIllustrations(id, {
-                          onSuccess: () => toast.success(t("story_detail.generate_success", { defaultValue: "Generation started!" })),
-                          onError: () => toast.error(t("story_detail.generate_error", { defaultValue: "Failed to generate illustrations." }))
-                        });
-                      }
-                    }}
+                    onClick={() => void handleGenerateIllustrations()}
+                    disabled={isDirectIllustrating}
                   >
                     <Sparkles className="h-4 w-4 me-2 text-primary" />
                     {t("story_detail.generate_btn", { defaultValue: "Generate Illustrations" })}
+                  </Button>
+
+                  <Button
+                    variant="default"
+                    onClick={() => void handleExportPdf(true)}
+                    disabled={isDirectIllustrating || isDirectExporting}
+                  >
+                    {isDirectIllustrating || isDirectExporting ? (
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 me-2" />
+                    )}
+                    {t("story_detail.illustrate_download", { defaultValue: "Illustrate & Download" })}
                   </Button>
                   
                   {illustrationJob?.failedPages ? (

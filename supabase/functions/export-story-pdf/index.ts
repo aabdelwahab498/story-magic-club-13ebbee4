@@ -17,10 +17,18 @@ const MAX_IMAGES = 15;
 const MAX_IMAGE_BYTES = 2_500_000;
 // Total embedded image budget: keeps the export inside the function memory limit.
 const MAX_TOTAL_IMAGE_BYTES = 6_000_000;
-const ARABIC_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
-const ARABIC_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
-const LATIN_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf";
-const LATIN_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf";
+const FONT_FILES = {
+  arabic: new URL("./fonts/NotoSansArabic-Regular.ttf", import.meta.url),
+  arabicBold: new URL("./fonts/NotoSansArabic-Bold.ttf", import.meta.url),
+  latin: new URL("./fonts/NotoSans-Regular.ttf", import.meta.url),
+  latinBold: new URL("./fonts/NotoSans-Bold.ttf", import.meta.url),
+};
+const FONT_URLS = {
+  arabic: "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-arabic@latest/arabic-400-normal.ttf",
+  arabicBold: "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-arabic@latest/arabic-700-normal.ttf",
+  latin: "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans@latest/latin-400-normal.ttf",
+  latinBold: "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans@latest/latin-700-normal.ttf",
+};
 
 interface PageInput {
   page_number?: number;
@@ -213,6 +221,17 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
   return bytes;
 }
 
+async function loadFont(file: URL, fallbackUrl: string): Promise<Uint8Array> {
+  try {
+    return await Deno.readFile(file);
+  } catch (localError) {
+    console.warn("[export-story-pdf] bundled font unavailable; using CDN", localError instanceof Error ? localError.message : localError);
+    const response = await fetch(fallbackUrl);
+    if (!response.ok) throw new Error(`font_fetch_failed_${response.status}`);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return friendly("method_not_allowed", 405);
@@ -362,10 +381,10 @@ Deno.serve(async (req) => {
     let latinBold;
     try {
       const [fontBytes, boldBytes, latinBytes, latinBoldBytes] = await Promise.all([
-        fetchBytes(ARABIC_FONT_URL),
-        fetchBytes(ARABIC_FONT_BOLD_URL),
-        fetchBytes(LATIN_FONT_URL),
-        fetchBytes(LATIN_FONT_BOLD_URL),
+        loadFont(FONT_FILES.arabic, FONT_URLS.arabic),
+        loadFont(FONT_FILES.arabicBold, FONT_URLS.arabicBold),
+        loadFont(FONT_FILES.latin, FONT_URLS.latin),
+        loadFont(FONT_FILES.latinBold, FONT_URLS.latinBold),
       ]);
       font = await doc.embedFont(fontBytes, { subset: true });
       bold = await doc.embedFont(boldBytes, { subset: true });
