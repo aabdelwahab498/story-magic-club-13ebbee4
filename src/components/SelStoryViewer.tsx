@@ -252,7 +252,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           t("sel.live_partial", `${res.illustrations.length - failed} ready, ${failed} pending. Tap Illustrate to retry.`),
         );
       }
+      return {
+        ok: failed === 0,
+        readyIndexes: res.illustrations.filter((r) => r.status === "ready" && !!r.imageUrl).map((r) => r.index),
+      };
     } catch (e) {
+
       console.error(e);
       if (e instanceof SubscriptionRequiredError) {
         toast.error(t("paywall.feature_requires_paid", "This feature requires a paid plan"), {
