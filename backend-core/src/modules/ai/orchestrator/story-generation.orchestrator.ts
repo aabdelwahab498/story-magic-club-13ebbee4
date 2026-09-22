@@ -81,7 +81,7 @@ export class StoryGenerationOrchestrator {
         request.theme,
         request.selGoal,
         request.readingLevel,
-        typeof request.preferences.customPrompt === 'string'
+        typeof request.preferences?.customPrompt === 'string'
           ? request.preferences.customPrompt
           : undefined,
       );
@@ -95,7 +95,7 @@ export class StoryGenerationOrchestrator {
         20,
       );
       const plannerStart = Date.now();
-      const approvedPlan = request.preferences.presetBlueprint;
+      const approvedPlan = request.preferences?.presetBlueprint;
       const blueprint = this.isStoryPlan(approvedPlan)
         ? approvedPlan
         : await this.aiGateway.planStory(
@@ -104,7 +104,7 @@ export class StoryGenerationOrchestrator {
             request.theme,
             request.selGoal,
             request.readingLevel,
-            typeof request.preferences.customPrompt === 'string'
+            typeof request.preferences?.customPrompt === 'string'
               ? request.preferences.customPrompt
               : undefined,
           );

@@ -16,8 +16,8 @@ const ILLUSTRATION_CREDIT_COST = 10;
 
 import { colorPaletteFor } from "../_shared/sel/visual.ts";
 
-// Primary: User-supplied image API key (if present). Fallback: Lovable AI image
-// model. Final fallback: Pollinations.ai (no key needed).
+// Primary: platform-managed Lovable AI image model. User-supplied providers and
+// Pollinations are fallbacks only for retryable upstream failures.
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 // Native Lovable image generation endpoint (platform-managed, no external account).
 const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
@@ -28,7 +28,17 @@ type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string };
 type ImgErr = { ok: false; status: number; body: string };
 
 async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImageKey[]): Promise<ImgOk | ImgErr> {
-  // 1) User-supplied image providers first (so credits go on their account).
+  // 1) Lovable AI image gateway — no external provider account is required.
+  if (LOVABLE_API_KEY) {
+    const ai = await tryLovableImage(prompt);
+    if (ai.ok) return ai;
+    console.error(`[illustrate] lovable image failed status=${ai.status} body=${ai.body}`);
+    // Configuration, payment, policy, validation, and unavailable-model errors
+    // are terminal. Never hide them by silently switching providers.
+    if ([400, 401, 402, 403, 404].includes(ai.status)) return ai;
+  }
+
+  // 2) User-supplied image providers.
   for (const k of userImageKeys) {
     try {
       let r: ImgOk | ImgErr | null = null;
@@ -40,13 +50,6 @@ async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImag
     } catch (e) {
       console.error(`[illustrate] user:${k.provider} threw`, e);
     }
-  }
-
-  // 2) Lovable AI image gateway
-  if (LOVABLE_API_KEY) {
-    const ai = await tryLovableImage(prompt);
-    if (ai.ok) return ai;
-    console.error(`[illustrate] lovable image failed status=${ai.status} body=${ai.body}`);
   }
 
   // 3) Pollinations.ai (no key)
@@ -166,30 +169,40 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
         // JPEG keeps each illustration around ~150KB instead of ~2.6MB PNG,
         // which keeps storage light and lets the PDF export embed every page
         // without exceeding the function memory budget.
-        body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1, output_format: "jpeg" }),
+        body: JSON.stringify({
+          model,
+          prompt,
+          size: "1024x1024",
+          quality: "low",
+          output_format: "jpeg",
+          stream: true,
+          partial_images: 1,
+        }),
       });
       if (!r.ok) {
         lastStatus = r.status;
         lastBody = (await r.text().catch(() => "")).slice(0, 300);
         continue;
       }
-      const data = await r.json();
-      const item = data?.data?.[0];
-      const b64 = item?.b64_json;
-      if (typeof b64 === "string" && b64.length > 0) {
-        const fmt = typeof data?.output_format === "string" ? data.output_format : "png";
-        return base64ToBytes(b64, `image/${fmt === "jpeg" ? "jpeg" : fmt}`);
+      const parsed = await readLovableImageStream(r);
+      if (parsed.ok) return parsed;
+      if (parsed.status !== 204) return parsed;
+
+      // A stream with zero events may be replayed exactly once without
+      // streaming. This is the only automatic replay in the image path.
+      const replay = await fetch(LOVABLE_IMAGE_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, prompt, size: "1024x1024", quality: "low", output_format: "jpeg" }),
+      });
+      if (!replay.ok) {
+        lastStatus = replay.status;
+        lastBody = (await replay.text().catch(() => "")).slice(0, 300);
+        continue;
       }
-      const url = item?.url;
-      if (typeof url === "string" && url.startsWith("data:image/")) return dataUrlToBytes(url);
-      if (typeof url === "string" && url.startsWith("http")) {
-        const ir = await fetch(url);
-        if (ir.ok) {
-          const buf = new Uint8Array(await ir.arrayBuffer());
-          const mime = ir.headers.get("content-type") ?? "image/png";
-          return { ok: true, bytes: buf, mime, ext: mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg" };
-        }
-      }
+      const data = await replay.json();
+      const b64 = data?.data?.[0]?.b64_json;
+      if (typeof b64 === "string" && b64.length > 0) return base64ToBytes(b64, "image/jpeg");
       lastStatus = 502;
       lastBody = "missing_image_data";
     } catch (e) {
@@ -199,6 +212,44 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
   }
 
   return { ok: false, status: lastStatus, body: lastBody };
+}
+
+async function readLovableImageStream(response: Response): Promise<ImgOk | ImgErr> {
+  if (!response.body) return { ok: false, status: 204, body: "empty_image_stream" };
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  let sawEvent = false;
+  let completedB64: string | null = null;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += chunk.value;
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) {
+        const dataLine = frame.split("\n").find((line) => line.startsWith("data:"));
+        if (!dataLine) continue;
+        sawEvent = true;
+        const raw = dataLine.slice(5).trim();
+        if (!raw || raw === "[DONE]") continue;
+        let payload: { type?: string; b64_json?: string; error?: { message?: string } };
+        try { payload = JSON.parse(raw); } catch { continue; }
+        if (payload.type === "error") {
+          return { ok: false, status: 400, body: payload.error?.message ?? "image_generation_failed" };
+        }
+        if (payload.type === "image_generation.completed" && typeof payload.b64_json === "string") {
+          completedB64 = payload.b64_json;
+        }
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  if (completedB64) return base64ToBytes(completedB64, "image/jpeg");
+  return sawEvent
+    ? { ok: false, status: 502, body: "image_stream_ended_without_completion" }
+    : { ok: false, status: 204, body: "empty_image_stream" };
 }
 
 

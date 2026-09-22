@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { useIllustrations } from "@/hooks/useIllustrations";
-import { useGenerateIllustrations, useRetryIllustrations, useRegeneratePageIllustration, useExportIllustratedStory } from "@/hooks/useGenerateIllustrations";
+import { useRetryIllustrations, useRegeneratePageIllustration } from "@/hooks/useGenerateIllustrations";
 import { useStoryAudio, useGenerateAudio, useRetryAudio, useDeleteAudio } from "@/hooks/useStoryAudio";
+import { illustrateSelStory } from "@/lib/selStoryApi";
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -31,10 +32,12 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("@/hooks/useIllustrations");
 vi.mock("@/hooks/useGenerateIllustrations", () => ({
-  useGenerateIllustrations: vi.fn(),
   useRetryIllustrations: vi.fn(),
   useRegeneratePageIllustration: vi.fn(),
-  useExportIllustratedStory: vi.fn(),
+}));
+vi.mock("@/lib/selStoryApi", () => ({
+  illustrateSelStory: vi.fn(),
+  exportStoryPdf: vi.fn(),
 }));
 vi.mock("@/hooks/useStoryAudio", () => ({
   useStoryAudio: vi.fn(),
@@ -72,7 +75,10 @@ describe("MyAiStoryDetail Integration", () => {
     // Default mock implementations for illustrations
     vi.mocked(useRetryIllustrations).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
     vi.mocked(useRegeneratePageIllustration).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
-    vi.mocked(useExportIllustratedStory).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(illustrateSelStory).mockResolvedValue({
+      storyId: "123",
+      illustrations: [{ index: 1, imageUrl: "http://test.image/img.jpg", status: "ready" }],
+    });
 
     // Default mock implementations for audio narration
     vi.mocked(useStoryAudio).mockReturnValue({ data: null, isLoading: false } as any);
@@ -92,11 +98,6 @@ describe("MyAiStoryDetail Integration", () => {
       },
       isLoading: false
     } as any);
-    vi.mocked(useGenerateIllustrations).mockReturnValue({
-      mutate: vi.fn(),
-      isPending: false
-    } as any);
-
     renderComponent();
 
     await waitFor(() => {
@@ -118,12 +119,6 @@ describe("MyAiStoryDetail Integration", () => {
       },
       isLoading: false
     } as any);
-    const mockMutate = vi.fn();
-    vi.mocked(useGenerateIllustrations).mockReturnValue({
-      mutate: mockMutate,
-      isPending: false
-    } as any);
-
     renderComponent();
 
     await waitFor(() => {
@@ -134,7 +129,10 @@ describe("MyAiStoryDetail Integration", () => {
     expect(btn).toBeInTheDocument();
 
     fireEvent.click(btn);
-    expect(mockMutate).toHaveBeenCalledWith("123", expect.any(Object));
+    await waitFor(() => expect(illustrateSelStory).toHaveBeenCalledWith(
+      expect.objectContaining({ storyId: "123", pages: [expect.objectContaining({ index: 1, text: "Once upon a time" })] }),
+      { trigger: "user", source: "MyAiStoryDetail" },
+    ));
   });
 
   it("shows loading state when generating", async () => {
@@ -148,13 +146,12 @@ describe("MyAiStoryDetail Integration", () => {
       },
       isLoading: false
     } as any);
-    vi.mocked(useGenerateIllustrations).mockReturnValue({
-      mutate: vi.fn(),
-      isPending: true
-    } as any);
+    vi.mocked(illustrateSelStory).mockImplementation(() => new Promise(() => undefined));
 
     renderComponent();
 
+    await waitFor(() => expect(screen.getByText("Generate Illustrations")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Generate Illustrations"));
     await waitFor(() => {
       expect(screen.getByText("Generating illustration...")).toBeInTheDocument();
     });

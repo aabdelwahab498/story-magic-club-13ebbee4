@@ -302,6 +302,7 @@ describe('StoriesService', () => {
         theme: 'space',
         selGoal: 'focus',
         language: 'en',
+        preferences: { customPrompt: 'Omar finds the lost star.' },
       };
       const mockPlan = { blueprint: { act1: 'intro' } };
       mockOrchestrator.planStory.mockResolvedValueOnce(mockPlan);
@@ -315,6 +316,7 @@ describe('StoriesService', () => {
         'space',
         'focus',
         undefined,
+        'Omar finds the lost star.',
       );
     });
 

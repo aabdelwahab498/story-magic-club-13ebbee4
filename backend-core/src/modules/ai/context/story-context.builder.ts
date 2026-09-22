@@ -28,7 +28,7 @@ export class StoryContextBuilder {
       request.theme,
       request.selGoal,
       request.readingLevel,
-      typeof request.preferences.customPrompt === 'string'
+      typeof request.preferences?.customPrompt === 'string'
         ? request.preferences.customPrompt
         : undefined,
     );
