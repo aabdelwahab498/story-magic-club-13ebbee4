@@ -12,8 +12,9 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PDF_BUCKET = "story-pdfs";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
 const MAX_PAGES = 30;
-const MAX_IMAGES = 4;
-const MAX_IMAGE_BYTES = 2_500_000;
+// One illustration per story page (canonical stories are 10-15 pages).
+const MAX_IMAGES = 15;
+const MAX_IMAGE_BYTES = 4_000_000;
 const ARABIC_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf";
 const ARABIC_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf";
 const LATIN_FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf";
@@ -298,6 +299,32 @@ Deno.serve(async (req) => {
   if (!title) return friendly("title_required", 400);
   if (pages.length === 0) return friendly("pages_required", 400);
   if (pages.length > MAX_PAGES) return friendly("too_many_pages", 400, { max_pages: MAX_PAGES });
+
+  // ONE illustrated PDF behaviour: whenever the story has illustrations
+  // persisted by `illustrate-story`, attach them to the matching page so the
+  // customer-facing download is the illustrated book (never a text-only file).
+  // Pages that already carry an image keep it; missing ones stay text-only.
+  if (storyId && !skipImages && pages.some((p) => !p.imageUrl)) {
+    const { data: illus, error: illusErr } = await admin
+      .from("generated_illustrations")
+      .select("page_index,image_url,status")
+      .eq("story_id", storyId)
+      .eq("status", "ready");
+    if (illusErr) {
+      console.warn("[export-story-pdf] illustration lookup failed", illusErr.message);
+    } else {
+      const byIndex = new Map<number, string>();
+      for (const row of illus ?? []) {
+        const idx = Number(row.page_index);
+        const url = typeof row.image_url === "string" ? row.image_url : "";
+        if (Number.isFinite(idx) && url) byIndex.set(idx, url);
+      }
+      if (byIndex.size > 0) {
+        pages = pages.map((p) => (p.imageUrl ? p : { ...p, imageUrl: byIndex.get(p.pageNumber) ?? null }));
+        console.info("[export-story-pdf] attached illustrations", { storyId, matched: pages.filter((p) => !!p.imageUrl).length });
+      }
+    }
+  }
 
   const { data: exportRow, error: insertErr } = await admin.from("exports").insert({
     user_id: userId,
