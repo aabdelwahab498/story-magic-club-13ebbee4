@@ -21,10 +21,7 @@ import { colorPaletteFor } from "../_shared/sel/visual.ts";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 // Native Lovable image generation endpoint (platform-managed, no external account).
 const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
-const IMAGE_MODELS = [
-  "lovable/image-fast",
-  "lovable/image-standard",
-];
+const IMAGE_MODELS = ["openai/gpt-image-2.5-sunburst"];
 const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt";
 
 type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string };
@@ -162,8 +159,6 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
   let lastStatus = 500;
   let lastBody = "no_image";
   for (const model of IMAGE_MODELS) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 80_000);
     try {
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
@@ -172,7 +167,6 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
         // which keeps storage light and lets the PDF export embed every page
         // without exceeding the function memory budget.
         body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1, output_format: "jpeg" }),
-        signal: ctrl.signal,
       });
       if (!r.ok) {
         lastStatus = r.status;
@@ -189,7 +183,7 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
       const url = item?.url;
       if (typeof url === "string" && url.startsWith("data:image/")) return dataUrlToBytes(url);
       if (typeof url === "string" && url.startsWith("http")) {
-        const ir = await fetch(url, { signal: ctrl.signal });
+        const ir = await fetch(url);
         if (ir.ok) {
           const buf = new Uint8Array(await ir.arrayBuffer());
           const mime = ir.headers.get("content-type") ?? "image/png";
@@ -201,8 +195,6 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
     } catch (e) {
       lastStatus = 0;
       lastBody = e instanceof Error ? e.message : "unknown";
-    } finally {
-      clearTimeout(timer);
     }
   }
 
