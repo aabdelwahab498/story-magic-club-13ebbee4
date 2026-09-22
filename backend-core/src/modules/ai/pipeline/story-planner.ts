@@ -32,6 +32,7 @@ export class StoryPlanner {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    customPrompt?: string,
   ): Promise<StoryPlan> {
     this.logger.log(`Building story context`);
 
@@ -42,6 +43,7 @@ export class StoryPlanner {
       theme,
       selGoal,
       readingLevel,
+      customPrompt,
     );
 
     // 2. Generate Prompt

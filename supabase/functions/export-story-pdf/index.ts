@@ -24,6 +24,7 @@ const LATIN_FONT_BOLD_URL = "https://raw.githubusercontent.com/googlefonts/noto-
 
 interface PageInput {
   page_number?: number;
+  pageNumber?: number;
   index?: number;
   text?: string;
   content?: string;
@@ -153,7 +154,13 @@ function normalizePages(input: unknown): NormalizedPage[] {
   if (!Array.isArray(input)) return [];
   return input.map((raw, i) => {
     const p = (raw ?? {}) as PageInput;
-    const explicitNumber = typeof p.page_number === "number" ? p.page_number : typeof p.index === "number" ? p.index + 1 : i + 1;
+    const explicitNumber = typeof p.page_number === "number"
+      ? p.page_number
+      : typeof p.pageNumber === "number"
+        ? p.pageNumber
+        : typeof p.index === "number"
+          ? p.index + 1
+          : i + 1;
     return {
       pageNumber: Math.max(1, explicitNumber),
       text: normalizeText(p.text ?? p.content ?? p.narration),
@@ -311,6 +318,7 @@ Deno.serve(async (req) => {
       .from("generated_illustrations")
       .select("page_index,image_url,status")
       .eq("story_id", storyId)
+      .eq("user_id", userId)
       .eq("status", "ready");
     if (illusErr) {
       console.warn("[export-story-pdf] illustration lookup failed", illusErr.message);

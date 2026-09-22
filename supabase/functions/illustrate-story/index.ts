@@ -21,10 +21,7 @@ import { colorPaletteFor } from "../_shared/sel/visual.ts";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 // Native Lovable image generation endpoint (platform-managed, no external account).
 const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
-const IMAGE_MODELS = [
-  "lovable/image-fast",
-  "lovable/image-standard",
-];
+const IMAGE_MODELS = ["openai/gpt-image-2.5-sunburst"];
 const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt";
 
 type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string };
@@ -162,8 +159,6 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
   let lastStatus = 500;
   let lastBody = "no_image";
   for (const model of IMAGE_MODELS) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 80_000);
     try {
       const r = await fetch(LOVABLE_IMAGE_URL, {
         method: "POST",
@@ -172,7 +167,6 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
         // which keeps storage light and lets the PDF export embed every page
         // without exceeding the function memory budget.
         body: JSON.stringify({ model, prompt, size: "1024x1024", n: 1, output_format: "jpeg" }),
-        signal: ctrl.signal,
       });
       if (!r.ok) {
         lastStatus = r.status;
@@ -189,7 +183,7 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
       const url = item?.url;
       if (typeof url === "string" && url.startsWith("data:image/")) return dataUrlToBytes(url);
       if (typeof url === "string" && url.startsWith("http")) {
-        const ir = await fetch(url, { signal: ctrl.signal });
+        const ir = await fetch(url);
         if (ir.ok) {
           const buf = new Uint8Array(await ir.arrayBuffer());
           const mime = ir.headers.get("content-type") ?? "image/png";
@@ -201,8 +195,6 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
     } catch (e) {
       lastStatus = 0;
       lastBody = e instanceof Error ? e.message : "unknown";
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -291,6 +283,10 @@ serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const pre = handlePreflight(req);
   if (pre) return pre;
+
+  let chargedUserId: string | null = null;
+  let deliveredReadyImage = false;
+  let refundCompleted = false;
 
   // Body size guard (~64KB — pages array can carry prompts)
   const cl = Number(req.headers.get("content-length") || "0");
@@ -429,6 +425,7 @@ serve(async (req) => {
       const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
       if (debit.success) {
         creditsCharged = true;
+        chargedUserId = userId;
       } else {
         const byokOk = await hasValidImageByok(userId);
         if (!byokOk) {
@@ -562,6 +559,7 @@ serve(async (req) => {
       idempotencyCache.set(cacheKey, { promise, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
     }
     const payload = await promise;
+    deliveredReadyImage = payload.illustrations.some((r) => r.status === "ready" && !!r.imageUrl);
 
     // Refund credits if every new page failed (user got nothing for their credits).
     if (creditsCharged) {
@@ -572,6 +570,7 @@ serve(async (req) => {
       if (allFailed) {
         try {
           await refundIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
+          refundCompleted = true;
           console.info("[illustrate] credits refunded after total failure", { userId, storyId: body.storyId });
         } catch (e) {
           console.error("[illustrate] refund failed", e instanceof Error ? e.message : e);
@@ -618,6 +617,17 @@ serve(async (req) => {
 
   } catch (e) {
     console.error("illustrate-story error", e);
+    // Covers failures after debit but before a normal payload exists (cache,
+    // storage, or orchestration exceptions). Never charge a zero-image run.
+    if (chargedUserId && !deliveredReadyImage && !refundCompleted) {
+      try {
+        await refundIllustrationCredits(chargedUserId, ILLUSTRATION_CREDIT_COST);
+        refundCompleted = true;
+        console.info("[illustrate] credits refunded after aborted total failure", { userId: chargedUserId });
+      } catch (refundError) {
+        console.error("[illustrate] emergency refund failed", refundError instanceof Error ? refundError.message : refundError);
+      }
+    }
     return json({ error: e instanceof Error ? e.message : "unknown" }, 500, corsHeaders);
   }
 });

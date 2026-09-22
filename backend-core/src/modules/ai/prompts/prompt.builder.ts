@@ -14,6 +14,11 @@ Language: ${context.language}
 Reading Level: ${context.readingLevel}
 Theme: ${context.theme}
 SEL Goal: ${context.selGoal}
+${
+  context.customPrompt
+    ? `USER STORY BRIEF (primary narrative requirement):\n"""${context.customPrompt}"""\nThe title, protagonist, conflict, events, and ending MUST follow this brief. Never replace a protagonist explicitly named in the brief with the child profile name or another character.`
+    : ''
+}
 
 Output a JSON object matching this structure:
 {
@@ -37,6 +42,12 @@ Write a ${plan.pageCount}-page story.
 Target Age: ${context.targetAge}
 Reading Level: ${context.readingLevel}
 Language: ${context.language}
+SEL Goal: ${context.selGoal}
+${
+  context.customPrompt
+    ? `USER STORY BRIEF (primary narrative requirement):\n"""${context.customPrompt}"""\nThe complete story MUST stay faithful to this brief from beginning to end. A protagonist explicitly named in the brief must remain the protagonist on every page and in the ending.`
+    : ''
+}
 
 Blueprint:
 Title: ${plan.title}

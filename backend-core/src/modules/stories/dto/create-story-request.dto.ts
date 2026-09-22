@@ -37,5 +37,5 @@ export class CreateStoryRequestDto {
 
   @IsObject()
   @IsOptional()
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
 }

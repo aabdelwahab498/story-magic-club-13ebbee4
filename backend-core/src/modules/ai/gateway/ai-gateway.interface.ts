@@ -17,6 +17,7 @@ export interface IAIGateway {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    customPrompt?: string,
   ): StoryContext;
 
   /**
@@ -28,6 +29,7 @@ export interface IAIGateway {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    customPrompt?: string,
   ): Promise<StoryPlan>;
 
   /**

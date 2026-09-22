@@ -28,6 +28,9 @@ export class StoryContextBuilder {
       request.theme,
       request.selGoal,
       request.readingLevel,
+      typeof request.preferences.customPrompt === 'string'
+        ? request.preferences.customPrompt
+        : undefined,
     );
   }
 
@@ -40,6 +43,7 @@ export class StoryContextBuilder {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    customPrompt?: string,
   ): StoryContext {
     return {
       targetAge: childAge,
@@ -47,6 +51,7 @@ export class StoryContextBuilder {
       theme,
       selGoal,
       readingLevel,
+      ...(customPrompt?.trim() ? { customPrompt: customPrompt.trim() } : {}),
     };
   }
 }

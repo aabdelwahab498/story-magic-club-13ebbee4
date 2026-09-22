@@ -339,7 +339,9 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     }
     setExporting(true);
     try {
-      const url = await exportStoryPdf(story.story_id);
+      // Rebuild from this story's current illustrations instead of returning a
+      // cached text-only export created before illustration completed.
+      const url = await exportStoryPdf(story.story_id, { force: true });
       // Anchor-based download: window.open() after an await is treated as an
       // unrequested popup by published-site popup blockers, so the file never
       // reached the customer. An <a download> click always starts the download.
@@ -791,6 +793,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                     );
                     if (!res.ok || stillMissing.length > 0) {
                       // Never continue to PDF with pending/failed illustrations.
+                      toast.error(
+                        t(
+                          "sel.illustrations_required_for_pdf",
+                          "The illustrated PDF was not created because some pictures are still missing. Please retry.",
+                        ),
+                      );
                       return;
                     }
                   }

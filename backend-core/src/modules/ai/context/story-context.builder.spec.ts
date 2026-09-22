@@ -63,6 +63,7 @@ describe('StoryContextBuilder', () => {
       theme: 'space',
       selGoal: 'courage',
       readingLevel: 'level_1',
+      preferences: { customPrompt: 'Omar finds and returns the lost star.' },
     } as StoryMetadata;
 
     childrenAiContextService.buildContext.mockResolvedValue({
@@ -80,5 +81,6 @@ describe('StoryContextBuilder', () => {
     expect(context.theme).toBe('space');
     expect(context.selGoal).toBe('courage');
     expect(context.readingLevel).toBe('level_1');
+    expect(context.customPrompt).toBe('Omar finds and returns the lost star.');
   });
 });
