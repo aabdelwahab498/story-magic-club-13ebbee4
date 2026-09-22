@@ -781,10 +781,23 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                 data-testid="illustrate-download-button"
                 data-all-ready={allReady ? "true" : "false"}
                 onClick={async () => {
-                  if (!allReady) await runIllustrate(pages);
+                  // Reuse existing pictures; only draw the missing pages, then
+                  // WAIT for real completion before touching the PDF export.
+                  if (!allReady) {
+                    const missing = pages.filter((p) => !p.imageUrl);
+                    const res = await runIllustrate(missing.length ? missing : pages);
+                    const stillMissing = (missing.length ? missing : pages).filter(
+                      (p) => !res.readyIndexes.includes(p.index),
+                    );
+                    if (!res.ok || stillMissing.length > 0) {
+                      // Never continue to PDF with pending/failed illustrations.
+                      return;
+                    }
+                  }
                   if (!requireSubscription("pdf")) return;
                   await handleExportPdf();
                 }}
+
                 disabled={illustrating || exporting}
                 title={allReady ? t("sel.illustrations_ready_title", "Illustrations already generated — will export PDF") : undefined}
                 className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-bold shadow hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-70"
