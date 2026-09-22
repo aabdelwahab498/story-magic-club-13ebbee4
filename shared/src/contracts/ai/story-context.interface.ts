@@ -4,6 +4,7 @@ export interface StoryContext {
   readingLevel: string;
   theme: string;
   selGoal: string;
+  customPrompt?: string;
   pageCount?: number;
 }
 

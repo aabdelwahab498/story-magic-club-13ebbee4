@@ -107,10 +107,10 @@ export function toCreateStoryRequest(input: ComposeStoryInput): CreateStoryReque
       "Please select a child profile before generating a story.",
     );
   }
+  // Keep the learning goal separate from the user's primary narrative brief.
+  // The backend receives customPrompt independently through preferences.
   const selGoal =
-    (input.emotionalFocus ?? []).filter(Boolean).join(", ") ||
-    input.customPrompt ||
-    input.theme;
+    (input.emotionalFocus ?? []).filter(Boolean).join(", ") || input.theme;
   return {
     childId,
     theme: input.theme,

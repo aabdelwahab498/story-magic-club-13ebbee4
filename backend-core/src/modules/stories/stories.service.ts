@@ -224,6 +224,9 @@ export class StoriesService {
       dto.theme,
       dto.selGoal,
       dto.readingLevel,
+      typeof dto.preferences?.customPrompt === 'string'
+        ? dto.preferences.customPrompt
+        : undefined,
     );
   }
 }

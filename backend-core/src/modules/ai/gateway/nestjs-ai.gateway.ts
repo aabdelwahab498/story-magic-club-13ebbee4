@@ -26,6 +26,7 @@ export class NestJSAIGateway implements IAIGateway {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    customPrompt?: string,
   ): StoryContext {
     return this.contextBuilder.build(
       childAge,
@@ -33,6 +34,7 @@ export class NestJSAIGateway implements IAIGateway {
       theme,
       selGoal,
       readingLevel,
+      customPrompt,
     );
   }
 
@@ -42,6 +44,7 @@ export class NestJSAIGateway implements IAIGateway {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    customPrompt?: string,
   ): Promise<StoryPlan> {
     return this.planner.planStory(
       childAge,
@@ -49,6 +52,7 @@ export class NestJSAIGateway implements IAIGateway {
       theme,
       selGoal,
       readingLevel,
+      customPrompt,
     );
   }
 

@@ -11,6 +11,7 @@ export interface StoryMetadata {
   selGoal: string;
   pageCount: number;
   estimatedReadingTime: number;
+  preferences: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }

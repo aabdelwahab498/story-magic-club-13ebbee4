@@ -30,6 +30,7 @@ export class StoriesRepository {
         reading_level: readingLevel,
         page_count: dto.pageCount || 5,
         estimated_reading_time: dto.estimatedReadingTime || 5,
+        preferences: dto.preferences ?? {},
         status: StoryStatus.DRAFT,
       })
       .select()
@@ -178,6 +179,10 @@ export class StoriesRepository {
       selGoal: row.sel_goal,
       pageCount: row.page_count,
       estimatedReadingTime: row.estimated_reading_time,
+      preferences:
+        row.preferences && typeof row.preferences === 'object'
+          ? (row.preferences as Record<string, unknown>)
+          : {},
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };
