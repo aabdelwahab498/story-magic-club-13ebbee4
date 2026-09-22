@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { markBusy } from "@/pwa/busy";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sparkles, Wand2, Volume2, Loader2, Pause, Play, Square, Home, BookOpen, Crown, Lock, RotateCcw, AlertTriangle, ChevronDown, ChevronUp, Check } from "lucide-react";
@@ -489,6 +490,7 @@ const AIStoryteller = () => {
     // dropped, so the same interaction never creates two stories.
     if (inFlightRef.current) return;
     inFlightRef.current = true;
+    markBusy(true);
     lastModeRef.current = "sel";
     setLastError(null);
     setErrorDetails(null);
@@ -499,6 +501,7 @@ const AIStoryteller = () => {
       input = await buildSelInput();
     } catch (e) {
       inFlightRef.current = false;
+      markBusy(false);
       await handleSelError(e);
       return;
     }
@@ -515,6 +518,7 @@ const AIStoryteller = () => {
       await handleSelError(e);
     } finally {
       inFlightRef.current = false;
+      markBusy(false);
       stopLongRunningWatch();
       setPlanning(false);
     }
@@ -528,6 +532,7 @@ const AIStoryteller = () => {
     // Same in-flight guard for the story-creation request.
     if (inFlightRef.current) return;
     inFlightRef.current = true;
+    markBusy(true);
     setPlanPreview(null);
     setGenerating(true);
     setSelStory(null);
@@ -567,6 +572,7 @@ const AIStoryteller = () => {
       await handleSelError(e);
     } finally {
       inFlightRef.current = false;
+      markBusy(false);
       stopLongRunningWatch();
       setGenerating(false);
     }
