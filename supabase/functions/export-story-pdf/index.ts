@@ -304,6 +304,7 @@ Deno.serve(async (req) => {
   // persisted by `illustrate-story`, attach them to the matching page so the
   // customer-facing download is the illustrated book (never a text-only file).
   // Pages that already carry an image keep it; missing ones stay text-only.
+  console.info("[export-story-pdf] illustration merge gate", { storyId, skipImages, pages: pages.length, missing: pages.filter((p) => !p.imageUrl).length });
   if (storyId && !skipImages && pages.some((p) => !p.imageUrl)) {
     const { data: illus, error: illusErr } = await admin
       .from("generated_illustrations")
