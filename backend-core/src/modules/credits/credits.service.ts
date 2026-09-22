@@ -90,7 +90,11 @@ export class CreditsService {
         `Error recording credit transaction for user ${userId}`,
         txError,
       );
+      throw new InternalServerErrorException(
+        'Failed to record credit transaction',
+      );
     }
+
   }
 
   /**
