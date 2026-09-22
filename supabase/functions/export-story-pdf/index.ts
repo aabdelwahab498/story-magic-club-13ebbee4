@@ -375,19 +375,24 @@ Deno.serve(async (req) => {
 
     const cover = doc.addPage([pageW, pageH]);
     cover.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(0.05, 0.09, 0.2) });
-    const titleLines = wrap(title, bold, 28, pageW - margin * 2).slice(0, 6);
+    // Noto Sans Arabic has no Latin glyphs — Latin text must use the Latin font
+    // or every character renders as a black box.
+    const titleBold = hasArabic(title) ? bold : latinBold;
+    const titleLines = wrap(title, titleBold, 28, pageW - margin * 2).slice(0, 6);
     let coverY = pageH - 190;
     for (const line of titleLines) {
       const shaped = shapeForPdf(line);
-      const x = hasArabic(line) ? pageW - margin - bold.widthOfTextAtSize(shaped, 28) : margin;
-      cover.drawText(shaped, { x, y: coverY, size: 28, font: bold, color: rgb(1, 0.95, 0.72) });
+      const lineFont = hasArabic(line) ? bold : latinBold;
+      const x = hasArabic(line) ? pageW - margin - lineFont.widthOfTextAtSize(shaped, 28) : margin;
+      cover.drawText(shaped, { x, y: coverY, size: 28, font: lineFont, color: rgb(1, 0.95, 0.72) });
       coverY -= 40;
     }
     if (payload.child_name) {
       const childLine = hasArabic(payload.child_name) ? payload.child_name : `for ${payload.child_name}`;
       const shaped = shapeForPdf(childLine);
-      const x = hasArabic(childLine) ? pageW - margin - font.widthOfTextAtSize(shaped, 18) : margin;
-      cover.drawText(shaped, { x, y: coverY - 20, size: 18, font, color: rgb(1, 1, 1) });
+      const childFont = hasArabic(childLine) ? font : latinFont;
+      const x = hasArabic(childLine) ? pageW - margin - childFont.widthOfTextAtSize(shaped, 18) : margin;
+      cover.drawText(shaped, { x, y: coverY - 20, size: 18, font: childFont, color: rgb(1, 1, 1) });
     }
     cover.drawText("Najmah Story Studio", { x: margin, y: 58, size: 11, font: latinFont, color: rgb(0.78, 0.84, 1) });
 
@@ -424,12 +429,14 @@ Deno.serve(async (req) => {
       }
       cursorY -= 28;
 
-      const lines = wrap(p.text, font, textSize, pageW - margin * 2);
+      const bodyFont = hasArabic(p.text) ? font : latinFont;
+      const lines = wrap(p.text, bodyFont, textSize, pageW - margin * 2);
       for (const line of lines) {
         if (cursorY < margin) break;
         const shaped = shapeForPdf(line);
-        const x = hasArabic(line) ? pageW - margin - font.widthOfTextAtSize(shaped, textSize) : margin;
-        page.drawText(shaped, { x, y: cursorY, size: textSize, font, color: rgb(0.1, 0.1, 0.15) });
+        const lineFont = hasArabic(line) ? font : latinFont;
+        const x = hasArabic(line) ? pageW - margin - lineFont.widthOfTextAtSize(shaped, textSize) : margin;
+        page.drawText(shaped, { x, y: cursorY, size: textSize, font: lineFont, color: rgb(0.1, 0.1, 0.15) });
         cursorY -= textSize + 7;
       }
     }
