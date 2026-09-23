@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Mail } from "lucide-react";
-import { authApi } from "@/api/auth.api";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { checkRateLimit, recordHit } from "@/lib/rateLimit";
@@ -18,7 +18,7 @@ const RL_WINDOW_MS = 60 * 60 * 1000;
 const RL_MAX_HITS = 5;
 const RL_BLOCK_MS = 60 * 60 * 1000;
 
-const ResendConfirmation = ({ email, cooldown = 30 }: Props) => {
+const ResendConfirmation = ({ email, redirectTo, cooldown = 30 }: Props) => {
   const { t } = useTranslation();
   const [sending, setSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
