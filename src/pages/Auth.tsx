@@ -3,6 +3,8 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Loader2, Shield, User as UserIcon, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
+import "@lovable.dev/cloud-auth-js/styles.css";
 import { useAuth } from "@/hooks/useAuth";
 
 import { Button } from "@/components/ui/button";
@@ -151,6 +153,35 @@ const Auth = () => {
     );
   };
 
+  const handleLovableSignIn = async () => {
+    setSubmitting(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("lovable", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error(
+          result.error.message ||
+            t("auth.error_signin", "Failed to sign in"),
+          { duration: 7000 }
+        );
+        setSubmitting(false);
+        return;
+      }
+      if (result.redirected) return;
+      await refreshAdmin();
+      setSubmitting(false);
+      navigate(resolveDest(false), { replace: true });
+    } catch (err) {
+      setSubmitting(false);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("auth.error_signin", "Failed to sign in")
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-kids-softPurple to-kids-softBlue font-comic">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-xl p-6">
@@ -166,6 +197,24 @@ const Auth = () => {
             <span className="text-xs font-medium">
               {t("auth.role_user", "Kid → Stories")}
             </span>
+          </div>
+        </div>
+
+        <div className="mb-4 space-y-3">
+          <button
+            type="button"
+            className="lovable-auth-button"
+            onClick={handleLovableSignIn}
+            disabled={submitting}
+          >
+            {t("auth.continue_with_lovable", "Continue with Lovable")}
+          </button>
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">
+              {t("auth.or", "or")}
+            </span>
+            <span className="h-px flex-1 bg-border" />
           </div>
         </div>
 
