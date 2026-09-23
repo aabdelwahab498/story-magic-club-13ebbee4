@@ -1,15 +1,13 @@
 project_id = "obafpnloxexvyiodpsxz"
 
-[functions.paddle-webhook]
-verify_jwt = false
-
-[functions.paddle-config]
-verify_jwt = false
-
-
-[functions.send-welcome-email]
-verify_jwt = false
-
-[functions.send-contact-email]
-verify_jwt = false
-
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.paddle-config]
+    verify_jwt = false
+  [functions.paddle-webhook]
+    verify_jwt = false
+  [functions.send-contact-email]
+    verify_jwt = false
+  [functions.send-welcome-email]
+    verify_jwt = false
