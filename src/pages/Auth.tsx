@@ -153,6 +153,35 @@ const Auth = () => {
     );
   };
 
+  const handleLovableSignIn = async () => {
+    setSubmitting(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("lovable", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error(
+          result.error.message ||
+            t("auth.error_signin", "Failed to sign in"),
+          { duration: 7000 }
+        );
+        setSubmitting(false);
+        return;
+      }
+      if (result.redirected) return;
+      await refreshAdmin();
+      setSubmitting(false);
+      navigate(resolveDest(false), { replace: true });
+    } catch (err) {
+      setSubmitting(false);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("auth.error_signin", "Failed to sign in")
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-kids-softPurple to-kids-softBlue font-comic">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-xl p-6">
