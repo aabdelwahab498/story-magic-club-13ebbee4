@@ -831,7 +831,8 @@
     "illustrations": "Illustrations",
     "expires": "Expires:",
     "payment_requests": "Payment requests",
-    "no_requests_yet": "No requests yet"
+    "no_requests_yet": "No requests yet",
+    "stories_remaining": "Stories remaining"
   },
   "page_api_keys": {
     "sign_in_to_manage_your_api_keys": "Sign in to manage your API keys",
@@ -870,7 +871,8 @@
     "current_plan": "Current plan",
     "start_free": "Start free",
     "subscribe": "Subscribe",
-    "after_transferring_upload_your_proof_you": "After transferring, upload your proof — your subscription is activated within 24 hours."
+    "after_transferring_upload_your_proof_you": "After transferring, upload your proof — your subscription is activated within 24 hours.",
+    "manual_payment_note": "Payments are handled via InstaPay, Vodafone Cash, Payoneer or bank transfer: upload your payment proof and your plan is activated after review."
   },
   "page_story_library": {
     "e_g_a_story_about_a_brave_little_fox_who": "e.g. A story about a brave little fox who learns to share..."
@@ -979,7 +981,8 @@
     "story_service_busy_title": "Najmah is a little busy right now",
     "connection_problem_title": "We couldn't reach Najmah",
     "story_quota_title": "Story limit reached",
-    "illustration_credits_title": "Not enough illustration credits"
+    "illustration_credits_title": "Not enough illustration credits",
+    "creating_for": "Creating a story for"
   },
   "admin_settings": {
     "trial_features_admin_only": "Trial features (admin only)",
@@ -1174,5 +1177,13 @@
     "validation": "Something in the story settings needs a small fix. Please review and try again.",
     "conflict": "This action was already in progress. Please refresh and try again.",
     "internal": "Something went wrong on our side. Your story settings are safe. Please try again in a moment."
+  },
+  "family": {
+    "name_required": "Please enter the child's name.",
+    "added_named": "{{name}} added ✨ — now the active child",
+    "stories_for": "Stories are created for",
+    "none_yet_hint": "Add a child below to start creating stories.",
+    "pick_one_hint": "Choose a child below before creating a story.",
+    "change_child": "Change child"
   }
 }

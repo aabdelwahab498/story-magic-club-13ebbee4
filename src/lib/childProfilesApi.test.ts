@@ -35,8 +35,14 @@ describe("active child resolution", () => {
     expect(child?.id).toBe(LINA.id);
   });
 
-  it("falls back to the first owned child and persists it", async () => {
+  it("requires an explicit choice when several children exist", async () => {
     vi.mocked(childrenApi.getChildren).mockResolvedValue([OMAR, LINA]);
+    expect(await resolveActiveChild()).toBeNull();
+    expect(getActiveChildId()).toBeNull();
+  });
+
+  it("uses the only child a parent owns and persists it", async () => {
+    vi.mocked(childrenApi.getChildren).mockResolvedValue([OMAR]);
     const child = await resolveActiveChild();
     expect(child?.id).toBe(OMAR.id);
     expect(getActiveChildId()).toBe(OMAR.id);
@@ -78,11 +84,11 @@ describe("story request contract", () => {
     expect(dto.theme).toBe("Adventure");
     expect(dto.selGoal).toBe("courage");
     expect(dto.language).toBe("en");
-    expect(dto.preferences).toMatchObject({
-      childName: "Omar",
-      age: 7,
-      customPrompt: "Hero name: Omar.",
-    });
+    expect(dto.preferences).toMatchObject({ childName: "Omar", age: 7 });
+    // The app injects the protagonist directive; the user's brief is preserved.
+    const brief = String((dto.preferences as { customPrompt?: string }).customPrompt);
+    expect(brief).toContain("The main character is Omar");
+    expect(brief).toContain("Hero name: Omar.");
   });
 
   it("blocks generation when no child is selected", () => {
