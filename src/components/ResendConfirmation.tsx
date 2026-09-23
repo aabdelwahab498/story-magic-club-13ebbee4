@@ -48,22 +48,32 @@ const ResendConfirmation = ({ email, cooldown = 30 }: Props) => {
     }
 
     setSending(true);
-    let ok = true;
-    let serverMessage = "";
-    try {
-      const res = await authApi.resendConfirmation(email);
-      serverMessage = typeof res?.message === "string" ? res.message : "";
-    } catch {
-      ok = false;
-    }
+    // Canonical auth authority (Lovable Cloud) owns the signup confirmation email.
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: {
+        emailRedirectTo: redirectTo ?? `${window.location.origin}/`,
+      },
+    });
     setSending(false);
-    if (!ok) {
+    if (error) {
+      const rateLimited =
+        error.status === 429 || /rate limit|too many/i.test(error.message ?? "");
       toast.error(
-        t("resend.failed", "We couldn't send the email right now. Please try again."),
+        rateLimited
+          ? t(
+              "resend.rate_limited_server",
+              "Too many email requests. Please wait a few minutes and try again."
+            )
+          : error.message ||
+              t("resend.failed", "We couldn't send the email right now. Please try again."),
         { duration: 7000 }
       );
+      if (rateLimited) setSecondsLeft(Math.max(cooldown, 60));
       return;
     }
+    const serverMessage = "";
     recordHit(key, RL_MAX_HITS, RL_WINDOW_MS, RL_BLOCK_MS);
     setSecondsLeft(cooldown);
     toast.success(
