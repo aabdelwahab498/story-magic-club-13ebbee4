@@ -3,6 +3,8 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Loader2, Shield, User as UserIcon, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
+import "@lovable.dev/cloud-auth-js/styles.css";
 import { useAuth } from "@/hooks/useAuth";
 
 import { Button } from "@/components/ui/button";
