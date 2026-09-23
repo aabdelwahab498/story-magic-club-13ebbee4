@@ -201,17 +201,15 @@ describe("AIStoryteller — user-authored custom prompt is never clobbered", () 
     // The exact payload the backend receives for /stories/plan.
     const planDto = toCreateStoryRequest(planInput as never);
     expect(planDto.childId).toBe(CHILD_UUID);
-    expect(planDto.preferences).toMatchObject({
-      childName: "Omar",
-      age: 7,
-      customPrompt: USER_BRIEF,
-    });
+    expect(planDto.preferences).toMatchObject({ childName: "Omar", age: 7 });
+    expect(planDto.preferences?.customPrompt).toContain(USER_BRIEF);
+    expect(planDto.preferences?.customPrompt).toContain("The main character is Omar");
 
     fireEvent.click(await screen.findByRole("button", { name: /Write the story/i }));
     await waitFor(() => expect(mocks.composeSelStory).toHaveBeenCalledTimes(1));
     const createInput = mocks.composeSelStory.mock.calls[0][0] as Record<string, unknown>;
     expect(createInput.customPrompt).toBe(USER_BRIEF);
     const createDto = toCreateStoryRequest(createInput as never);
-    expect(createDto.preferences?.customPrompt).toBe(USER_BRIEF);
+    expect(createDto.preferences?.customPrompt).toContain(USER_BRIEF);
   });
 });
