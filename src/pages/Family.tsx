@@ -13,7 +13,7 @@ import {
   useCreateChild,
   useDeleteChild,
   setActiveChildId,
-  getActiveChildId,
+  useActiveChildId,
 } from "@/lib/childProfilesApi";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -34,7 +34,11 @@ const Family = () => {
   const [age, setAge] = useState<string>("");
   const [language, setLanguage] = useState<string>("en");
   const [focus, setFocus] = useState<string[]>([]);
-  const [activeId, setActive] = useState<string | null>(getActiveChildId());
+  const [nameError, setNameError] = useState<string | null>(null);
+  // Reactive read of the persisted selection so the card highlight and the
+  // header picker never disagree.
+  const activeId = useActiveChildId();
+  const activeChild = children.find((c) => c.id === activeId) ?? null;
 
   if (authLoading) {
     return (
@@ -64,7 +68,11 @@ const Family = () => {
   }
 
   const handleAdd = async () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameError(t("family.name_required", "Please enter the child's name."));
+      return;
+    }
+    setNameError(null);
     try {
       const created = await createMut.mutateAsync({
         name: name.trim(),
@@ -75,11 +83,13 @@ const Family = () => {
       setName("");
       setAge("");
       setFocus([]);
-      if (!activeId) {
-        setActiveChildId(created.id);
-        setActive(created.id);
-      }
-      toast.success(t("family.added", "Child added ✨"));
+      // The child the parent just added becomes the active one immediately.
+      setActiveChildId(created.id);
+      toast.success(
+        t("family.added_named", "{{name}} added ✨ — now the active child", {
+          name: created.name,
+        }),
+      );
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -87,14 +97,13 @@ const Family = () => {
 
   const handleSelect = (id: string) => {
     setActiveChildId(id);
-    setActive(id);
     toast.success(t("family.selected", "Active child set"));
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm(t("family.confirm_delete", "Remove this child profile?"))) return;
     await deleteMut.mutateAsync(id);
-    if (activeId === id) setActive(null);
+    if (activeId === id) setActiveChildId(null);
   };
 
   const toggleFocus = (f: string) =>
@@ -114,6 +123,23 @@ const Family = () => {
         </Button>
       </div>
 
+      {/* Which child stories are written for right now */}
+      <div className="mb-6 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-bold flex items-center gap-2">
+        <UserIcon className="h-4 w-4 text-primary" />
+        {activeChild ? (
+          <span>
+            {t("family.stories_for", "Stories are created for")}{" "}
+            <span className="text-primary">{activeChild.name}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            {children.length === 0
+              ? t("family.none_yet_hint", "Add a child below to start creating stories.")
+              : t("family.pick_one_hint", "Choose a child below before creating a story.")}
+          </span>
+        )}
+      </div>
+
       {/* Add new child */}
       <Card className="p-4 sm:p-6 mb-6">
         <h2 className="font-bold mb-3 flex items-center gap-2">
@@ -121,8 +147,23 @@ const Family = () => {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <Label>{t("family.name", "Name")}</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Label>
+              {t("family.name", "Name")}{" "}
+              <span className="text-destructive" aria-hidden="true">*</span>
+            </Label>
+            <Input
+              value={name}
+              required
+              aria-required="true"
+              aria-invalid={!!nameError}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+            />
+            {nameError && (
+              <p className="mt-1 text-xs font-bold text-destructive">{nameError}</p>
+            )}
           </div>
           <div>
             <Label>{t("family.age", "Age")}</Label>
@@ -173,7 +214,7 @@ const Family = () => {
         <Button
           className="mt-4"
           onClick={handleAdd}
-          disabled={!name.trim() || createMut.isPending}
+          disabled={createMut.isPending}
         >
           {createMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {t("family.add", "Add child")}

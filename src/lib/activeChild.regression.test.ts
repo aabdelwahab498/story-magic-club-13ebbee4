@@ -82,10 +82,9 @@ describe("active child → plan/create contract", () => {
     expect(getActiveChildId()).toBe(LAYLA.id);
   });
 
-  it("C) no stored ID + existing child → existing child resolved, none created", async () => {
+  it("C) no stored ID + several children → generation blocked, no child guessed", async () => {
     vi.mocked(childrenApi.getChildren).mockResolvedValue([LAYLA, OMAR]);
-    const input = await buildInput();
-    expect(input.childProfileId).toBe(LAYLA.id);
+    await expect(buildInput()).rejects.toThrow();
     expect(childrenApi.getChildren).toHaveBeenCalled();
   });
 

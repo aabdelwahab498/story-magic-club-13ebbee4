@@ -755,7 +755,8 @@
     "illustrations": "رسومات",
     "expires": "ينتهي في:",
     "payment_requests": "طلبات الدفع",
-    "no_requests_yet": "لا توجد طلبات"
+    "no_requests_yet": "لا توجد طلبات",
+    "stories_remaining": "القصص المتبقية"
   },
   "page_api_keys": {
     "sign_in_to_manage_your_api_keys": "سجّل الدخول لإدارة مفاتيح API",
@@ -794,7 +795,8 @@
     "current_plan": "خطتك الحالية",
     "start_free": "ابدأ مجاناً",
     "subscribe": "اشترك الآن",
-    "after_transferring_upload_your_proof_you": "بعد التحويل ارفع إثبات الدفع وسيتم تفعيل اشتراكك خلال 24 ساعة."
+    "after_transferring_upload_your_proof_you": "بعد التحويل ارفع إثبات الدفع وسيتم تفعيل اشتراكك خلال 24 ساعة.",
+    "manual_payment_note": "الدفع حاليًا عبر إنستاباي أو فودافون كاش أو باي أونير أو تحويل بنكي: ارفع إثبات الدفع ويُفعّل اشتراكك بعد المراجعة."
   },
   "page_story_library": {
     "e_g_a_story_about_a_brave_little_fox_who": "مثلاً: قصة عن طفلة خايفة تنام في الضلمة وتلاقي صديق نجمة..."
@@ -903,7 +905,8 @@
     "story_service_busy_title": "نجمة مشغولة قليلًا الآن",
     "connection_problem_title": "لم نتمكن من الوصول إلى نجمة",
     "story_quota_title": "وصلت إلى حد القصص",
-    "illustration_credits_title": "أرصدة الرسم غير كافية"
+    "illustration_credits_title": "أرصدة الرسم غير كافية",
+    "creating_for": "إنشاء قصة من أجل"
   },
   "admin_settings": {
     "trial_features_admin_only": "مزايا التجربة (للأدمن فقط)",
@@ -1098,5 +1101,13 @@
     "validation": "هناك تفصيل بسيط في إعدادات القصة يحتاج تعديلًا. راجعه وحاول مرة أخرى.",
     "conflict": "هذا الإجراء قيد التنفيذ بالفعل. حدّث الصفحة وحاول مرة أخرى.",
     "internal": "حدث خطأ من جانبنا. إعداداتك محفوظة — حاول مرة أخرى بعد لحظات."
+  },
+  "family": {
+    "name_required": "يرجى إدخال اسم الطفل.",
+    "added_named": "تمت إضافة {{name}} ✨ — وأصبح الطفل النشط",
+    "stories_for": "تُنشأ القصص من أجل",
+    "none_yet_hint": "أضف طفلًا بالأسفل لبدء إنشاء القصص.",
+    "pick_one_hint": "اختر طفلًا بالأسفل قبل إنشاء قصة.",
+    "change_child": "تغيير الطفل"
   }
 }

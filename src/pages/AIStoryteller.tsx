@@ -107,7 +107,7 @@ const AIStoryteller = () => {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const isAr = lang?.startsWith("ar");
-  const { active: activeChild } = useActiveChild();
+  const { active: activeChild, children: myChildren = [] } = useActiveChild();
   const { user, isAdmin } = useAuth();
   const sub = useSubscription();
   const byok = useByokStatus();
@@ -254,11 +254,10 @@ const AIStoryteller = () => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
     // ONE authoritative resolved child for the whole authenticated journey.
     // `resolveActiveChild()` validates the stored `najmah.active_child_id`
-    // against the RLS-visible child_profiles rows, deterministically falls back
-    // to the first owned child, and persists that selection. We always trust it
-    // over the (possibly still-loading) cached query result, so plan and create
-    // receive the exact same canonical child UUID.
-    const child = (await resolveActiveChild()) ?? activeChild ?? null;
+    // against the RLS-visible child_profiles rows and persists the selection.
+    // It never substitutes a different child, so plan and create receive the
+    // exact same canonical child UUID the parent picked.
+    const child = await resolveActiveChild();
     if (!child?.id) {
       throw new ComposeStoryError(
         "child_required",
@@ -993,6 +992,37 @@ const AIStoryteller = () => {
               {t("page_ai_storyteller.upgrade_plan", "Upgrade plan")}
             </Link>
           )}
+        </div>
+      )}
+
+      {/* Who the story is written for — the active child, never a guess. */}
+      {user && (
+        <div className="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold flex flex-wrap items-center justify-between gap-2">
+          {activeChild ? (
+            <span>
+              {t("page_ai_storyteller.creating_for", "Creating a story for")}{" "}
+              <span className="text-primary">{activeChild.name}</span>
+              {activeChild.age ? (
+                <span className="opacity-70"> · {activeChild.age}</span>
+              ) : null}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">
+              {myChildren.length === 0
+                ? t("family.none_yet_hint", "Add a child below to start creating stories.")
+                : t("family.pick_one_hint", "Choose a child below before creating a story.")}
+            </span>
+          )}
+          <Link
+            to="/family"
+            className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold"
+          >
+            {activeChild
+              ? t("family.change_child", "Change child")
+              : myChildren.length === 0
+                ? t("family.add_child", "Add a child")
+                : t("family.select", "Choose child")}
+          </Link>
         </div>
       )}
 

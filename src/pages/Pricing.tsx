@@ -1,10 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Check, Loader2, Crown, Sparkles, Star } from "lucide-react";
+import { Check, Loader2, Crown, Sparkles, Star, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useUpgrade } from "@/hooks/useUpgrade";
 
 import { usePlans } from "@/lib/plansApi";
 
@@ -14,16 +13,21 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { plan: currentPlanSlug } = useSubscription();
-  const { startUpgrade, isUpgrading } = useUpgrade();
 
   const q = usePlans();
 
-  const handleUpgradeClick = (planSlug: string) => {
+  /**
+   * Sends the customer to the reviewed-transfer checkout, which is the payment
+   * flow that actually works today (InstaPay / Vodafone Cash / Payoneer /
+   * bank transfer with proof upload and admin approval).
+   */
+  const handleUpgradeClick = (planTier: string) => {
+    const target = `/checkout/manual?plan=${planTier}`;
     if (!user) {
-      navigate(`/auth?redirect=/pricing`);
+      navigate(`/auth?redirect=${target}`);
       return;
     }
-    startUpgrade(planSlug);
+    navigate(target);
   };
 
   const featureLabels: Record<string, { ar: string; en: string }> = {
@@ -145,8 +149,8 @@ const Pricing = () => {
                 </ul>
 
                 <button
-                  onClick={() => handleUpgradeClick(plan.id)}
-                  disabled={isCurrent || isFree || isUpgrading}
+                  onClick={() => handleUpgradeClick(plan.slug)}
+                  disabled={isCurrent || isFree}
                   className={cn(
                     "w-full px-4 py-3 rounded-full font-bold hover-pop shadow-soft disabled:opacity-60 disabled:cursor-not-allowed",
                     isPremium
@@ -168,6 +172,17 @@ const Pricing = () => {
         })()}
       </div>
 
+      <p className="mt-8 max-w-2xl mx-auto text-center text-sm text-muted-foreground flex items-start justify-center gap-2">
+        <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+        <span>
+          {isAr
+            ? "الدفع حاليًا يتم عبر إنستاباي أو فودافون كاش أو باي أونير أو تحويل بنكي: ترفع إثبات الدفع ويُفعّل اشتراكك بعد المراجعة."
+            : t(
+                "page_pricing.manual_payment_note",
+                "Payments are handled via InstaPay, Vodafone Cash, Payoneer or bank transfer: upload your payment proof and your plan is activated after review.",
+              )}
+        </span>
+      </p>
     </div>
   );
 };

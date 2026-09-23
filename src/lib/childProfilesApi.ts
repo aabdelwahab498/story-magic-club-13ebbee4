@@ -44,8 +44,12 @@ export const useActiveChildId = (): string | null =>
 /**
  * Async resolution of the canonical selected child — used right before story
  * generation so a still-loading profile query never looks like "no child".
- * Returns the stored selection when it still belongs to the user, otherwise
- * the first owned child (and persists that choice).
+ *
+ * No silent substitution:
+ *  - stored selection still owned by the user -> use it
+ *  - exactly one owned child                  -> use it and persist
+ *  - several children, stale/no selection      -> null, so the UI asks the
+ *                                                parent to pick a child
  */
 export const resolveActiveChild = async (): Promise<ChildProfile | null> => {
   const list = await childrenApi.getChildren();
@@ -53,9 +57,13 @@ export const resolveActiveChild = async (): Promise<ChildProfile | null> => {
   if (children.length === 0) return null;
   const storedId = getActiveChildId();
   const match = children.find((c) => c.id === storedId);
-  const chosen = match ?? children[0];
-  if (!match) setActiveChildId(chosen.id);
-  return chosen;
+  if (match) return match;
+  if (children.length === 1) {
+    setActiveChildId(children[0].id);
+    return children[0];
+  }
+  if (storedId) setActiveChildId(null);
+  return null;
 };
 
 export const useChildren = (enabled = true) =>
@@ -129,6 +137,10 @@ export const useActiveChild = () => {
   // used to return HTML here and crashed the whole app.
   const children: ChildProfile[] = Array.isArray(data) ? data : [];
   const activeId = useActiveChildId();
-  const active = children.find((c) => c.id === activeId) ?? children[0] ?? null;
+  // Never display another child as "active": only an explicit selection, or
+  // the single child a parent owns.
+  const active =
+    children.find((c) => c.id === activeId) ??
+    (children.length === 1 ? children[0] : null);
   return { active, children, ...rest };
 };

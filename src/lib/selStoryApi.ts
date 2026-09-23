@@ -111,6 +111,18 @@ export function toCreateStoryRequest(input: ComposeStoryInput): CreateStoryReque
   // The backend receives customPrompt independently through preferences.
   const selGoal =
     (input.emotionalFocus ?? []).filter(Boolean).join(", ") || input.theme;
+
+  // The active child's identity is supplied by the app, never by the customer:
+  // the brief carries the protagonist directive so the parent only has to
+  // describe the story IDEA. `preferences.childName` still travels separately.
+  const name = (input.childName ?? "").trim();
+  const heroDirective =
+    name && name.toLowerCase() !== "the child"
+      ? `The main character is ${name}, a ${input.age}-year-old child. ${name} must be the protagonist from beginning to end and must not be replaced or renamed.`
+      : "";
+  const userBrief = (input.customPrompt ?? "").trim();
+  const brief = [heroDirective, userBrief].filter(Boolean).join("\n\n");
+
   return {
     childId,
     theme: input.theme,
@@ -120,7 +132,7 @@ export function toCreateStoryRequest(input: ComposeStoryInput): CreateStoryReque
       childName: input.childName,
       age: input.age,
       emotionalFocus: input.emotionalFocus ?? [],
-      ...(input.customPrompt ? { customPrompt: input.customPrompt } : {}),
+      ...(brief ? { customPrompt: brief } : {}),
       ...(input.presetBlueprint ? { presetBlueprint: input.presetBlueprint } : {}),
     },
   };

@@ -74,7 +74,7 @@ const AccountSubscription = () => {
             </p>
           </div>
           <div>
-            <p className="text-muted-foreground">{t("page_subscription.remaining", "Remaining")}</p>
+            <p className="text-muted-foreground">{t("page_subscription.stories_remaining", "Stories remaining")}</p>
             <p className="font-bold text-lg">{sub.remainingStories}</p>
           </div>
           <div>
