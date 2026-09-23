@@ -14,6 +14,7 @@ describe('AudioService', () => {
   const mockSupabaseClient = {
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
@@ -41,6 +42,7 @@ describe('AudioService', () => {
           provide: SupabaseService,
           useValue: {
             getAdminClient: jest.fn().mockReturnValue(mockSupabaseClient),
+            getUserClient: jest.fn().mockReturnValue(mockSupabaseClient),
           },
         },
         {
@@ -69,7 +71,7 @@ describe('AudioService', () => {
 
   describe('generateNarration', () => {
     it('should throw NotFoundException if story does not exist', async () => {
-      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+      mockSupabaseClient.maybeSingle.mockResolvedValue({
         data: null,
         error: null,
       });
@@ -87,8 +89,9 @@ describe('AudioService', () => {
       };
 
       mockSupabaseClient.maybeSingle
-        .mockResolvedValueOnce({ data: storyData, error: null }) // story check
-        .mockResolvedValueOnce({ data: null, error: null }); // existing media check
+        .mockResolvedValueOnce({ data: storyData, error: null }) // ai_story_history table
+        .mockResolvedValueOnce({ data: { user_id: 'u1', language: 'en' }, error: null }) // story_requests table
+        .mockResolvedValueOnce({ data: null, error: null }); // story_media check
 
       mockSupabaseClient.single.mockResolvedValueOnce({
         data: { id: 'media-1', status: 'PENDING' },
@@ -117,10 +120,9 @@ describe('AudioService', () => {
 
   describe('getNarration', () => {
     it('should return COMPLETED and url if story has audio_url', async () => {
-      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
-        data: { audio_url: 'https://test.mp3' },
-        error: null,
-      });
+      mockSupabaseClient.maybeSingle
+        .mockResolvedValueOnce({ data: { id: 'story-1', audio_url: 'https://test.mp3' }, error: null }) // ai_story_history hit
+        .mockResolvedValueOnce({ data: { user_id: 'u1', language: 'en' }, error: null }); // story_requests
 
       const result = await service.getNarration('story-1');
       expect(result).toEqual({
@@ -131,8 +133,9 @@ describe('AudioService', () => {
 
     it('should check story_media status if no audio_url exists', async () => {
       mockSupabaseClient.maybeSingle
-        .mockResolvedValueOnce({ data: { audio_url: null }, error: null }) // story
-        .mockResolvedValueOnce({ data: { status: 'PROCESSING' }, error: null }); // media status
+        .mockResolvedValueOnce({ data: { id: 'story-1', audio_url: null, pages: [] }, error: null }) // ai_story_history
+        .mockResolvedValueOnce({ data: { user_id: 'u1', language: 'en' }, error: null }) // story_requests
+        .mockResolvedValueOnce({ data: { status: 'PROCESSING' }, error: null }); // story_media status
 
       const result = await service.getNarration('story-1');
       expect(result).toEqual({
@@ -164,7 +167,7 @@ describe('AudioService', () => {
         data: { audioContent: 'base64audio' },
         error: null,
       });
-      jest.spyOn(supabaseService, 'getAdminClient').mockReturnValue({
+      jest.spyOn(supabaseService, 'getUserClient').mockReturnValue({
         functions: { invoke: mockInvoke },
       } as any);
 
@@ -172,6 +175,7 @@ describe('AudioService', () => {
 
       expect(mockInvoke).toHaveBeenCalledWith('narrate-story', {
         body: { text: 'hello', language: 'en', character: 'narrator' },
+        headers: {},
       });
       expect(result).toEqual({ audioContent: 'base64audio' });
     });

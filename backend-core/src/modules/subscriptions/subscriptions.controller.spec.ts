@@ -29,7 +29,7 @@ describe('SubscriptionsController', () => {
 
   describe('getSubscription', () => {
     it('should return subscription details', async () => {
-      const mockSub = { plan: 'PREMIUM', status: 'ACTIVE', features: [] };
+      const mockSub = { plan: 'PREMIUM', status: 'ACTIVE', features: [], limits: {} };
       jest.spyOn(service, 'getUserSubscription').mockResolvedValue(mockSub);
 
       const result = await controller.getSubscription({ id: 'user-1' } as any);
@@ -43,6 +43,7 @@ describe('SubscriptionsController', () => {
         plan: 'FREE',
         status: 'ACTIVE',
         features: ['STORY_GENERATION', 'ILLUSTRATION_GENERATION'],
+        limits: {},
       };
       jest.spyOn(service, 'getUserSubscription').mockResolvedValue(mockSub);
 

@@ -92,21 +92,29 @@ describe('MediaController', () => {
       );
       expect(service.createIllustrationJob).toHaveBeenCalledWith(
         'story-1',
-        'user-1',
+        mockUser,
       );
       expect(result).toEqual({ storyId: 'story-1', status: 'GENERATING' });
     });
   });
 
   describe('getIllustrationsForStory', () => {
-    it('should return mapped illustrations', async () => {
-      const mockResult = [
-        { pageNumber: 1, imageUrl: 'http://img.com', status: 'COMPLETED' },
-      ];
-      jest.spyOn(service, 'getIllustrations').mockResolvedValue(mockResult);
+    it('should return mapped illustrations for authenticated owner', async () => {
+      const mockResult = {
+        storyId: 'story-1',
+        jobStatus: 'COMPLETED',
+        totalPages: 1,
+        completedPages: 1,
+        failedPages: 0,
+        illustrations: [
+          { pageNumber: 1, imageUrl: 'http://img.com', status: 'COMPLETED' },
+        ],
+      };
+      jest.spyOn(service, 'getIllustrations').mockResolvedValue(mockResult as any);
 
-      const result = await controller.getIllustrationsForStory('story-1');
-      expect(service.getIllustrations).toHaveBeenCalledWith('story-1');
+      const mockUser = { id: 'user-1' } as any;
+      const result = await controller.getIllustrationsForStory('story-1', mockUser);
+      expect(service.getIllustrations).toHaveBeenCalledWith('story-1', 'user-1');
       expect(result).toEqual(mockResult);
     });
   });

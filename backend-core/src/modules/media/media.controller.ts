@@ -1,15 +1,13 @@
-import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body } from '@nestjs/common';
 import { MediaService } from './media.service.js';
 import { CreateMediaDto } from './dto/create-media.dto.js';
 import { CharacterBibleService } from './character/character.service.js';
 import { CharacterBible } from './character/character.types.js';
-import { AuthGuard } from '../../auth/auth.guard.js';
 import { CurrentUser } from '../rbac/decorators/current-user.decorator.js';
 import type { UserContext } from '../rbac/interfaces/user-context.interface.js';
 import { IllustratedStoryExportService } from './export/illustrated-story-export.service.js';
 
-@Controller('api/v2/media')
-@UseGuards(AuthGuard)
+@Controller('media')
 export class MediaController {
   constructor(
     private readonly mediaService: MediaService,
@@ -36,12 +34,15 @@ export class MediaController {
     @Param('id') storyId: string,
     @CurrentUser() user: UserContext,
   ) {
-    return this.mediaService.createIllustrationJob(storyId, user.id);
+    return this.mediaService.createIllustrationJob(storyId, user);
   }
 
   @Post('stories/:id/illustrations/retry')
-  async retryIllustrationJob(@Param('id') storyId: string) {
-    return this.mediaService.retryIllustrationJob(storyId);
+  async retryIllustrationJob(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return this.mediaService.retryIllustrationJob(storyId, user);
   }
 
   @Post('stories/:id/illustrations/:pageNumber/regenerate')
@@ -54,13 +55,16 @@ export class MediaController {
     return this.mediaService.regeneratePageIllustration(
       storyId,
       pageNumber,
-      user.id,
+      user,
     );
   }
 
   @Get('stories/:id/illustrations')
-  async getIllustrationsForStory(@Param('id') storyId: string) {
-    return this.mediaService.getIllustrations(storyId);
+  async getIllustrationsForStory(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return this.mediaService.getIllustrations(storyId, user.id);
   }
 
   @Get('media/:id/status')
@@ -88,27 +92,64 @@ export class MediaController {
     return { id, message: 'Not implemented yet' };
   }
 
-  @Post('stories/:id/export/pdf')
   @Get('stories/:id/export/pdf')
-  async exportIllustratedStory(
+  async getExportIllustratedStory(
     @Param('id') storyId: string,
     @CurrentUser() user: UserContext,
   ) {
     return await this.exportService.exportStoryPdf(storyId, user.id);
   }
 
-  @Post('stories/:id/export/audio')
+  @Post('stories/:id/export/pdf')
+  async postExportIllustratedStory(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return await this.exportService.exportStoryPdf(storyId, user.id);
+  }
+
+  @Get('stories/:id/export/txt')
+  async getExportStoryTxt(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return await this.exportService.exportStoryTxt(storyId, user.id);
+  }
+
+  @Post('stories/:id/export/txt')
+  async postExportStoryTxt(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return await this.exportService.exportStoryTxt(storyId, user.id);
+  }
+
   @Get('stories/:id/export/audio')
-  async exportStoryAudio(
+  async getExportStoryAudio(
     @Param('id') storyId: string,
     @CurrentUser() user: UserContext,
   ) {
     return await this.exportService.exportStoryAudio(storyId, user.id);
   }
 
-  @Post('stories/:id/export/zip')
+  @Post('stories/:id/export/audio')
+  async postExportStoryAudio(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return await this.exportService.exportStoryAudio(storyId, user.id);
+  }
+
   @Get('stories/:id/export/zip')
-  async exportStoryZip(
+  async getExportStoryZip(
+    @Param('id') storyId: string,
+    @CurrentUser() user: UserContext,
+  ) {
+    return await this.exportService.exportStoryZip(storyId, user.id);
+  }
+
+  @Post('stories/:id/export/zip')
+  async postExportStoryZip(
     @Param('id') storyId: string,
     @CurrentUser() user: UserContext,
   ) {

@@ -19,7 +19,9 @@ describe('IllustrationService', () => {
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
     single: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
   };
 
@@ -42,6 +44,7 @@ describe('IllustrationService', () => {
           provide: SupabaseService,
           useValue: {
             getAdminClient: jest.fn().mockReturnValue(mockSupabaseClient),
+            getUserClient: jest.fn().mockReturnValue(mockSupabaseClient),
           },
         },
         {
@@ -75,7 +78,7 @@ describe('IllustrationService', () => {
   });
 
   it('should generate an illustration and update DB', async () => {
-    mockSupabaseClient.single.mockResolvedValueOnce({
+    mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
       data: { pages: ['page 1 text'] },
       error: null,
     });
@@ -100,7 +103,7 @@ describe('IllustrationService', () => {
       metadata: {},
     });
 
-    mockSupabaseClient.single.mockResolvedValueOnce({
+    mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
       data: { pages: ['page 1 text'] },
       error: null,
     });
@@ -128,7 +131,7 @@ describe('IllustrationService', () => {
       new Error('Provider failure'),
     );
 
-    mockSupabaseClient.single.mockResolvedValueOnce({
+    mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
       data: { pages: ['page 1 text'] },
       error: null,
     });

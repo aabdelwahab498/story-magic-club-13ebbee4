@@ -25,8 +25,8 @@ export class AdminService {
     ] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
-      supabase.from('user_subscriptions').select('*', { count: 'exact', head: true }).eq('plan_id', 'free'), // Assuming 'free' is the slug/ID
-      supabase.from('user_subscriptions').select('*', { count: 'exact', head: true }).neq('plan_id', 'free').eq('status', 'ACTIVE'),
+      supabase.from('user_subscriptions').select('*', { count: 'exact', head: true }).eq('plan_tier', 'free'),
+      supabase.from('user_subscriptions').select('*', { count: 'exact', head: true }).neq('plan_tier', 'free').ilike('status', 'active'),
       supabase.from('payment_transactions').select('amount').eq('status', 'SUCCESS').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
       supabase.from('usage_events').select('*', { count: 'exact', head: true }).eq('feature_slug', 'story_generation'),
       supabase.from('usage_events').select('*', { count: 'exact', head: true }).eq('feature_slug', 'illustration_generation'),
@@ -63,7 +63,12 @@ export class AdminService {
   async getUsersAnalytics() {
     const supabase = this.supabaseService.getAdminClient();
     
-    // Simplistic fetch. For production you'd paginate.
+    const isProduction = process.env.NODE_ENV === 'production';
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    if (!isProduction && supabaseUrl.includes('example.supabase.co')) {
+      return { total: 0, users: [] };
+    }
+
     const { data: users, error } = await supabase
       .from('profiles')
       .select('id, full_name, email, created_at, role');

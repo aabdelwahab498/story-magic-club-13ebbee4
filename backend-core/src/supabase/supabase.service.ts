@@ -2,26 +2,28 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 
+import { RequestContext } from '../common/middleware/request-context.js';
+
 /**
  * Core Supabase integration service.
  *
- * Provides two clients:
- * - `getClient()` — anon-key client for end-user authenticated operations.
- * - `getAdminClient()` — service-role client for privileged server-side operations.
- *   NEVER expose the admin client to any public-facing route.
+ * Provides clients:
+ * - `getClient()` — anon-key client for unauthenticated/general operations.
+ * - `getUserClient(jwt?)` — client configured with caller JWT for user-scoped RLS operations.
+ * - `getAdminClient()` — service-role client for privileged server-side operations (optional).
  */
 @Injectable()
 export class SupabaseService implements OnModuleInit {
   private readonly logger = new Logger(SupabaseService.name);
   private client!: SupabaseClient;
-  private adminClient!: SupabaseClient;
+  private adminClient?: SupabaseClient;
 
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
     const url = this.configService.getOrThrow<string>('SUPABASE_URL');
     const anonKey = this.configService.getOrThrow<string>('SUPABASE_ANON_KEY');
-    const serviceRoleKey = this.configService.getOrThrow<string>(
+    const serviceRoleKey = this.configService.get<string>(
       'SUPABASE_SERVICE_ROLE_KEY',
     );
 
@@ -29,11 +31,14 @@ export class SupabaseService implements OnModuleInit {
       auth: { persistSession: false },
     });
 
-    this.adminClient = createClient(url, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
+    if (serviceRoleKey) {
+      this.adminClient = createClient(url, serviceRoleKey, {
+        auth: { persistSession: false },
+      });
+      this.logger.log('Supabase service-role client initialized');
+    }
 
-    this.logger.log('Supabase clients initialized');
+    this.logger.log('Supabase anon client initialized');
   }
 
   /** Returns the anon-key Supabase client. */
@@ -41,12 +46,45 @@ export class SupabaseService implements OnModuleInit {
     return this.client;
   }
 
+  /** Checks whether a service-role client is available. */
+  hasAdminClient(): boolean {
+    return Boolean(this.adminClient);
+  }
+
   /**
    * Returns the service-role Supabase admin client.
-   * @warning Must only be used in server-side, non-public contexts.
+   * Throws an explicit configuration error if SUPABASE_SERVICE_ROLE_KEY is absent.
    */
   getAdminClient(): SupabaseClient {
+    if (!this.adminClient) {
+      throw new Error(
+        'SUPABASE_SERVICE_ROLE_KEY is not configured in this environment.',
+      );
+    }
     return this.adminClient;
+  }
+
+  /**
+   * Returns a Supabase client scoped to a user JWT (for RLS enforcement).
+   * Uses caller JWT from parameter or RequestContext.authToken.
+   */
+  getUserClient(userJwt?: string): SupabaseClient {
+    const token = userJwt || RequestContext.authToken;
+    if (!token) {
+      return this.client;
+    }
+
+    const url = this.configService.getOrThrow<string>('SUPABASE_URL');
+    const anonKey = this.configService.getOrThrow<string>('SUPABASE_ANON_KEY');
+
+    return createClient(url, anonKey, {
+      auth: { persistSession: false },
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
   }
 
   /**
@@ -70,10 +108,29 @@ export class SupabaseService implements OnModuleInit {
         }
 
         // Audience check
-        const expectedAud = this.configService.get<string>('JWT_AUDIENCE') || 'authenticated';
-        if (payload.aud && payload.aud !== expectedAud) {
-          this.logger.warn(`Token verification failed: invalid audience. Expected ${expectedAud}, got ${payload.aud}`);
-          return null;
+        const expectedAud =
+          this.configService.get<string>('JWT_AUDIENCE') || 'authenticated';
+        if (payload.aud !== undefined && payload.aud !== null) {
+          if (typeof payload.aud === 'string') {
+            if (payload.aud !== expectedAud) {
+              this.logger.warn(
+                `Token verification failed: invalid audience. Expected ${expectedAud}, got ${payload.aud}`,
+              );
+              return null;
+            }
+          } else if (Array.isArray(payload.aud)) {
+            if (!payload.aud.includes(expectedAud)) {
+              this.logger.warn(
+                `Token verification failed: invalid audience. Expected ${expectedAud}, got ${JSON.stringify(payload.aud)}`,
+              );
+              return null;
+            }
+          } else {
+            this.logger.warn(
+              `Token verification failed: invalid audience type. Expected string or array, got ${typeof payload.aud}`,
+            );
+            return null;
+          }
         }
 
         // Issuer check

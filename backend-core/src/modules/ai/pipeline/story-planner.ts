@@ -31,11 +31,12 @@ export class StoryPlanner {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    storyContext?: any,
   ): Promise<StoryPlan> {
     this.logger.log(`Building story context`);
 
-    // 1. Build unified context
-    const context = this.contextBuilder.build(
+    // 1. Build unified context or reuse supplied full context
+    const context = storyContext || this.contextBuilder.build(
       childAge,
       language,
       theme,
@@ -53,6 +54,9 @@ export class StoryPlanner {
       rawResponse = await this.llmProvider.generateBlueprint(prompt);
     } catch (error) {
       this.logger.error('Provider failed during blueprint generation', error);
+      if (error instanceof AIProviderException) {
+        throw error;
+      }
       throw new AIProviderException('Failed to generate blueprint', error);
     }
 

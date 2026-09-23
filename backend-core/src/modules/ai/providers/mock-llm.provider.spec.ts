@@ -22,8 +22,8 @@ describe('MockLLMProvider', () => {
       userPrompt: 'User',
     });
     const parsed = JSON.parse(rawResponse);
-    expect(parsed.title).toBe('The Brave Little Lion');
-    expect(parsed.characters[0].name).toBe('Leo');
+    expect(parsed.title).toBe("Hero's Magical Discovery");
+    expect(parsed.characters[0].name).toBe('Hero');
   });
 
   it('should fail if FAIL_PROVIDER is in prompt', async () => {
@@ -57,7 +57,7 @@ describe('MockLLMProvider', () => {
       userPrompt: 'User',
     });
     const parsed = JSON.parse(rawResponse);
-    expect(parsed.title).toBe('Mock Generated Story');
+    expect(parsed.title).toBe("Hero's Magical Discovery");
     expect(parsed.pages.length).toBe(2);
   });
 

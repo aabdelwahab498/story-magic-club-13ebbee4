@@ -45,6 +45,7 @@ export const storiesApi = {
     return apiClient<StoryResponseDto>('/stories', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 90000, // 90 second timeout for story creation job submission
     });
   },
 

@@ -4,6 +4,7 @@ import { MockLLMProvider } from './providers/mock-llm.provider.js';
 import { LLM_PROVIDER } from './interfaces/llm-provider.interface.js';
 import { StoriesModule } from '../stories/stories.module.js';
 import { ChildrenModule } from '../children/children.module.js';
+import { MediaModule } from '../media/media.module.js';
 import { StoryContextBuilder } from './context/story-context.builder.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PromptBuilder } from './prompts/prompt.builder.js';
@@ -20,9 +21,16 @@ import { NestJSAIGateway } from './gateway/nestjs-ai.gateway.js';
 import { PythonAIGateway } from './gateway/python-ai.gateway.js';
 import { GeminiParser } from './providers/gemini/gemini.parser.js';
 import { StoryGenerationOrchestrator } from './orchestrator/story-generation.orchestrator.js';
+import { StoryDirectorService } from './director/story-director.service.js';
+import { StoryGuardianService } from './director/story-guardian.service.js';
 
 @Module({
-  imports: [forwardRef(() => StoriesModule), ChildrenModule, ConfigModule],
+  imports: [
+    forwardRef(() => StoriesModule),
+    ChildrenModule,
+    ConfigModule,
+    forwardRef(() => MediaModule),
+  ],
   providers: [
     StoryContextBuilder,
     PromptBuilder,
@@ -33,6 +41,8 @@ import { StoryGenerationOrchestrator } from './orchestrator/story-generation.orc
     AgeRule,
     SelRule,
     SafetyRule,
+    StoryDirectorService,
+    StoryGuardianService,
     GeminiParser,
     GeminiProvider,
     MockLLMProvider,
@@ -59,10 +69,25 @@ import { StoryGenerationOrchestrator } from './orchestrator/story-generation.orc
         geminiProvider: GeminiProvider,
         mockProvider: MockLLMProvider,
       ) => {
-        const useMock =
-          configService.get<string>('USE_MOCK_LLM') === 'true' ||
-          configService.get<string>('NODE_ENV') === 'test';
-        return useMock ? mockProvider : geminiProvider;
+        const nodeEnv = configService.get<string>('NODE_ENV');
+        const useMock = configService.get<string>('USE_MOCK_LLM') === 'true';
+
+        if (nodeEnv === 'production') {
+          if (useMock) {
+            throw new Error(
+              'USE_MOCK_LLM=true is strictly forbidden in production (NODE_ENV=production).',
+            );
+          }
+          const apiKey = configService.get<string>('GEMINI_API_KEY');
+          if (!apiKey) {
+            throw new Error(
+              'GEMINI_API_KEY is missing in production environment.',
+            );
+          }
+          return geminiProvider;
+        }
+
+        return useMock || nodeEnv === 'test' ? mockProvider : geminiProvider;
       },
     },
   ],
@@ -70,7 +95,10 @@ import { StoryGenerationOrchestrator } from './orchestrator/story-generation.orc
     StoryPlanner,
     StoryWriter,
     StoryValidator,
+    StoryDirectorService,
+    StoryGuardianService,
     StoryGenerationOrchestrator,
+    AI_GATEWAY,
   ],
 })
 export class AIModule {}

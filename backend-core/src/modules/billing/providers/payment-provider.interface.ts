@@ -1,13 +1,33 @@
 export interface CheckoutResult {
   checkoutUrl: string;
   sessionId: string;
+  priceId?: string;
+  customData?: Record<string, any>;
+}
+
+export interface WebhookVerificationResult {
+  isValid: boolean;
+  eventId?: string;
+  eventType?: string;
+  occurredAt?: string;
+  data?: any;
+  error?: string;
 }
 
 export interface PaymentProvider {
   /**
-   * Create a checkout session for a specific plan.
+   * Unique name of the payment provider (e.g., 'paddle', 'mock')
    */
-  createCheckout(userId: string, planId: string): Promise<CheckoutResult>;
+  readonly name: string;
+
+  /**
+   * Create a checkout session or metadata for a specific plan.
+   */
+  createCheckout(
+    userId: string,
+    planId: string,
+    planPriceId?: string,
+  ): Promise<CheckoutResult>;
 
   /**
    * Verify an existing payment by transaction ID.
@@ -15,8 +35,15 @@ export interface PaymentProvider {
   verifyPayment(transactionId: string): Promise<boolean>;
 
   /**
-   * Process a webhook payload from the provider.
-   * Return true if the webhook was handled successfully and indicates a successful payment.
+   * Cryptographically verify and parse a webhook payload from the provider.
    */
-  handleWebhook(payload: any): Promise<boolean>;
+  verifyWebhook(
+    rawBody: Buffer | string,
+    headers: Record<string, any>,
+  ): Promise<WebhookVerificationResult>;
+
+  /**
+   * Cancel an active subscription at the provider.
+   */
+  cancelSubscription(subscriptionId: string): Promise<boolean>;
 }

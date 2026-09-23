@@ -16,7 +16,9 @@ describe('MediaService', () => {
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
     single: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
@@ -46,18 +48,23 @@ describe('MediaService', () => {
           provide: SupabaseService,
           useValue: {
             getAdminClient: jest.fn().mockReturnValue(mockSupabaseClient),
+            getUserClient: jest.fn().mockReturnValue(mockSupabaseClient),
           },
         },
         {
           provide: MediaGateway,
           useValue: {
-            generateMedia: jest.fn(),
+            generateMedia: jest
+              .fn()
+              .mockResolvedValue('http://test.com/media.png'),
           },
         },
         {
           provide: IllustrationService,
           useValue: {
-            generateIllustrations: jest.fn(),
+            generateIllustrations: jest
+              .fn()
+              .mockResolvedValue('http://test.com/illustration.png'),
           },
         },
         { provide: CreditsService, useValue: mockCreditsService },
@@ -81,7 +88,7 @@ describe('MediaService', () => {
 
   describe('createMediaRequest', () => {
     it('should throw NotFoundException if story does not exist', async () => {
-      mockSupabaseClient.single.mockResolvedValueOnce({
+      mockSupabaseClient.maybeSingle.mockResolvedValue({
         data: null,
         error: { message: 'Not found' },
       });
@@ -91,9 +98,14 @@ describe('MediaService', () => {
     });
 
     it('should insert a pending record and return mediaId', async () => {
-      mockSupabaseClient.single
-        .mockResolvedValueOnce({ data: { id: 'story-1' }, error: null }) // select story
-        .mockResolvedValueOnce({ data: { id: 'media-1' }, error: null }); // insert media
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1' },
+        error: null,
+      });
+      mockSupabaseClient.single.mockResolvedValueOnce({
+        data: { id: 'media-1' },
+        error: null,
+      });
 
       // Mock processMediaGeneration as it's async fire-and-forget
       jest
@@ -128,19 +140,24 @@ describe('MediaService', () => {
 
   describe('createIllustrationJob', () => {
     it('should throw NotFoundException if story does not exist', async () => {
-      mockSupabaseClient.single.mockResolvedValueOnce({
+      mockSupabaseClient.maybeSingle.mockResolvedValue({
         data: null,
         error: { message: 'Not found' },
       });
-      await expect(service.createIllustrationJob('invalid-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.createIllustrationJob('invalid-id', 'user-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should insert a pending illustration record and return status', async () => {
-      mockSupabaseClient.single
-        .mockResolvedValueOnce({ data: { id: 'story-1' }, error: null }) // select story
-        .mockResolvedValueOnce({ data: { id: 'media-1' }, error: null }); // insert media
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1', user_id: 'user-1' },
+        error: null,
+      });
+      mockSupabaseClient.single.mockResolvedValueOnce({
+        data: { id: 'media-1' },
+        error: null,
+      });
 
       jest
         .spyOn(service as any, 'processMediaGeneration')
@@ -150,13 +167,167 @@ describe('MediaService', () => {
 
       expect(result).toEqual({ storyId: 'story-1', status: 'GENERATING' });
       expect(mockSupabaseClient.insert).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'ILLUSTRATION' }),
+        expect.objectContaining({
+          type: 'ILLUSTRATION',
+          provider: 'google',
+        }),
       );
+      expect(mockCreditsService.consumeCredits).toHaveBeenCalled();
+    });
+
+    it('should allow admin user on free plan with 0 credits without deducting credits', async () => {
+      const adminUser: any = {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        role: 'admin',
+        roles: ['admin'],
+        permissions: [],
+      };
+
+      // Mock subscription feature access to return false (free plan)
+      mockSubscriptionsService.canAccessFeature.mockResolvedValueOnce({
+        allowed: false,
+      });
+      mockSubscriptionsService.checkLimit.mockResolvedValueOnce({
+        allowed: false,
+        current: 20,
+        limit: 20,
+      });
+      mockCreditsService.getBalance.mockResolvedValueOnce({ balance: 0 });
+
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1', user_id: 'admin-1' },
+        error: null,
+      });
+      mockSupabaseClient.single.mockResolvedValueOnce({
+        data: { id: 'media-1' },
+        error: null,
+      });
+
+      jest
+        .spyOn(service as any, 'processMediaGeneration')
+        .mockImplementation(async () => {});
+
+      const result = await service.createIllustrationJob('story-1', adminUser);
+
+      expect(result).toEqual({ storyId: 'story-1', status: 'GENERATING' });
+      // Credits should NOT be consumed for admin
+      expect(mockCreditsService.consumeCredits).not.toHaveBeenCalled();
+      // Usage tracking still happens
+      expect(mockUsageService.trackUsage).toHaveBeenCalled();
+    });
+
+    it('should block non-admin user when feature is disabled for plan', async () => {
+      const nonAdminUser: any = {
+        id: 'user-normal',
+        email: 'user@example.com',
+        role: 'user',
+        roles: ['user'],
+        permissions: [],
+      };
+
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1', user_id: 'user-normal' },
+        error: null,
+      });
+
+      mockSubscriptionsService.canAccessFeature.mockResolvedValueOnce({
+        allowed: false,
+      });
+
+      await expect(
+        service.createIllustrationJob('story-1', nonAdminUser),
+      ).rejects.toThrow(
+        'Feature ILLUSTRATION_GENERATION is not enabled for your plan.',
+      );
+    });
+
+    it('should block non-admin user when zero credits remaining', async () => {
+      const nonAdminUser: any = {
+        id: 'user-normal',
+        email: 'user@example.com',
+        role: 'user',
+        roles: ['user'],
+        permissions: [],
+      };
+
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1', user_id: 'user-normal' },
+        error: null,
+      });
+
+      mockSubscriptionsService.canAccessFeature.mockReset();
+      mockSubscriptionsService.canAccessFeature.mockResolvedValue({
+        allowed: true,
+      });
+      mockSubscriptionsService.checkLimit.mockReset();
+      mockSubscriptionsService.checkLimit.mockResolvedValue({
+        allowed: true,
+        current: 0,
+        limit: 20,
+      });
+      mockCreditsService.getBalance.mockResolvedValueOnce({ balance: 0 });
+
+      await expect(
+        service.createIllustrationJob('story-1', nonAdminUser),
+      ).rejects.toThrow('Insufficient illustration credits');
+    });
+
+    it('should return existing job status without inserting duplicate row when job is already PENDING/PROCESSING/COMPLETED', async () => {
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1', user_id: 'user-1' },
+        error: null,
+      });
+
+      jest.spyOn(service, 'getMediaForStory').mockResolvedValueOnce([
+        {
+          id: 'media-existing',
+          type: 'ILLUSTRATION',
+          status: 'PROCESSING',
+          provider: 'google',
+          created_at: '',
+          metadata: {},
+        },
+      ]);
+
+      const result = await service.createIllustrationJob('story-1', 'user-1');
+
+      expect(result).toEqual({ storyId: 'story-1', status: 'GENERATING' });
+      expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      expect(mockCreditsService.consumeCredits).not.toHaveBeenCalled();
+    });
+
+    it('should still enforce story ownership check for admin user', async () => {
+      const adminUser: any = {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        role: 'admin',
+        roles: ['admin'],
+        permissions: [],
+      };
+
+      // Story belongs to user-other
+      mockSupabaseClient.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'story-1', user_id: 'user-other' },
+        error: null,
+      });
+
+      await expect(
+        service.createIllustrationJob('story-1', adminUser),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('getIllustrations', () => {
-    it('should map illustration records correctly', async () => {
+    it('should throw NotFoundException if story is not found or owned by another user', async () => {
+      mockSupabaseClient.maybeSingle.mockResolvedValue({ data: null, error: null });
+
+      await expect(service.getIllustrations('story-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should map illustration records correctly with storyId and status metrics', async () => {
       jest.spyOn(service, 'getMediaForStory').mockResolvedValueOnce([
         {
           id: '1',
@@ -165,26 +336,43 @@ describe('MediaService', () => {
           url: 'http://img.com',
           provider: 'google',
           created_at: '',
-          metadata: { illustration: { pageNumber: 1 } },
-        },
-        {
-          id: '2',
-          type: 'AUDIO',
-          status: 'COMPLETED',
-          url: 'http://audio.com',
-          provider: 'mock',
-          created_at: '',
-          metadata: {},
+          metadata: {
+            totalPages: 1,
+            completedPages: 1,
+            failedPages: 0,
+            pages: [{ pageNumber: 1, imageUrl: 'http://img.com', status: 'COMPLETED' }],
+          },
         },
       ]);
 
       const result = await service.getIllustrations('story-1');
-      expect(result.jobStatus).toBe('COMPLETED');
-      expect(result.illustrations).toHaveLength(1);
-      expect(result.illustrations[0]).toEqual({
-        pageNumber: 1,
-        imageUrl: 'http://img.com',
-        status: 'COMPLETED',
+      expect(result).toEqual({
+        storyId: 'story-1',
+        jobStatus: 'COMPLETED',
+        totalPages: 1,
+        completedPages: 1,
+        failedPages: 0,
+        illustrations: [
+          {
+            pageNumber: 1,
+            imageUrl: 'http://img.com',
+            status: 'COMPLETED',
+          },
+        ],
+      });
+    });
+
+    it('should return NONE status if no illustration job exists for story', async () => {
+      jest.spyOn(service, 'getMediaForStory').mockResolvedValueOnce([]);
+
+      const result = await service.getIllustrations('story-1');
+      expect(result).toEqual({
+        storyId: 'story-1',
+        jobStatus: 'NONE',
+        totalPages: 0,
+        completedPages: 0,
+        failedPages: 0,
+        illustrations: [],
       });
     });
   });

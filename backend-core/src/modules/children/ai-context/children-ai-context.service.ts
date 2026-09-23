@@ -34,7 +34,7 @@ export class ChildrenAIContextService {
     childId: string,
   ): Promise<ChildAIContext> {
     const { data: profile, error } = await this.supabase
-      .getClient()
+      .getUserClient()
       .from('child_profiles')
       .select('age, preferred_language, reading_level')
       .eq('id', childId)
@@ -51,7 +51,7 @@ export class ChildrenAIContextService {
     );
 
     const { data: progress } = await this.supabase
-      .getClient()
+      .getUserClient()
       .from('child_learning_progress')
       .select('previous_level, new_level, reason, created_at')
       .eq('child_id', childId)

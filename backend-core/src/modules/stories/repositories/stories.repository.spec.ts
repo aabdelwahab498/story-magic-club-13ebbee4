@@ -10,14 +10,15 @@ import { StoryStatus } from '../enums/story-status.enum.js';
 describe('StoriesRepository', () => {
   let repository: StoriesRepository;
 
-  const mockSupabaseClient = {
+  const mockSupabaseClient: any = {
     from: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
+    upsert: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
-    single: jest.fn(),
+    single: jest.fn().mockResolvedValue({ data: null, error: true }),
   };
 
   beforeEach(async () => {
@@ -28,6 +29,7 @@ describe('StoriesRepository', () => {
           provide: SupabaseService,
           useValue: {
             getClient: jest.fn().mockReturnValue(mockSupabaseClient),
+            getUserClient: jest.fn().mockReturnValue(mockSupabaseClient),
           },
         },
       ],
@@ -113,5 +115,52 @@ describe('StoriesRepository', () => {
     mockSupabaseClient.delete.mockReturnValueOnce(mockChain);
     const result = await repository.delete('u1', '1');
     expect(result).toBe(true);
+  });
+
+  describe('canonical backend compatibility', () => {
+    it('saveGeneratedStory writes exclusively to ai_story_history and NEVER to stories table', async () => {
+      mockSupabaseClient.upsert = jest.fn().mockResolvedValue({ error: null });
+
+      await repository.saveGeneratedStory('u1', 'req-100', {
+        title: 'User Generated Story',
+        pages: [{ pageNumber: 1, text: 'Hello' }],
+        metadata: { theme: 'space', selGoal: 'space' },
+      });
+
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('ai_story_history');
+      expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('stories');
+      expect(mockSupabaseClient.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'req-100',
+          user_id: 'u1',
+          title: 'User Generated Story',
+        }),
+      );
+    });
+
+    it('getFullStory resolves content from ai_story_history without touching obaf.stories catalog', async () => {
+      mockSupabaseClient.single
+        .mockResolvedValueOnce({
+          data: { id: 'req-100', user_id: 'u1', status: StoryStatus.GENERATED },
+          error: null,
+        }) // findById from story_requests
+        .mockResolvedValueOnce({
+          data: {
+            id: 'req-100',
+            user_id: 'u1',
+            title: 'My Generated Story',
+            pages: [{ pageNumber: 1, text: 'Page text' }],
+          },
+          error: null,
+        }); // ai_story_history content fetch
+
+      const result = await repository.getFullStory('u1', 'req-100');
+
+      expect(result.metadata.id).toBe('req-100');
+      expect(result.content.title).toBe('My Generated Story');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('story_requests');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('ai_story_history');
+      expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('stories');
+    });
   });
 });

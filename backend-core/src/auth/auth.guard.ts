@@ -74,8 +74,9 @@ export class AuthGuard implements CanActivate {
       user.email ?? '',
     );
 
-    // Set user ID in request context
+    // Set user ID and authToken in request context
     RequestContext.userId = user.id;
+    RequestContext.authToken = token;
 
     // Attach the UserContext to the request for downstream use
     (request as Request & { user: UserContext }).user = userContext;

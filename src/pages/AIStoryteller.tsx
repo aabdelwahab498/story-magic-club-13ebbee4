@@ -37,6 +37,9 @@ import {
 } from "@/lib/trialStoryApi";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
 import StoryExportBar from "@/components/story/StoryExportBar";
+import { normalizeApiError, sanitizeClientSecrets } from "@/api/errors";
+import { LocalizedErrorBoundary } from "@/components/LocalizedErrorBoundary";
+import { normalizeStoryPlan } from "@/lib/storyPlanNormalizer";
 
 
 
@@ -102,7 +105,16 @@ const AIStoryteller = () => {
   const lang = i18n.language;
   const isAr = lang?.startsWith("ar");
   const { active: activeChild } = useActiveChild();
-  const { user, isAdmin } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user;
+  const isAdmin = auth?.isAdmin ?? false;
+  const hasRole = auth?.hasRole;
+  const roles = auth?.roles ?? [];
+  const isAdminUser = Boolean(
+    isAdmin ||
+    (typeof hasRole === "function" && (hasRole("admin") || hasRole("super_admin" as any))) ||
+    (Array.isArray(roles) && (roles.includes("admin" as any) || roles.includes("super_admin" as any)))
+  );
   const sub = useSubscription();
   const byok = useByokStatus();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -150,8 +162,11 @@ const AIStoryteller = () => {
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   type GenStep = "idle" | "planning" | "writing" | "evaluating" | "saving" | "done";
   const [genStep, setGenStep] = useState<GenStep>("idle");
+  const [loadingMessage, setLoadingMessage] = useState<string>("Creating your story plan…");
   const stepTimersRef = useRef<number[]>([]);
   const lastModeRef = useRef<"sel" | "classic" | null>(null);
+  const isPlanInFlightRef = useRef(false);
+  const isCreateInFlightRef = useRef(false);
   const [planPreview, setPlanPreview] = useState<SelPlanResponse["blueprint"] | null>(null);
   const [planning, setPlanning] = useState(false);
   const [lastSelInput, setLastSelInput] = useState<ComposeStoryInput | null>(null);
@@ -161,8 +176,6 @@ const AIStoryteller = () => {
   const { mutateAsync: createStoryMut } = useCreateStory();
   const { data: storyStatus, isError: statusIsError, error: statusError } = useStoryStatus(activeStoryId);
   const { data: fullStory } = useFullStory(activeStoryId, storyStatus?.status === 'COMPLETED');
-
-
 
   // ---- Guest trial state: keep the raw payload so we can render images + PDF ----
   const [guestTrial, setGuestTrial] = useState<TrialStoryResponse | null>(null);
@@ -201,14 +214,19 @@ const AIStoryteller = () => {
     }
   };
 
-
   // Drive the visual progress bar with timed step transitions while the
   // edge function runs server-side (it is not streamable). Cleared on result.
   const startProgressTimeline = () => {
     stepTimersRef.current.forEach((id) => window.clearTimeout(id));
     stepTimersRef.current = [];
     setGenStep("planning");
+    setLoadingMessage(t("page_ai_storyteller.planning_your_story", "Creating your story plan…"));
     stepTimersRef.current.push(window.setTimeout(() => setGenStep("writing"), 3000));
+    stepTimersRef.current.push(
+      window.setTimeout(() => {
+        setLoadingMessage(t("page_ai_storyteller.still_working_magic", "Najmah is still working its magic…"));
+      }, 7000),
+    );
     stepTimersRef.current.push(window.setTimeout(() => setGenStep("evaluating"), 14000));
     stepTimersRef.current.push(window.setTimeout(() => setGenStep("saving"), 28000));
   };
@@ -285,22 +303,17 @@ const AIStoryteller = () => {
   const limitStories = sub.limits?.['STORIES_PER_MONTH'];
   const storiesCreated = usage?.storiesCreated || 0;
   const creditsExhausted = !guestMode && !sub.isLoading && limitStories !== null && limitStories !== undefined && storiesCreated >= limitStories;
-  const limitReached = creditsExhausted && !byok.bypass;
+  const limitReached = !isAdminUser && creditsExhausted && !byok.bypass;
 
   const buildSelInput = (): SelInput => {
     const ageNum = ageId === "3-5" ? 4 : ageId === "6-8" ? 7 : 10;
     const focus = activeChild?.emotionalGoals && Array.isArray(activeChild.emotionalGoals)
       ? (activeChild.emotionalGoals as string[])
       : [];
-    // Auto-detect language from the custom prompt: if the user writes in
-    // Arabic (or another supported script) we override the UI locale so the
-    // story is produced in that language instead of the interface language.
     const trimmedPrompt = customPrompt.trim();
     const detectPromptLang = (text: string): string | null => {
       if (!text) return null;
       if (/[\u0600-\u06FF]/.test(text)) return "ar";
-      // Latin-only heuristics for the other supported languages are unreliable
-      // for short prompts, so we only auto-switch on non-Latin scripts.
       return null;
     };
     const effectiveLang = detectPromptLang(trimmedPrompt) ?? lang;
@@ -315,55 +328,27 @@ const AIStoryteller = () => {
     };
   };
 
-
-
   const handleSelError = async (e: unknown) => {
     stopProgressTimeline("idle");
-    // Log the raw error server-side only; surface only friendly text to the user.
     console.error("[compose-story] failed", e);
 
-    // Standardized {success:false, code, message} response from the edge function
-    if (e instanceof ComposeStoryError) {
-      setErrorDetails({ status: 200, message: e.friendlyMessage, raw: { code: e.code, message: e.friendlyMessage }, requestId: undefined });
-      if (e.code === "unauthorized") {
-        try { await supabase.auth.signOut(); } catch { /* ignore */ }
-        toast.error(e.friendlyMessage);
-        setLastError(e.friendlyMessage);
-        navigate("/auth", { state: { from: "/ai-storyteller" } });
-        return;
-      }
-      toast.error(e.friendlyMessage);
-      setLastError(e.friendlyMessage);
-      return;
-    }
+    const normalized = normalizeApiError(e, lang);
+    setErrorDetails({
+      status: normalized.status,
+      message: normalized.userMessage,
+      code: normalized.code,
+      requestId: normalized.correlationId,
+      raw: normalized.rawDetails ? sanitizeClientSecrets(JSON.stringify(normalized.rawDetails)) : undefined,
+    });
+    setLastError(normalized.userMessage);
+    toast.error(normalized.userMessage);
 
-    const info = await handleEdgeError(e, t, { context: "compose-story" });
-    const extra = await readComposeErrorDetails(e);
-    const mergedInfo: EdgeErrorInfo = {
-      ...info,
-      requestId: info.requestId ?? extra.requestId,
-      raw: info.raw ?? extra.body,
-      status: info.status || extra.status || 0,
-    };
-    setErrorDetails(mergedInfo);
-    // Always show a friendly generic message — never leak requestId / raw body / status.
-    const friendly = t(
-      "page_ai_storyteller.story_generation_failed_friendly",
-      "Unable to generate the story right now. Please try again in a few moments.",
-    );
-    // Session expired mid-flight → sign back in
-    const rawBlob = `${mergedInfo.message ?? ""} ${JSON.stringify(mergedInfo.raw ?? {})}`.toLowerCase();
-    if (mergedInfo.status === 401 || /unauthorized|session/.test(rawBlob)) {
+    if (normalized.category === "AUTH_REQUIRED") {
       try { await supabase.auth.signOut(); } catch { /* ignore */ }
-      const msg = t("ai.errors.sign_in_required", "Please sign in to generate a story.");
-      toast.error(msg);
-      setLastError(msg);
       navigate("/auth", { state: { from: "/ai-storyteller" } });
-      return;
     }
-    toast.error(friendly);
-    setLastError(friendly);
   };
+
 
 
   // Guest path: route to the trial-story edge function (anonymous-friendly).
@@ -503,12 +488,14 @@ const AIStoryteller = () => {
   // Phase 1: plan only. Shows the blueprint in a modal so the user can approve before
   // the full 10–15 page write. When customPrompt is empty we skip preview and go straight to full.
   const handleGenerateSel = async () => {
+    if (isPlanInFlightRef.current || planning || generating) return;
     if (guestMode) return runGuestTrial();
 
     if (limitReached) {
       setUpgradeOpen(true);
       return;
     }
+    isPlanInFlightRef.current = true;
     lastModeRef.current = "sel";
     setLastError(null);
     setErrorDetails(null);
@@ -518,17 +505,21 @@ const AIStoryteller = () => {
 
     // No custom brief → skip preview, go full directly
     if (!input.customPrompt) {
+      isPlanInFlightRef.current = false;
       return runFullCompose(input);
     }
 
     setPlanning(true);
+    startProgressTimeline();
     try {
       const plan = await planSelStory(input);
       setPlanPreview(plan.blueprint);
     } catch (e) {
       await handleSelError(e);
     } finally {
+      stopProgressTimeline("idle");
       setPlanning(false);
+      isPlanInFlightRef.current = false;
     }
   };
 
@@ -537,12 +528,15 @@ const AIStoryteller = () => {
     input: SelInput,
     presetBlueprint?: Record<string, unknown>,
   ) => {
+    if (isCreateInFlightRef.current || generating) return;
+    isCreateInFlightRef.current = true;
     setPlanPreview(null);
     setGenerating(true);
     setSelStory(null);
     setLastError(null);
     setErrorDetails(null);
     setShowErrorDetails(false);
+    startProgressTimeline();
 
     try {
       console.log("[SEL] composeSelStory → start", input);
@@ -559,10 +553,14 @@ const AIStoryteller = () => {
       setActiveStoryId(res.id);
     } catch (e) {
       console.error("[SEL] composeSelStory → error", e);
+      stopProgressTimeline("idle");
       await handleSelError(e);
       setGenerating(false);
+    } finally {
+      isCreateInFlightRef.current = false;
     }
   };
+
 
   const handleApprovePlan = () => {
     if (!planPreview || !lastSelInput) return;
@@ -922,7 +920,7 @@ const AIStoryteller = () => {
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
             <p className="font-bold text-foreground">
-              {t("page_ai_storyteller.planning_your_story", "Planning your story…")}
+              {loadingMessage}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {t("page_ai_storyteller.a_few_seconds_before_the_preview", "A few seconds before the preview")}
@@ -933,84 +931,107 @@ const AIStoryteller = () => {
 
       {/* Blueprint preview modal — user approves before the full 10–15 page write */}
       {planPreview && !generating && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-5 sm:p-6 max-w-2xl w-full my-8 text-left rtl:text-right">
-            <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">
-              {t("page_ai_storyteller.story_preview", "Story preview")}
-            </h2>
-            <p className="text-xs text-muted-foreground mb-4">
-              {t("page_ai_storyteller.review_the_plan_before_the_full_story_is", "Review the plan before the full story is written. If it doesn't match, go back and edit your brief.")}
-            </p>
+        <LocalizedErrorBoundary sectionName="StoryPlanPreview">
+          {(() => {
+            const normalized = normalizeStoryPlan(planPreview, activeChild?.name ?? t("page_ai_storyteller.hero", "Hero"));
+            const heroName = normalized.hero?.name || activeChild?.name || t("page_ai_storyteller.hero", "Hero");
+            const heroDescription = normalized.hero?.charm || normalized.hero?.sense;
+            const companionName = normalized.companion?.name;
+            const companionRole = normalized.companion?.role;
+            const act1 = normalized.acts?.act1_normalWorld;
+            const act2 = normalized.acts?.act2_disturbance;
+            const act3 = Array.isArray(normalized.acts?.act3_attempts)
+              ? normalized.acts.act3_attempts.join(" → ")
+              : normalized.resolution;
+            const act4 = normalized.acts?.act4_resolution;
+            const selStatement = normalized.selOutcome?.statement || normalized.resolution;
 
-            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 rtl:pl-2 rtl:pr-0">
-              <div>
-                <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                  {t("page_ai_storyteller.title", "Title")}
-                </p>
-                <p className="text-base font-bold text-foreground">{planPreview.title}</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                  {t("page_ai_storyteller.hero", "Hero")}
-                </p>
-                <p className="text-sm text-foreground/90">
-                  <strong>{planPreview.hero.name}</strong>
-                  {planPreview.hero.charm ? ` — ${planPreview.hero.charm}` : ""}
-                </p>
-              </div>
-              {planPreview.companion?.name && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
-                    {t("page_ai_storyteller.companion", "Companion")}
+            return (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-card border border-border rounded-2xl shadow-2xl p-5 sm:p-6 max-w-2xl w-full my-8 text-left rtl:text-right">
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1">
+                    {t("page_ai_storyteller.story_preview", "Story preview")}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    {t("page_ai_storyteller.review_the_plan_before_the_full_story_is", "Review the plan before the full story is written. If it doesn't match, go back and edit your brief.")}
                   </p>
-                  <p className="text-sm text-foreground/90">
-                    <strong>{planPreview.companion.name}</strong>
-                    {planPreview.companion.role ? ` — ${planPreview.companion.role}` : ""}
-                  </p>
+
+                  <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 rtl:pl-2 rtl:pr-0">
+                    {normalized.title && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
+                          {t("page_ai_storyteller.title", "Title")}
+                        </p>
+                        <p className="text-base font-bold text-foreground">{normalized.title}</p>
+                      </div>
+                    )}
+                    {heroName && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
+                          {t("page_ai_storyteller.hero", "Hero")}
+                        </p>
+                        <p className="text-sm text-foreground/90">
+                          <strong>{heroName}</strong>
+                          {heroDescription ? ` — ${heroDescription}` : ""}
+                        </p>
+                      </div>
+                    )}
+                    {companionName && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground">
+                          {t("page_ai_storyteller.companion", "Companion")}
+                        </p>
+                        <p className="text-sm text-foreground/90">
+                          <strong>{companionName}</strong>
+                          {companionRole ? ` — ${companionRole}` : ""}
+                        </p>
+                      </div>
+                    )}
+                    {(act1 || act2 || act3 || act4) && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-1">
+                          {t("page_ai_storyteller.acts", "Acts")}
+                        </p>
+                        <ol className="space-y-1.5 text-sm text-foreground/90 list-decimal pl-5 rtl:pr-5 rtl:pl-0">
+                          {act1 && <li>{act1}</li>}
+                          {act2 && <li>{act2}</li>}
+                          {act3 && <li>{act3}</li>}
+                          {act4 && <li>{act4}</li>}
+                        </ol>
+                      </div>
+                    )}
+                    {selStatement && (
+                      <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
+                        <p className="text-[11px] uppercase tracking-wide font-bold text-primary mb-1">
+                          {t("page_ai_storyteller.emotional_outcome", "Emotional outcome")}
+                        </p>
+                        <p className="text-xs sm:text-sm text-foreground/90">{selStatement}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2 justify-end rtl:justify-start">
+                    <button
+                      type="button"
+                      onClick={() => setPlanPreview(null)}
+                      className="px-4 py-2 rounded-full bg-muted text-foreground font-bold text-sm hover:bg-muted/80 transition"
+                    >
+                      {t("page_ai_storyteller.edit_brief", "Edit brief")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApprovePlan}
+                      className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition inline-flex items-center gap-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      {t("page_ai_storyteller.write_the_story", "Write the story")}
+                    </button>
+                  </div>
                 </div>
-              )}
-              <div>
-                <p className="text-[11px] uppercase tracking-wide font-bold text-muted-foreground mb-1">
-                  {t("page_ai_storyteller.acts", "Acts")}
-                </p>
-                <ol className="space-y-1.5 text-sm text-foreground/90 list-decimal pl-5 rtl:pr-5 rtl:pl-0">
-                  <li>{planPreview.acts.act1_normalWorld}</li>
-                  <li>{planPreview.acts.act2_disturbance}</li>
-                  <li>
-                    {Array.isArray(planPreview.acts.act3_attempts)
-                      ? planPreview.acts.act3_attempts.join(" → ")
-                      : ""}
-                  </li>
-                  <li>{planPreview.acts.act4_resolution}</li>
-                </ol>
               </div>
-              <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-[11px] uppercase tracking-wide font-bold text-primary mb-1">
-                  {t("page_ai_storyteller.emotional_outcome", "Emotional outcome")}
-                </p>
-                <p className="text-xs sm:text-sm text-foreground/90">{planPreview.selOutcome.statement}</p>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2 justify-end rtl:justify-start">
-              <button
-                type="button"
-                onClick={() => setPlanPreview(null)}
-                className="px-4 py-2 rounded-full bg-muted text-foreground font-bold text-sm hover:bg-muted/80 transition"
-              >
-                {t("page_ai_storyteller.edit_brief", "Edit brief")}
-              </button>
-              <button
-                type="button"
-                onClick={handleApprovePlan}
-                className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition inline-flex items-center gap-2"
-              >
-                <Check className="h-4 w-4" />
-                {t("page_ai_storyteller.write_the_story", "Write the story")}
-              </button>
-            </div>
-          </div>
-        </div>
+            );
+          })()}
+        </LocalizedErrorBoundary>
       )}
 
 
@@ -1051,7 +1072,7 @@ const AIStoryteller = () => {
             <span className="capitalize">{sub.plan}</span>
             <span className="opacity-70">·</span>
             <span>
-              {t("page_ai_storyteller.remaining", "Remaining")}: {limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
+              {t("page_ai_storyteller.stories_remaining", "Stories remaining")}: {isAdminUser || limitStories === null ? '∞' : Math.max(0, (limitStories || 0) - storiesCreated)}
             </span>
             {byok.bypass && creditsExhausted && (
               <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
@@ -1059,7 +1080,7 @@ const AIStoryteller = () => {
               </span>
             )}
           </div>
-          {(sub.plan === "FREE" || limitReached) && (
+          {!isAdminUser && (sub.plan === "FREE" || limitReached) && (
             <Link
               to="/pricing"
               className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition"
@@ -1189,26 +1210,30 @@ const AIStoryteller = () => {
               )}
             </div>
           </div>
-          <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+          <LocalizedErrorBoundary sectionName="StoryViewer">
+            <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+          </LocalizedErrorBoundary>
 
-          <StoryExportBar
-            title={selStory.title}
-            fullText={selStory.pages.map((p) => p.text).join("\n\n")}
-            language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
-            storyId={selStory.story_id ?? null}
-            childId={activeChild?.id ?? null}
-            childName={activeChild?.name ?? null}
-            emotionTags={
-              (selStory.pages.map((p) => p.emotionTag).filter(Boolean) as string[])
-            }
-            pageCount={selStory.pages.length}
-            pages={selStory.pages.map((p, i) => ({
-              pageNumber: (p.index ?? i) + 1,
-              text: p.text,
-              illustrationUrl: p.imageUrl ?? null,
-              emotionTag: p.emotionTag ?? null,
-            }))}
-          />
+          <LocalizedErrorBoundary sectionName="StoryExportBar">
+            <StoryExportBar
+              title={selStory.title}
+              fullText={selStory.pages.map((p) => p.text).join("\n\n")}
+              language={((selStory as unknown as { language?: string }).language) || i18n.language || "en"}
+              storyId={selStory.story_id ?? null}
+              childId={activeChild?.id ?? null}
+              childName={activeChild?.name ?? null}
+              emotionTags={
+                (selStory.pages.map((p) => p.emotionTag).filter(Boolean) as string[])
+              }
+              pageCount={selStory.pages.length}
+              pages={selStory.pages.map((p, i) => ({
+                pageNumber: (p.index ?? i) + 1,
+                text: p.text,
+                illustrationUrl: p.imageUrl ?? null,
+                emotionTag: p.emotionTag ?? null,
+              }))}
+            />
+          </LocalizedErrorBoundary>
 
         </div>
       ) : !story ? (

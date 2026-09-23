@@ -11,7 +11,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly configService: ConfigService<Env, true>) {}
 
-  onModuleInit(): void {
+  ensureInitialized(): void {
+    if (this.redisClient || this.isEnabled) {
+      return;
+    }
+
     const redisUrl = this.configService.get<string>('REDIS_URL');
     if (redisUrl) {
       this.logger.log(`Initializing Redis client connecting to ${redisUrl}`);
@@ -27,6 +31,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     } else {
       this.logger.log('Redis is not configured (REDIS_URL is empty)');
     }
+  }
+
+  onModuleInit(): void {
+    this.ensureInitialized();
   }
 
   async onModuleDestroy(): Promise<void> {

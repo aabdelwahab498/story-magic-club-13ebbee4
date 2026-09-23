@@ -81,4 +81,50 @@ describe('StoryContextBuilder', () => {
     expect(context.selGoal).toBe('courage');
     expect(context.readingLevel).toBe('level_1');
   });
+
+  it('should extract customPrompt from preferences.customPrompt when building from request', async () => {
+    const mockUser: UserContext = {
+      id: 'user-1',
+      email: 'test@example.com',
+      role: Role.USER,
+      roles: [],
+      permissions: [],
+    };
+    const mockRequest = {
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'Courage',
+      readingLevel: 'level_1',
+      age: 7,
+      preferences: {
+        customPrompt: '  Omar discovers a glowing star  ',
+      },
+    } as unknown as StoryMetadata;
+
+    const context = await builder.buildFromRequest(mockUser, mockRequest);
+    expect(context.customPrompt).toBe('Omar discovers a glowing star');
+  });
+
+  it('should treat whitespace-only customPrompt in preferences as undefined', async () => {
+    const mockUser: UserContext = {
+      id: 'user-1',
+      email: 'test@example.com',
+      role: Role.USER,
+      roles: [],
+      permissions: [],
+    };
+    const mockRequest = {
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'Courage',
+      readingLevel: 'level_1',
+      age: 7,
+      preferences: {
+        customPrompt: '   \n\t  ',
+      },
+    } as unknown as StoryMetadata;
+
+    const context = await builder.buildFromRequest(mockUser, mockRequest);
+    expect(context.customPrompt).toBeUndefined();
+  });
 });

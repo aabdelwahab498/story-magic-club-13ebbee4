@@ -16,6 +16,8 @@ import { StoryGenerationJobHandler } from './jobs/story-generation.job-handler.j
 import type { JobDispatcher } from '../../common/jobs/job.interface.js';
 import { MediaModule } from '../media/media.module.js';
 
+import { StoryGenerationProcessor } from './processors/story-generation.processor.js';
+
 @Module({
   imports: [
     SupabaseModule,
@@ -35,6 +37,7 @@ import { MediaModule } from '../media/media.module.js';
     StoryLifecycleEvents,
     StoryMetricsService,
     StoryGenerationJobHandler,
+    StoryGenerationProcessor,
   ],
   exports: [
     StoriesService,

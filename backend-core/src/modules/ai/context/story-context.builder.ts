@@ -17,17 +17,45 @@ export class StoryContextBuilder {
     user: UserContext,
     request: StoryMetadata,
   ): Promise<StoryContext> {
-    const childContext = await this.childrenAiContextService.buildContext(
-      user,
-      request.childId,
-    );
+    let age = request.age!;
+    let childName = request.childName;
+
+    if (request.childId) {
+      try {
+        const childContext = await this.childrenAiContextService.buildContext(
+          user,
+          request.childId,
+        );
+        if (childContext.age) age = childContext.age;
+      } catch {
+        // Fallback to request age if child context fetch fails
+      }
+    }
+
+    const rawCustomPrompt =
+      request.customPrompt ||
+      (typeof request.preferences?.customPrompt === 'string'
+        ? request.preferences.customPrompt
+        : undefined);
+
+    const customPrompt =
+      typeof rawCustomPrompt === 'string' && rawCustomPrompt.trim().length > 0
+        ? rawCustomPrompt.trim()
+        : undefined;
 
     return this.build(
-      childContext.age || 5, // Fallback if age is not set
+      age,
       request.language,
       request.theme,
       request.selGoal,
       request.readingLevel,
+      {
+        childName,
+        emotionalFocus: request.emotionalFocus,
+        customPrompt,
+        presetBlueprint: request.presetBlueprint,
+        preferences: request.preferences,
+      },
     );
   }
 
@@ -40,13 +68,37 @@ export class StoryContextBuilder {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    extra?: {
+      childName?: string;
+      emotionalFocus?: string[];
+      customPrompt?: string;
+      presetBlueprint?: Record<string, any>;
+      preferences?: Record<string, any>;
+    },
   ): StoryContext {
+    const rawCustomPrompt =
+      extra?.customPrompt ||
+      (typeof extra?.preferences?.customPrompt === 'string'
+        ? extra.preferences.customPrompt
+        : undefined);
+
+    const customPrompt =
+      typeof rawCustomPrompt === 'string' && rawCustomPrompt.trim().length > 0
+        ? rawCustomPrompt.trim()
+        : undefined;
+
     return {
       targetAge: childAge,
       language,
       theme,
       selGoal,
       readingLevel,
+      childName: extra?.childName,
+      emotionalFocus: extra?.emotionalFocus,
+      customPrompt,
+      presetBlueprint: extra?.presetBlueprint,
+      preferences: extra?.preferences,
     };
   }
 }
+

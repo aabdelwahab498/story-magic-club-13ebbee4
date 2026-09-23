@@ -17,7 +17,7 @@ import type { ChildProfile } from './interfaces/index.js';
 import { CurrentUser } from '../rbac/decorators/current-user.decorator.js';
 import type { UserContext } from '../rbac/interfaces/user-context.interface.js';
 
-@Controller('api/v2/users/me/children')
+@Controller('users/me/children')
 export class ChildrenController {
   constructor(private readonly childrenService: ChildrenService) {}
 

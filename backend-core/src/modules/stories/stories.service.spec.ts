@@ -11,6 +11,8 @@ import { NotFoundException } from '@nestjs/common';
 import { CreditsService } from '../credits/credits.service.js';
 import { UsageService } from '../usage/usage.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
+import { AI_GATEWAY } from '../ai/gateway/ai-gateway.interface.js';
+
 describe('StoriesService', () => {
   let service: StoriesService;
 
@@ -45,6 +47,23 @@ describe('StoriesService', () => {
     planStory: jest.fn(),
   };
 
+  const mockAiGateway = {
+    buildContext: jest.fn().mockReturnValue({ childAge: 6, language: 'en', theme: 'dragons' }),
+    planStory: jest.fn().mockResolvedValue({
+      selOutcome: { skill: 'Courage', emotion: 'Brave', statement: 'Leo was brave.' },
+    }),
+    writeStory: jest.fn().mockResolvedValue({
+      title: 'Leo and the Dragon',
+      pages: [
+        { pageNumber: 1, text: 'Page 1 text', emotionTag: 'excited', illustrationPrompt: 'Prompt 1' },
+        { pageNumber: 2, text: 'Page 2 text', emotionTag: 'brave', illustrationPrompt: 'Prompt 2' },
+        { pageNumber: 3, text: 'Page 3 text', emotionTag: 'happy', illustrationPrompt: 'Prompt 3' },
+        { pageNumber: 4, text: 'Page 4 text', emotionTag: 'joyful', illustrationPrompt: 'Prompt 4' },
+      ],
+    }),
+    validateStory: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+  };
+
   const mockCreditsService = {
     getBalance: jest.fn().mockResolvedValue({ balance: 100 }),
     consumeCredits: jest.fn(),
@@ -56,14 +75,23 @@ describe('StoriesService', () => {
 
   const mockSubscriptionsService = {
     canAccessFeature: jest.fn().mockResolvedValue({ allowed: true }),
+    checkStoryQuota: jest.fn().mockResolvedValue({
+      allowed: true,
+      tier: 'free',
+      daily_used: 0,
+      daily_limit: 3,
+      monthly_used: 0,
+      monthly_limit: 30,
+      reason: null,
+    }),
     checkLimit: jest
       .fn()
       .mockResolvedValue({ allowed: true, current: 0, limit: 3 }),
     getUserSubscription: jest.fn().mockResolvedValue({
-      plan: 'FREE',
+      plan: 'free',
       status: 'ACTIVE',
       features: ['STORY_GENERATION'],
-      limits: { 'STORIES_PER_MONTH': 5 },
+      limits: { STORIES_PER_MONTH: 5 },
     }),
     getMonthlyUsage: jest.fn().mockResolvedValue(0),
   };
@@ -91,6 +119,7 @@ describe('StoriesService', () => {
         { provide: ChildrenAIContextService, useValue: mockAiContextService },
         { provide: ChildrenService, useValue: mockChildrenService },
         { provide: StoryGenerationOrchestrator, useValue: mockOrchestrator },
+        { provide: AI_GATEWAY, useValue: mockAiGateway },
         { provide: CreditsService, useValue: mockCreditsService },
         { provide: UsageService, useValue: mockUsageService },
         { provide: SubscriptionsService, useValue: mockSubscriptionsService },
@@ -331,6 +360,234 @@ describe('StoriesService', () => {
           language: 'en',
         }),
       ).rejects.toThrow('Feature STORY_GENERATION is not enabled for your plan.');
+    });
+  });
+
+  describe('createTrialStory', () => {
+    it('should generate a 3-page teaser trial story without user account or credit deduction', async () => {
+      const trialDto = {
+        childName: 'Leo',
+        age: 6,
+        theme: 'Dragons & Magic',
+        language: 'en',
+        selGoal: 'Courage',
+      };
+
+      const result = await service.createTrialStory(trialDto);
+
+      expect(result.teaser).toBe(true);
+      expect(result.shownPages).toBe(3);
+      expect(result.totalPages).toBe(4);
+      expect(result.pages).toHaveLength(3);
+      expect(result.title).toBe('Leo and the Dragon');
+      expect(result.sel_outcome?.skill).toBe('Courage');
+
+      // Verify no user balance or child profile was queried or consumed
+      expect(mockCreditsService.consumeCredits).not.toHaveBeenCalled();
+      expect(mockSubscriptionsService.getUserSubscription).not.toHaveBeenCalled();
+      expect(mockChildrenService.getChild).not.toHaveBeenCalled();
+      expect(mockStoriesRepository.createRequest).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Admin Story Quota Bypass', () => {
+    const mockAdminUser: UserContext = {
+      id: 'admin-1',
+      email: 'admin@example.com',
+      role: Role.ADMIN,
+      roles: [Role.ADMIN],
+      permissions: [],
+    };
+
+    const mockSuperAdminUser: UserContext = {
+      id: 'super-admin-1',
+      email: 'superadmin@example.com',
+      role: Role.SUPER_ADMIN,
+      roles: [Role.SUPER_ADMIN],
+      permissions: [],
+    };
+
+    it('1. admin + free plan + monthly quota exhausted -> /stories/plan allowed', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockSubscriptionsService.canAccessFeature.mockResolvedValue({ allowed: false });
+      mockSubscriptionsService.checkStoryQuota.mockResolvedValueOnce({
+        allowed: false,
+        reason: 'monthly_limit_reached',
+      });
+      mockOrchestrator.planStory.mockResolvedValueOnce({ blueprint: { act1: 'intro' } });
+
+      const dto = { childId: 'child-1', theme: 'space', selGoal: 'focus', language: 'en' };
+      const result = await service.planStory(mockAdminUser, dto);
+
+      expect(result).toBeDefined();
+      expect(mockOrchestrator.planStory).toHaveBeenCalledWith(
+        mockAdminUser,
+        'child-1',
+        'en',
+        'space',
+        'focus',
+        undefined,
+      );
+    });
+
+    it('2. admin + free plan + monthly quota exhausted -> /stories allowed', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockSubscriptionsService.canAccessFeature.mockResolvedValue({ allowed: false });
+      mockSubscriptionsService.checkStoryQuota.mockResolvedValueOnce({
+        allowed: false,
+        reason: 'monthly_limit_reached',
+      });
+      mockCreditsService.getBalance.mockResolvedValueOnce({ balance: 0 });
+      mockStoriesRepository.createRequest.mockResolvedValueOnce({ id: 'req-admin-1' });
+      mockStoriesRepository.getFullStory.mockResolvedValueOnce({
+        metadata: { id: 'req-admin-1', status: StoryStatus.GENERATED },
+        content: { title: 'Admin Story', pages: [] },
+      });
+
+      const result = await service.createStory(mockAdminUser, {
+        childId: 'child-1',
+        theme: 'space',
+        selGoal: 'courage',
+        language: 'en',
+      });
+
+      expect(result.id).toBe('req-admin-1');
+      expect(mockJobDispatcher.dispatch).toHaveBeenCalledWith('story-generation', {
+        user: mockAdminUser,
+        requestId: 'req-admin-1',
+      });
+    });
+
+    it('3. super_admin receives same bypass', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockSubscriptionsService.checkStoryQuota.mockResolvedValueOnce({
+        allowed: false,
+        reason: 'monthly_limit_reached',
+      });
+      mockOrchestrator.planStory.mockResolvedValueOnce({ blueprint: { act1: 'intro' } });
+
+      const dto = { childId: 'child-1', theme: 'space', selGoal: 'focus', language: 'en' };
+      const result = await service.planStory(mockSuperAdminUser, dto);
+
+      expect(result).toBeDefined();
+    });
+
+    it('4. admin bypass does NOT alter subscription plan', async () => {
+      mockSubscriptionsService.getUserSubscription.mockResolvedValueOnce({
+        plan: 'free',
+        status: 'ACTIVE',
+        features: ['STORY_GENERATION'],
+        limits: { STORIES_PER_MONTH: 1 },
+      });
+
+      const sub = await mockSubscriptionsService.getUserSubscription(mockAdminUser.id);
+      expect(sub.plan).toBe('free');
+    });
+
+    it('5. normal free user at monthly limit remains blocked', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockSubscriptionsService.canAccessFeature.mockResolvedValue({ allowed: true });
+      mockSubscriptionsService.checkStoryQuota.mockResolvedValueOnce({
+        allowed: false,
+        reason: 'monthly_limit_reached',
+        monthly_used: 1,
+        monthly_limit: 1,
+      });
+
+      const dto = { childId: 'child-1', theme: 'space', selGoal: 'focus', language: 'en' };
+      await expect(service.planStory(mockUser, dto)).rejects.toThrow(
+        'Plan limit reached',
+      );
+    });
+
+    it('6. normal free user under quota remains unchanged', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockSubscriptionsService.canAccessFeature.mockReset();
+      mockSubscriptionsService.canAccessFeature.mockResolvedValue({ allowed: true });
+      mockSubscriptionsService.checkStoryQuota.mockReset();
+      mockSubscriptionsService.checkStoryQuota.mockResolvedValue({
+        allowed: true,
+        reason: null,
+        monthly_used: 0,
+        monthly_limit: 5,
+      });
+      mockOrchestrator.planStory.mockResolvedValueOnce({ blueprint: { act1: 'intro' } });
+
+      const dto = { childId: 'child-1', theme: 'space', selGoal: 'focus', language: 'en' };
+      const result = await service.planStory(mockUser, dto);
+      expect(result).toBeDefined();
+    });
+
+    it('7. canonical free user with zero user_credits creates story successfully under quota', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockSubscriptionsService.getUserSubscription.mockResolvedValueOnce({
+        plan: 'free',
+        status: 'ACTIVE',
+        features: ['STORY_GENERATION'],
+        limits: { STORIES_PER_MONTH: 30 },
+      });
+      mockSubscriptionsService.checkStoryQuota.mockResolvedValueOnce({
+        allowed: true,
+        reason: null,
+        daily_used: 0,
+        daily_limit: 3,
+        monthly_used: 0,
+        monthly_limit: 30,
+      });
+      mockCreditsService.getBalance.mockResolvedValueOnce({ balance: 0 });
+      mockStoriesRepository.createRequest.mockResolvedValueOnce({ id: 'req-free-1' });
+      mockStoriesRepository.getFullStory.mockResolvedValueOnce({
+        metadata: { id: 'req-free-1', status: StoryStatus.GENERATED },
+        content: { title: 'Free Story', pages: [] },
+      });
+
+      const result = await service.createStory(mockUser, {
+        childId: 'child-1',
+        theme: 'space',
+        selGoal: 'courage',
+        language: 'en',
+      });
+
+      expect(result.id).toBe('req-free-1');
+      expect(mockJobDispatcher.dispatch).toHaveBeenCalledWith('story-generation', {
+        user: mockUser,
+        requestId: 'req-free-1',
+      });
+    });
+
+    it('7. child ownership remains enforced for admin', async () => {
+      mockChildrenService.getChild.mockReset();
+      mockChildrenService.getChild.mockRejectedValueOnce(new NotFoundException('Child not found'));
+
+      await expect(
+        service.createStory(mockAdminUser, {
+          childId: 'other-child',
+          theme: 'space',
+          selGoal: 'courage',
+          language: 'en',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('8. BullMQ story-generation job is dispatched after successful admin authorization', async () => {
+      mockChildrenService.getChild.mockResolvedValueOnce({ id: 'child-1', name: 'Child', age: 6 });
+      mockStoriesRepository.createRequest.mockResolvedValueOnce({ id: 'req-bullmq-1' });
+      mockStoriesRepository.getFullStory.mockResolvedValueOnce({
+        metadata: { id: 'req-bullmq-1', status: StoryStatus.GENERATED },
+        content: { title: 'BullMQ Story', pages: [] },
+      });
+
+      await service.createStory(mockAdminUser, {
+        childId: 'child-1',
+        theme: 'space',
+        selGoal: 'courage',
+        language: 'en',
+      });
+
+      expect(mockJobDispatcher.dispatch).toHaveBeenCalledWith('story-generation', {
+        user: mockAdminUser,
+        requestId: 'req-bullmq-1',
+      });
     });
   });
 });

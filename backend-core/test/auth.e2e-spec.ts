@@ -1,7 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
+
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://example.supabase.co';
+process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_service_key';
+process.env.CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173';
+process.env.GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'dummy_google_api_key';
+
 import { AppModule } from '../src/app.module.js';
 
 describe('AuthController (e2e)', () => {
@@ -13,26 +20,28 @@ describe('AuthController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.enableVersioning({
+      type: VersioningType.URI,
+      defaultVersion: '2',
+    });
     app.use(cookieParser());
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
-  // e2e tests for auth
-  // In a real e2e, we'd mock Supabase, or use a test instance.
-  // For now, just ensure the routes are mounted and return 401 when missing tokens.
-  it('/auth/me (GET) - missing auth header/cookie should return 401', () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return request(app.getHttpServer()).get('/auth/me').expect(401);
+  it('/api/v2/auth/me (GET) - missing auth header/cookie should return 401', () => {
+    return request(app.getHttpServer()).get('/api/v2/auth/me').expect(401);
   });
 
-  it('/auth/me (GET) - malformed bearer should return 401', () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  it('/api/v2/auth/me (GET) - malformed bearer should return 401', () => {
     return request(app.getHttpServer())
-      .get('/auth/me')
+      .get('/api/v2/auth/me')
       .set('Authorization', 'InvalidToken')
       .expect(401);
   });

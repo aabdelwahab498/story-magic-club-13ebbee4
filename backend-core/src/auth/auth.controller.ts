@@ -5,11 +5,17 @@ import {
   Res,
   Get,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service.js';
-import { LoginDto, RegisterDto } from './dto/index.js';
+import {
+  LoginDto,
+  RegisterDto,
+  VerifyEmailDto,
+  ResendConfirmationDto,
+} from './dto/index.js';
 import { Public } from './public.decorator.js';
 import { CurrentUser } from '../modules/rbac/decorators/current-user.decorator.js';
 import type { UserContext } from '../modules/rbac/interfaces/user-context.interface.js';
@@ -69,6 +75,10 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const configuredRedirect = this.configService.get<string>(
+      'AUTH_EMAIL_CONFIRM_REDIRECT_URL',
+    );
+
     const { data, error } = await this.supabaseService.getClient().auth.signUp({
       email: dto.email,
       password: dto.password,
@@ -76,18 +86,79 @@ export class AuthController {
         data: {
           display_name: dto.displayName,
         },
+        ...(configuredRedirect ? { emailRedirectTo: configuredRedirect } : {}),
       },
     });
 
     if (error) {
-      throw new UnauthorizedException(error.message);
+      throw new BadRequestException(error.message);
     }
 
     if (data.session) {
       this.setCookie(res, data.session.access_token);
     }
 
-    return { success: true, message: 'Registration successful' };
+    return {
+      success: true,
+      message: 'Registration successful',
+      requiresConfirmation: !data.session,
+    };
+  }
+
+  @Public()
+  @Post('verify-email')
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .auth.verifyOtp({
+        token_hash: dto.token_hash,
+        type: dto.type,
+      });
+
+    if (error || !data.session || !data.user) {
+      throw new BadRequestException(
+        error?.message || 'Email verification failed or expired token',
+      );
+    }
+
+    this.setCookie(res, data.session.access_token);
+
+    return {
+      success: true,
+      message: 'Email verified successfully',
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+      },
+    };
+  }
+
+  @Public()
+  @Post('resend-confirmation')
+  async resendConfirmation(@Body() dto: ResendConfirmationDto) {
+    const configuredRedirect = this.configService.get<string>(
+      'AUTH_EMAIL_CONFIRM_REDIRECT_URL',
+    );
+
+    await this.supabaseService
+      .getClient()
+      .auth.resend({
+        type: 'signup',
+        email: dto.email,
+        options: configuredRedirect
+          ? { emailRedirectTo: configuredRedirect }
+          : undefined,
+      })
+      .catch(() => {});
+
+    return {
+      success: true,
+      message:
+        'If an unverified account exists for this email, a confirmation link has been sent.',
+    };
   }
 
   @Post('logout')

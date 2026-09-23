@@ -1,34 +1,46 @@
-import { Controller, Post, Body, Req, UseGuards, Param, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  Param,
+  Headers,
+} from '@nestjs/common';
 import { BillingService } from './billing.service.js';
-import { AuthGuard } from '../../auth/auth.guard.js';
+import { Public } from '../../auth/public.decorator.js';
+import { CheckoutDto } from './dto/checkout.dto.js';
 
-@Controller('api/v2/billing')
+@Controller('billing')
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
-  @Post('checkout')
-  @UseGuards(AuthGuard)
-  async createCheckout(@Req() req: any, @Body('planId') planId: string) {
-    if (!planId) {
-      throw new HttpException('planId is required', HttpStatus.BAD_REQUEST);
-    }
-    const userId = req.user.sub;
-    try {
-      const result = await this.billingService.createCheckout(userId, planId);
-      return result;
-    } catch (error: any) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  @Public()
+  @Get('config')
+  async getConfig() {
+    return this.billingService.getConfig();
   }
 
+  @Post('checkout')
+  async createCheckout(@Req() req: any, @Body() dto: CheckoutDto) {
+    const userId = req.user?.sub || req.user?.id;
+    return this.billingService.createCheckout(userId, dto.planId);
+  }
+
+  @Public()
   @Post('webhook/:provider')
-  async handleWebhook(@Param('provider') provider: string, @Body() payload: any) {
-    const success = await this.billingService.handleWebhook(provider, payload);
-    if (!success) {
-      // Return 200 anyway to prevent provider retries if it's an unhandled but valid event,
-      // or 400 if it's strictly invalid. For this sprint, we'll return 200.
-      return { status: 'ignored' };
-    }
-    return { status: 'success' };
+  async handleWebhook(
+    @Param('provider') provider: string,
+    @Req() req: any,
+    @Headers() headers: Record<string, any>,
+    @Body() payload: any,
+  ) {
+    const rawBody = req.rawBody || req.body || '';
+    return this.billingService.handleWebhook(
+      provider,
+      rawBody,
+      headers,
+      payload,
+    );
   }
 }

@@ -1,12 +1,9 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
-import { AuthGuard } from '../../auth/auth.guard.js';
-import { RolesGuard } from '../rbac/guards/roles.guard.js';
 import { Roles } from '../rbac/decorators/roles.decorator.js';
 import { Role } from '../rbac/enums/role.enum.js';
 
-@Controller('api/v2/admin')
-@UseGuards(AuthGuard, RolesGuard)
+@Controller('admin')
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}

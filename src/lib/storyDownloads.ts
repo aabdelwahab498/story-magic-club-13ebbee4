@@ -89,15 +89,55 @@ export async function downloadAudioMp3(
 // === Edge function callers ===
 
 export async function exportStoryPdf(storyId: string): Promise<string> {
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/stories/${storyId}/export/pdf`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_pdf_url");
-    return url;
-  } catch (err: any) {
-    const message = err.response?.data?.message || err.message || "Failed to export PDF";
-    throw new Error(message);
+  const maxAttempts = 30;
+  const pollIntervalMs = 2000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await axiosInstance.post<{
+        status?: string;
+        download_url?: string;
+        error?: string;
+      }>(`/stories/${storyId}/export/pdf`);
+
+      const { status, download_url, error } = response.data;
+
+      if (download_url && (status === "COMPLETED" || !status)) {
+        return download_url;
+      }
+
+      if (status === "WAITING_FOR_ILLUSTRATIONS" || status === "PENDING" || status === "PROCESSING") {
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+          continue;
+        }
+        throw new Error("Illustration generation is taking longer than expected. Please try again in a moment.");
+      }
+
+      if (status === "FAILED" || error) {
+        throw new Error(error || "PDF export failed due to illustration errors.");
+      }
+
+      if (download_url) {
+        return download_url;
+      }
+    } catch (err: any) {
+      if (!err.response) {
+        throw err;
+      }
+      const message = err.response?.data?.message || err.message || "Failed to export PDF";
+      if (
+        attempt === maxAttempts - 1 ||
+        err.response?.status === 404 ||
+        err.response?.status === 400
+      ) {
+        throw new Error(message);
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
   }
+
+  throw new Error("PDF export timed out waiting for illustrations");
 }
 
 export async function exportStoryAudio(storyId: string): Promise<string> {

@@ -37,7 +37,7 @@ export class ChildrenService {
   }
 
   async getChildren(userId: string): Promise<ChildProfile[]> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
     const { data, error } = await client
       .from('child_profiles')
       .select('*')
@@ -51,7 +51,7 @@ export class ChildrenService {
   }
 
   async getChild(userId: string, childId: string): Promise<ChildProfile> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
     const { data, error } = await client
       .from('child_profiles')
       .select('*')
@@ -77,7 +77,7 @@ export class ChildrenService {
     userId: string,
     dto: CreateChildProfileDto,
   ): Promise<ChildProfile> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
 
     const payload = {
       parent_user_id: userId,
@@ -107,7 +107,7 @@ export class ChildrenService {
     childId: string,
     dto: UpdateChildProfileDto,
   ): Promise<ChildProfile> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
 
     // To safely merge JSON columns and enforce ownership, we must pre-fetch
     const { data: existing, error: fetchError } = await client
@@ -158,7 +158,7 @@ export class ChildrenService {
   }
 
   async deleteChild(userId: string, childId: string): Promise<void> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
 
     // Single query delete with ownership validation
     const { error } = await client

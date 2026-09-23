@@ -31,4 +31,26 @@ export class MediaConfigService {
   getGoogleApiKey(): string | undefined {
     return this.configService.get<string>('GOOGLE_API_KEY');
   }
+
+  getIllustrationsBucket(): string {
+    return (
+      this.configService.get<string>('ILLUSTRATIONS_BUCKET') ?? 'story-images'
+    );
+  }
+
+  getAudioBucket(): string {
+    return this.configService.get<string>('AUDIO_BUCKET') ?? 'story-audio';
+  }
+
+  getAvatarsBucket(): string {
+    return this.configService.get<string>('AVATARS_BUCKET') ?? 'avatars';
+  }
+
+  getCoversBucket(): string {
+    return this.configService.get<string>('COVERS_BUCKET') ?? 'covers';
+  }
+
+  getExportsBucket(): string {
+    return this.configService.get<string>('EXPORTS_BUCKET') ?? 'story-pdfs';
+  }
 }

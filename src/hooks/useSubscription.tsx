@@ -23,8 +23,18 @@ export interface SubscriptionState {
 }
 
 export function useSubscription(): SubscriptionState {
-  const { user, isAdmin } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user;
+  const isAdmin = auth?.isAdmin ?? false;
+  const hasRole = auth?.hasRole;
+  const roles = auth?.roles ?? [];
   const { overrides } = useAdminTrialOverrides();
+
+  const isAdminUser = Boolean(
+    isAdmin ||
+    (typeof hasRole === "function" && (hasRole("admin") || hasRole("super_admin" as any))) ||
+    (Array.isArray(roles) && (roles.includes("admin" as any) || roles.includes("super_admin" as any)))
+  );
 
   const plansQ = useQuery({
     queryKey: ["subscription-plans"],
@@ -57,10 +67,10 @@ export function useSubscription(): SubscriptionState {
     plan,
     expiresAt: subQ.data?.expires_at ?? null,
     storiesUsedThisMonth: used,
-    remainingStories: isAdmin && overrides.createStory ? Number.POSITIVE_INFINITY : remaining,
-    canIllustrate: (isAdmin && overrides.illustrations) || !!plan?.allow_illustrations,
-    canExportPdf: (isAdmin && overrides.pdf) || !!plan?.allow_pdf,
-    canAudio: (isAdmin && overrides.audio) || !!plan?.allow_audio,
-    canCreateStory: (isAdmin && overrides.createStory) || remaining > 0,
+    remainingStories: isAdminUser ? Number.POSITIVE_INFINITY : (isAdmin && overrides.createStory ? Number.POSITIVE_INFINITY : remaining),
+    canIllustrate: isAdminUser || (isAdmin && overrides.illustrations) || !!plan?.allow_illustrations,
+    canExportPdf: isAdminUser || (isAdmin && overrides.pdf) || !!plan?.allow_pdf,
+    canAudio: isAdminUser || (isAdmin && overrides.audio) || !!plan?.allow_audio,
+    canCreateStory: isAdminUser || (isAdmin && overrides.createStory) || remaining > 0,
   };
 }

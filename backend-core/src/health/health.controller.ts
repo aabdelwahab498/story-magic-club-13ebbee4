@@ -81,36 +81,73 @@ export class HealthController {
       checks.redis = 'not_configured';
     }
 
-    // 3. Python AI Check
-    const pythonUrl = this.configService.get<string>('PYTHON_AI_URL') || 'http://localhost:8000';
-    try {
-      const res = await fetch(`${pythonUrl}/health`, { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        checks.pythonAi = 'connected';
-      } else {
-        checks.pythonAi = `error_status_${res.status}`;
+    // 3. Python AI Check (only required if USE_PYTHON_AI=true)
+    const usePythonAi =
+      this.configService.get<string>('USE_PYTHON_AI') === 'true';
+    if (usePythonAi) {
+      const pythonUrl =
+        this.configService.get<string>('PYTHON_AI_URL') ||
+        'http://localhost:8000';
+      try {
+        const res = await fetch(`${pythonUrl}/health`, {
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          checks.pythonAi = 'connected';
+        } else {
+          checks.pythonAi = `error_status_${res.status}`;
+          isHealthy = false;
+        }
+      } catch (e: any) {
+        checks.pythonAi = `unreachable: ${e.message}`;
         isHealthy = false;
       }
-    } catch (e: any) {
-      checks.pythonAi = `unreachable: ${e.message}`;
-      isHealthy = false;
+    } else {
+      checks.pythonAi = 'disabled';
     }
 
     // 4. Provider Readiness checks
-    const illustrationProvider = this.configService.get<string>('ILLUSTRATION_PROVIDER') || 'google';
-    const audioProvider = this.configService.get<string>('AUDIO_PROVIDER') || 'edge';
-    const imageProvider = this.configService.get<string>('IMAGE_PROVIDER') || 'mock';
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    const illustrationProvider =
+      this.configService.get<string>('ILLUSTRATION_PROVIDER') || 'google';
+    const audioProvider =
+      this.configService.get<string>('AUDIO_PROVIDER') || 'edge';
+    const imageProvider =
+      this.configService.get<string>('IMAGE_PROVIDER') || 'mock';
     const googleApiKey = this.configService.get<string>('GOOGLE_API_KEY');
+    const geminiApiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const useMockLlm =
+      this.configService.get<string>('USE_MOCK_LLM') === 'true';
 
     checks.providers = {
+      llm: useMockLlm ? 'mock' : 'gemini',
       illustration: illustrationProvider,
       audio: audioProvider,
       image: imageProvider,
       googleApi: googleApiKey ? 'configured' : 'missing',
+      geminiApi: geminiApiKey ? 'configured' : 'missing',
     };
 
-    if (illustrationProvider === 'google' && !googleApiKey) {
-      checks.providers.googleApi = 'missing_but_required';
+    if (nodeEnv === 'production') {
+      if (useMockLlm || !geminiApiKey) {
+        checks.providers.llm = 'unhealthy_in_production';
+        isHealthy = false;
+      }
+      if (
+        illustrationProvider === 'mock' ||
+        (illustrationProvider === 'google' && !googleApiKey)
+      ) {
+        checks.providers.googleApi = 'unhealthy_in_production';
+        isHealthy = false;
+      }
+      if (audioProvider === 'mock') {
+        checks.providers.audio = 'unhealthy_in_production';
+        isHealthy = false;
+      }
+    } else {
+      if (illustrationProvider === 'google' && !googleApiKey) {
+        checks.providers.googleApi = 'missing_but_required';
+      }
     }
 
     if (!isHealthy) {

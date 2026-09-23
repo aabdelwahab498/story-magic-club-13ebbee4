@@ -15,7 +15,7 @@ export class UsersService {
 
   // User profile methods
   async getProfile(userId: string, email: string): Promise<UserProfile> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
     const { data, error } = await client
       .from('profiles')
       .select('*')
@@ -48,7 +48,7 @@ export class UsersService {
     email: string,
     dto: UpdateProfileDto,
   ): Promise<UserProfile> {
-    const client = this.supabaseService.getAdminClient();
+    const client = this.supabaseService.getUserClient();
 
     // Verify it exists
     await this.getProfile(userId, email);

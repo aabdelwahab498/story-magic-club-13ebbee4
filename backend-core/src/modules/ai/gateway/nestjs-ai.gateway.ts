@@ -42,6 +42,7 @@ export class NestJSAIGateway implements IAIGateway {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    context?: StoryContext,
   ): Promise<StoryPlan> {
     return this.planner.planStory(
       childAge,
@@ -49,6 +50,7 @@ export class NestJSAIGateway implements IAIGateway {
       theme,
       selGoal,
       readingLevel,
+      context,
     );
   }
 

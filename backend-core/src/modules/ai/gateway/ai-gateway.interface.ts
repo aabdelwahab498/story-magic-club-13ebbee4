@@ -28,6 +28,7 @@ export interface IAIGateway {
     theme: string,
     selGoal: string,
     readingLevel: string,
+    context?: StoryContext,
   ): Promise<StoryPlan>;
 
   /**

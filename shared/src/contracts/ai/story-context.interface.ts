@@ -5,6 +5,11 @@ export interface StoryContext {
   theme: string;
   selGoal: string;
   pageCount?: number;
+  childName?: string;
+  emotionalFocus?: string[];
+  customPrompt?: string;
+  presetBlueprint?: Record<string, any>;
+  preferences?: Record<string, any>;
 }
 
 export interface PageContent {

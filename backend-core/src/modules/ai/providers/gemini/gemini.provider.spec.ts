@@ -38,8 +38,9 @@ describe('GeminiProvider', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key: string) => {
+              if (key === 'NODE_ENV') return 'test';
               if (key === 'GEMINI_API_KEY') return 'test-key';
-              if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash';
+              if (key === 'GEMINI_MODEL') return 'gemini-2.5-flash';
               if (key === 'GEMINI_TIMEOUT') return 1000;
               return null;
             }),
@@ -101,26 +102,29 @@ describe('GeminiProvider', () => {
     });
 
     it('should throw AIProviderException if all attempts fail', async () => {
+      const err = new Error('HTTP 503 Overloaded');
+      (err as any).status = 503;
       mockGenerateContent
-        .mockRejectedValueOnce(new Error('Fail 1'))
-        .mockRejectedValueOnce(new Error('Fail 2'));
+        .mockRejectedValueOnce(err)
+        .mockRejectedValueOnce(err)
+        .mockRejectedValueOnce(err)
+        .mockRejectedValueOnce(err);
 
       await expect(provider.generateBlueprint(mockPrompt)).rejects.toThrow(
         AIProviderException,
       );
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4);
     });
 
     it('should throw AIProviderException on timeout', async () => {
-      // Simulate a very long delay exceeding the 1000ms timeout
       mockGenerateContent.mockImplementation(() => {
         return new Promise((resolve) => setTimeout(resolve, 2000));
       });
 
       await expect(provider.generateStory(mockPrompt)).rejects.toThrow(
-        'Gemini API timeout',
+        AIProviderException,
       );
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2); // Retries once and times out again
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4);
     });
   });
 });

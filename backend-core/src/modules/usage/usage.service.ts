@@ -17,25 +17,36 @@ export class UsageService {
     metadata?: Record<string, any>,
   ): Promise<void> {
     try {
-      const { error } = await this.supabase
-        .getClient()
+      const isUuid = (val?: string) =>
+        typeof val === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+      const eventMetadata = { ...(metadata || {}) };
+      let validResourceId: string | null = null;
+      if (isUuid(resourceId)) {
+        validResourceId = resourceId!;
+      } else if (resourceId) {
+        eventMetadata.resourceIdString = resourceId;
+      }
+
+      const client = this.supabase.getUserClient();
+      const { error } = await client
         .from('usage_events')
         .insert({
           user_id: userId,
           event_type: eventType,
-          resource_id: resourceId,
-          metadata: metadata || {},
+          resource_id: validResourceId,
+          metadata: eventMetadata,
         });
 
       if (error) {
-        this.logger.error(
-          `Failed to track usage event ${eventType} for user ${userId}`,
-          error,
+        this.logger.warn(
+          `Usage event tracking notice (${eventType}) for user ${userId}: ${error.message}`,
         );
       }
-    } catch (err) {
-      this.logger.error(
-        `Exception while tracking usage event ${eventType} for user ${userId}`,
+    } catch (err: any) {
+      this.logger.warn(
+        `Usage event tracking exception (${eventType}) for user ${userId}`,
         err,
       );
     }

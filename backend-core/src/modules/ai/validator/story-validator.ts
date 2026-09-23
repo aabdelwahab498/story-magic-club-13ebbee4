@@ -4,6 +4,7 @@ import { StructureRule } from './rules/structure.rule.js';
 import { AgeRule } from './rules/age.rule.js';
 import { SelRule } from './rules/sel.rule.js';
 import { SafetyRule } from './rules/safety.rule.js';
+import { StoryGuardianService } from '../director/story-guardian.service.js';
 import { ValidationResult } from './interfaces/validation-result.interface.js';
 import { GeneratedStory } from '../interfaces/generated-story.interface.js';
 import { StoryContext } from '../context/story-context.interface.js';
@@ -17,12 +18,13 @@ export class StoryValidator {
     private readonly ageRule: AgeRule,
     private readonly selRule: SelRule,
     private readonly safetyRule: SafetyRule,
+    private readonly storyGuardian: StoryGuardianService,
   ) {
     this.rules = [structureRule, ageRule, selRule, safetyRule];
   }
 
   /**
-   * Validates a generated story against all registered rules.
+   * Validates a generated story against all registered rules and Story Guardian contract rules.
    * Never throws exceptions; returns a deterministic result object.
    */
   validateStory(
@@ -43,6 +45,14 @@ export class StoryValidator {
       result.errors.push(...ruleResult.errors);
       result.warnings.push(...ruleResult.warnings);
     }
+
+    // Story Guardian Contract Validation
+    const guardianResult = this.storyGuardian.validate(story, context as any);
+    if (!guardianResult.valid) {
+      result.valid = false;
+    }
+    result.errors.push(...guardianResult.errors);
+    result.warnings.push(...guardianResult.warnings);
 
     return result;
   }

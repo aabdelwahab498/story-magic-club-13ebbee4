@@ -28,7 +28,7 @@ const ParentDashboard = () => {
   const child = kids.find((c) => c.id === activeId) ?? null;
   const { data: stats } = useChildStats(activeId);
   const { data: schedules = [] } = useBedtimeSchedules(activeId);
-  const { favorites, toggleFavorite, isFavorite } = useFavoriteStories();
+  const { toggleFavorite, isFavorite } = useFavoriteStories();
   const upsert = useUpsertSchedule();
   const del = useDeleteSchedule();
   const qc = useQueryClient();

@@ -35,6 +35,7 @@ describe('ChildrenAIContextService', () => {
           provide: SupabaseService,
           useValue: {
             getClient: jest.fn().mockReturnValue(mockSupabaseClient),
+            getUserClient: jest.fn().mockReturnValue(mockSupabaseClient),
           },
         },
         {

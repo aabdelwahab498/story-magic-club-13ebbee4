@@ -1,4 +1,12 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  HttpException,
+  HttpStatus,
+  Optional,
+  Inject,
+} from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service.js';
 import { MediaGateway, MediaType } from './gateway/media.gateway.js';
 import { randomUUID } from 'crypto';
@@ -11,6 +19,9 @@ import {
   USAGE_EVENTS,
 } from '../credits/credits.constants.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
+import type { UserContext } from '../rbac/interfaces/user-context.interface.js';
+import { Role } from '../rbac/enums/role.enum.js';
+import { IllustrationProviderFactory } from './providers/illustration-provider.factory.js';
 
 @Injectable()
 export class MediaService {
@@ -23,7 +34,29 @@ export class MediaService {
     private readonly creditsService: CreditsService,
     private readonly usageService: UsageService,
     private readonly subscriptionsService: SubscriptionsService,
+    @Optional()
+    @Inject(IllustrationProviderFactory)
+    private readonly illustrationProviderFactory?: IllustrationProviderFactory,
   ) {}
+
+  private resolveUser(userOrId: UserContext | string | undefined): {
+    userId: string;
+    isAdmin: boolean;
+  } {
+    if (!userOrId) {
+      return { userId: '', isAdmin: false };
+    }
+    if (typeof userOrId === 'string') {
+      return { userId: userOrId, isAdmin: false };
+    }
+    const roles = userOrId.roles || (userOrId.role ? [userOrId.role] : []);
+    const isAdmin =
+      roles.includes(Role.ADMIN) ||
+      roles.includes(Role.SUPER_ADMIN) ||
+      roles.includes('admin' as Role) ||
+      roles.includes('super_admin' as Role);
+    return { userId: userOrId.id, isAdmin };
+  }
 
   async createMediaRequest(
     storyId: string,
@@ -36,15 +69,28 @@ export class MediaService {
       type,
     });
 
-    // 1. Verify story exists
-    const supabase = this.supabaseService.getAdminClient();
-    const { data: story, error: storyError } = await supabase
-      .from('stories')
+    // 1. Verify story exists via story_requests or ai_story_history
+    const supabase = this.supabaseService.getUserClient();
+    let exists = false;
+
+    const { data: reqData } = await supabase
+      .from('story_requests')
       .select('id')
       .eq('id', storyId)
-      .single();
+      .maybeSingle();
 
-    if (storyError || !story) {
+    if (reqData) {
+      exists = true;
+    } else {
+      const { data: histStory } = await supabase
+        .from('ai_story_history')
+        .select('id')
+        .eq('id', storyId)
+        .maybeSingle();
+      if (histStory) exists = true;
+    }
+
+    if (!exists) {
       throw new NotFoundException(`Story with ID ${storyId} not found`);
     }
 
@@ -91,7 +137,7 @@ export class MediaService {
     type: MediaType,
     metadata?: Record<string, any>,
   ) {
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
     try {
       // Set to PROCESSING
       await supabase
@@ -134,7 +180,7 @@ export class MediaService {
   }
 
   async getMediaForStory(storyId: string) {
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
     const { data, error } = await supabase
       .from('story_media')
       .select('*')
@@ -148,58 +194,127 @@ export class MediaService {
     return data;
   }
 
-  async createIllustrationJob(storyId: string, userId: string) {
+  async createIllustrationJob(
+    storyId: string,
+    userOrId: UserContext | string,
+  ) {
+    const { userId, isAdmin } = this.resolveUser(userOrId);
     const requestId = randomUUID();
     this.logger.log(
-      `[REQ:${requestId}] Creating illustration job for story ${storyId}`,
+      `[REQ:${requestId}] Creating illustration job for story ${storyId} (user: ${userId}, isAdmin: ${isAdmin})`,
     );
 
-    // -1. Check feature access
-    const featureCheck = await this.subscriptionsService.canAccessFeature(
-      userId,
-      'ILLUSTRATION_GENERATION',
+    // 1. Verify story exists and user owns it (STILL ENFORCED FOR ALL USERS)
+    await this.verifyStoryOwnership(storyId, userId);
+
+    // 1.5. IDEMPOTENCY CHECK: Check if illustration job already exists for this story
+    const existingMedia = (await this.getMediaForStory(storyId)) || [];
+    const existingIllustrationJob = existingMedia.find(
+      (m) => m && m.type === 'ILLUSTRATION',
     );
-    if (!featureCheck.allowed) {
-      throw new Error(
-        'Feature ILLUSTRATION_GENERATION is not enabled for your plan.',
+    if (existingIllustrationJob) {
+      if (
+        ['PENDING', 'PROCESSING', 'COMPLETED'].includes(
+          existingIllustrationJob.status,
+        )
+      ) {
+        this.logger.log(
+          `[REQ:${requestId}] Illustration job already exists for story ${storyId} with status ${existingIllustrationJob.status}. Skipping duplicate creation.`,
+        );
+        return {
+          storyId,
+          status:
+            existingIllustrationJob.status === 'COMPLETED'
+              ? 'COMPLETED'
+              : 'GENERATING',
+        };
+      }
+
+      if (existingIllustrationJob.status === 'FAILED') {
+        this.logger.log(
+          `[REQ:${requestId}] Existing illustration job for story ${storyId} is FAILED. Reusing record ${existingIllustrationJob.id} without double-charging.`,
+        );
+        const supabase = this.supabaseService.getUserClient();
+        await supabase
+          .from('story_media')
+          .update({ status: 'PENDING' })
+          .eq('id', existingIllustrationJob.id);
+
+        void this.processMediaGeneration(
+          requestId,
+          existingIllustrationJob.id,
+          storyId,
+          'ILLUSTRATION',
+          {
+            ...(existingIllustrationJob.metadata as Record<string, any>),
+            retryFailedOnly: true,
+          },
+        );
+
+        return {
+          storyId,
+          status: 'GENERATING',
+        };
+      }
+    }
+
+    if (!isAdmin) {
+      // -1. Check feature access
+      const featureCheck = await this.subscriptionsService.canAccessFeature(
+        userId,
+        'ILLUSTRATION_GENERATION',
       );
-    }
+      if (!featureCheck.allowed) {
+        throw new Error(
+          'Feature ILLUSTRATION_GENERATION is not enabled for your plan.',
+        );
+      }
 
-    // -0.5. Check plan limits
-    const limitCheck = await this.subscriptionsService.checkLimit(
-      userId,
-      'ILLUSTRATIONS_PER_MONTH',
-    );
-    if (!limitCheck.allowed) {
-      throw new Error(
-        `Plan limit reached: You have generated ${limitCheck.current} out of ${limitCheck.limit} illustrations this month.`,
+      // -0.5. Check plan limits
+      const limitCheck = await this.subscriptionsService.checkLimit(
+        userId,
+        'ILLUSTRATIONS_PER_MONTH',
       );
-    }
+      if (!limitCheck.allowed) {
+        throw new Error(
+          `Plan limit reached: You have generated ${limitCheck.current} out of ${limitCheck.limit} illustrations this month.`,
+        );
+      }
 
-    // 0. Check balance
-    const { balance } = await this.creditsService.getBalance(userId);
-    if (balance < CREDIT_COSTS.ILLUSTRATION_GENERATION) {
-      throw new Error('Insufficient credits');
-    }
-
-    // 1. Verify story exists
-    const supabase = this.supabaseService.getAdminClient();
-    const { data: story, error: storyError } = await supabase
-      .from('stories')
-      .select('id')
-      .eq('id', storyId)
-      .single();
-
-    if (storyError || !story) {
-      throw new NotFoundException(`Story with ID ${storyId} not found`);
+      // 0. Check balance
+      const { balance } = await this.creditsService.getBalance(userId);
+      if (balance < CREDIT_COSTS.ILLUSTRATION_GENERATION) {
+        throw new HttpException(
+          {
+            code: 'INSUFFICIENT_ILLUSTRATION_CREDITS',
+            message: 'Insufficient illustration credits',
+          },
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
+    } else {
+      this.logger.log(
+        `[REQ:${requestId}] Admin entitlement bypass active for user ${userId} — bypassing feature/limit/credit checks`,
+      );
     }
 
     // 2. Create story_media record
+    const supabase = this.supabaseService.getUserClient();
+    let providerName = 'google';
+    try {
+      if (this.illustrationProviderFactory) {
+        providerName = this.illustrationProviderFactory.getProvider().name;
+      }
+    } catch {
+      providerName = 'google';
+    }
+
     const { data: mediaRecord, error: insertError } = await supabase
       .from('story_media')
       .insert({
         story_id: storyId,
         type: 'ILLUSTRATION',
+        provider: providerName,
         status: 'PENDING',
         metadata: {},
       })
@@ -211,16 +326,25 @@ export class MediaService {
         `[REQ:${requestId}] Failed to insert illustration record`,
         insertError,
       );
-      throw new Error('Failed to create illustration job');
+      throw new HttpException(
+        {
+          code: 'MEDIA_GENERATION_FAILED',
+          message: `Failed to create illustration job: ${insertError?.message || 'Insert failed'}`,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
 
-    // Deduct credits and track usage before fire-and-forget
-    await this.creditsService.consumeCredits(
-      userId,
-      CREDIT_COSTS.ILLUSTRATION_GENERATION,
-      TRANSACTION_TYPES.ILLUSTRATION_GENERATION,
-      mediaRecord.id,
-    );
+    // Deduct credits only for non-admin users
+    if (!isAdmin) {
+      await this.creditsService.consumeCredits(
+        userId,
+        CREDIT_COSTS.ILLUSTRATION_GENERATION,
+        TRANSACTION_TYPES.ILLUSTRATION_GENERATION,
+        mediaRecord.id,
+      );
+    }
+
     this.usageService.trackUsage(
       userId,
       USAGE_EVENTS.ILLUSTRATION_JOB_STARTED,
@@ -228,7 +352,6 @@ export class MediaService {
     );
 
     // 3. Call IllustrationService (fire-and-forget for MVP)
-    // We reuse processMediaGeneration which already handles ILLUSTRATION type
     void this.processMediaGeneration(
       requestId,
       mediaRecord.id,
@@ -243,13 +366,55 @@ export class MediaService {
     };
   }
 
-  async retryIllustrationJob(storyId: string) {
+  private async verifyStoryOwnership(storyId: string, userId: string): Promise<void> {
+    const supabase = this.supabaseService.getUserClient();
+
+    // 1. Check story_requests table
+    const { data: requestStory } = await supabase
+      .from('story_requests')
+      .select('id, user_id')
+      .eq('id', storyId)
+      .maybeSingle();
+
+    if (requestStory) {
+      if (requestStory.user_id !== userId) {
+        throw new NotFoundException(`Story with ID ${storyId} not found`);
+      }
+      return;
+    }
+
+    // 2. Check ai_story_history table
+    const { data: legacyStory } = await supabase
+      .from('ai_story_history')
+      .select('id, user_id')
+      .eq('id', storyId)
+      .maybeSingle();
+
+    if (legacyStory) {
+      if (legacyStory.user_id && legacyStory.user_id !== userId) {
+        throw new NotFoundException(`Story with ID ${storyId} not found`);
+      }
+      return;
+    }
+
+    throw new NotFoundException(`Story with ID ${storyId} not found`);
+  }
+
+  async retryIllustrationJob(
+    storyId: string,
+    userOrId?: UserContext | string,
+  ) {
+    const { userId } = this.resolveUser(userOrId);
+    if (userId) {
+      await this.verifyStoryOwnership(storyId, userId);
+    }
+
     const requestId = randomUUID();
     this.logger.log(
       `[REQ:${requestId}] Retrying failed illustrations for story ${storyId}`,
     );
 
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
 
     // 1. Fetch existing illustration job
     const allMedia = await this.getMediaForStory(storyId);
@@ -296,16 +461,27 @@ export class MediaService {
   async regeneratePageIllustration(
     storyId: string,
     pageNumber: number,
-    userId: string,
+    userOrId: UserContext | string,
   ) {
-    // Check feature access
-    const featureCheck = await this.subscriptionsService.canAccessFeature(
-      userId,
-      'REGENERATE_ILLUSTRATION',
-    );
-    if (!featureCheck.allowed) {
-      throw new Error(
-        'Feature REGENERATE_ILLUSTRATION is not enabled for your plan.',
+    const { userId, isAdmin } = this.resolveUser(userOrId);
+    if (userId) {
+      await this.verifyStoryOwnership(storyId, userId);
+    }
+
+    if (!isAdmin) {
+      // Check feature access
+      const featureCheck = await this.subscriptionsService.canAccessFeature(
+        userId,
+        'REGENERATE_ILLUSTRATION',
+      );
+      if (!featureCheck.allowed) {
+        throw new Error(
+          'Feature REGENERATE_ILLUSTRATION is not enabled for your plan.',
+        );
+      }
+    } else {
+      this.logger.log(
+        `Admin entitlement bypass active for page regeneration by user ${userId}`,
       );
     }
 
@@ -314,7 +490,7 @@ export class MediaService {
       `[REQ:${requestId}] Regenerating illustration for story ${storyId} page ${pageNumber}`,
     );
 
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
 
     // 1. Fetch existing illustration job
     const allMedia = await this.getMediaForStory(storyId);
@@ -358,12 +534,17 @@ export class MediaService {
     };
   }
 
-  async getIllustrations(storyId: string) {
+  async getIllustrations(storyId: string, userId?: string) {
+    if (userId) {
+      await this.verifyStoryOwnership(storyId, userId);
+    }
+
     const allMedia = await this.getMediaForStory(storyId);
     const illustrationJob = allMedia.find((m) => m.type === 'ILLUSTRATION');
 
     if (!illustrationJob) {
       return {
+        storyId,
         jobStatus: 'NONE',
         totalPages: 0,
         completedPages: 0,
@@ -373,7 +554,12 @@ export class MediaService {
     }
 
     const metadata = illustrationJob.metadata;
-    const illustrations = metadata?.pages || [];
+    const rawPages = metadata?.pages || [];
+    const illustrations = rawPages.map((p: any) => ({
+      pageNumber: p.pageNumber,
+      imageUrl: p.imageUrl || null,
+      status: p.status || (p.imageUrl ? 'COMPLETED' : 'FAILED'),
+    }));
 
     // Legacy fallback for records created during MVP
     if (metadata?.illustration && illustrations.length === 0) {
@@ -384,20 +570,28 @@ export class MediaService {
       });
     }
 
+    const completedPages =
+      metadata?.completedPages !== undefined
+        ? metadata.completedPages
+        : illustrations.filter((p: any) => p.status === 'COMPLETED').length;
+
+    const failedPages =
+      metadata?.failedPages !== undefined
+        ? metadata.failedPages
+        : illustrations.filter((p: any) => p.status === 'FAILED').length;
+
     return {
+      storyId,
       jobStatus: illustrationJob.status,
       totalPages: metadata?.totalPages || illustrations.length,
-      completedPages:
-        metadata?.completedPages ||
-        (illustrationJob.status === 'COMPLETED' ? 1 : 0),
-      failedPages:
-        metadata?.failedPages || (illustrationJob.status === 'FAILED' ? 1 : 0),
+      completedPages,
+      failedPages,
       illustrations,
     };
   }
 
   async getMediaStatus(mediaId: string) {
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
     const { data, error } = await supabase
       .from('story_media')
       .select('status, url')

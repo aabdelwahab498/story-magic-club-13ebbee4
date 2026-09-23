@@ -76,44 +76,29 @@ export class ComposeStoryError extends Error {
 }
 
 
+import { normalizeStoryPlan } from "./storyPlanNormalizer";
+
 export async function planSelStory(input: ComposeStoryInput): Promise<SelPlanResponse> {
   try {
-    const response = await axiosInstance.post("/stories/plan", {
-      childId: input.childProfileId,
-      theme: input.theme,
-      selGoal: input.emotionalFocus?.join(", ") || "Empathy",
-      language: input.language || "en",
-    });
+    const response = await axiosInstance.post(
+      "/stories/plan",
+      {
+        childId: input.childProfileId,
+        theme: input.theme,
+        selGoal: input.emotionalFocus?.join(", ") || "Empathy",
+        language: input.language || "en",
+      },
+      {
+        timeout: 90000, // 90 second timeout to tolerate Gemini latency and backend retries
+      }
+    );
 
-    const plan = response.data;
-    
-    // Map backend StoryPlan format to old frontend blueprint layout
+    const normalizedBlueprint = normalizeStoryPlan(response.data, input.childName || "Hero");
+
     return {
       requestId: "plan_request",
       mode: "plan",
-      blueprint: {
-        title: plan.title,
-        hero: {
-          name: plan.characters?.[0]?.name || "Hero",
-          sense: plan.characters?.[0]?.description || "Sense",
-          problem: plan.conflict || "Problem",
-          engine: "Engine",
-          charm: "Charm",
-        },
-        mentor: plan.characters?.find((c: any) => c.role?.toLowerCase() === "mentor") || plan.characters?.[1] || { name: "Mentor", role: "Mentor" },
-        companion: plan.characters?.find((c: any) => c.role?.toLowerCase() === "companion") || plan.characters?.[2] || { name: "Companion", role: "Companion" },
-        acts: {
-          act1_normalWorld: `Introduction of ${plan.characters?.[0]?.name || "the hero"}.`,
-          act2_disturbance: plan.conflict,
-          act3_attempts: [plan.resolution],
-          act4_resolution: `Resolution of the conflict: ${plan.resolution}`,
-        },
-        selOutcome: {
-          skill: plan.selGoals?.[0] || "Empathy",
-          emotion: "Connected",
-          statement: `We learned about ${plan.selGoals?.join(", ") || "social emotional learning"}.`,
-        },
-      },
+      blueprint: normalizedBlueprint as any,
       age_band: input.age <= 5 ? "3-5" : input.age <= 8 ? "6-8" : "9-12",
     } as SelPlanResponse;
   } catch (err: any) {
@@ -226,16 +211,57 @@ export async function illustrateSelStory(
 
 
 export async function exportStoryPdf(storyId: string, _opts: { force?: boolean } = {}): Promise<string> {
-  try {
-    const response = await axiosInstance.post<{ download_url?: string }>(`/media/stories/${storyId}/export/pdf`);
-    const url = response.data.download_url;
-    if (!url) throw new Error("no_pdf_url");
-    return url;
-  } catch (err: any) {
-    if (err.response?.status === 403 || err.response?.data?.message?.includes("limit")) {
-      throw new SubscriptionRequiredError("pdf");
+  const maxAttempts = 30;
+  const pollIntervalMs = 2000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await axiosInstance.post<{
+        status?: string;
+        download_url?: string;
+        error?: string;
+      }>(`/media/stories/${storyId}/export/pdf`);
+
+      const { status, download_url, error } = response.data;
+
+      if (download_url && (status === "COMPLETED" || !status)) {
+        return download_url;
+      }
+
+      if (status === "WAITING_FOR_ILLUSTRATIONS" || status === "PENDING" || status === "PROCESSING") {
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+          continue;
+        }
+        throw new Error("Illustration generation is taking longer than expected. Please try again in a moment.");
+      }
+
+      if (status === "FAILED" || error) {
+        throw new Error(error || "PDF export failed due to illustration errors.");
+      }
+
+      if (download_url) {
+        return download_url;
+      }
+    } catch (err: any) {
+      if (!err.response) {
+        throw err;
+      }
+      if (err.response?.status === 403 || err.response?.data?.message?.includes("limit")) {
+        throw new SubscriptionRequiredError("pdf");
+      }
+      if (
+        attempt === maxAttempts - 1 ||
+        err.response?.status === 404 ||
+        err.response?.status === 400 ||
+        err instanceof SubscriptionRequiredError
+      ) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
-    throw err;
   }
+
+  throw new Error("PDF export timed out waiting for illustrations");
 }
 

@@ -17,7 +17,7 @@ export class ChildPreferencesService {
     childId: string,
   ): Promise<ChildPreferences> {
     const { data, error } = await this.supabase
-      .getClient()
+      .getUserClient()
       .from('child_profiles')
       .select('bedtime_preferences, emotional_focus')
       .eq('id', childId)
@@ -46,7 +46,7 @@ export class ChildPreferencesService {
     dto: UpdateChildPreferencesDto,
   ): Promise<ChildPreferences> {
     const { data: existing, error: fetchError } = await this.supabase
-      .getClient()
+      .getUserClient()
       .from('child_profiles')
       .select('bedtime_preferences, emotional_focus')
       .eq('id', childId)
@@ -69,7 +69,7 @@ export class ChildPreferencesService {
     if (dto.emotionalGoals !== undefined) emotional.goals = dto.emotionalGoals;
 
     const { error: updateError } = await this.supabase
-      .getClient()
+      .getUserClient()
       .from('child_profiles')
       .update({
         bedtime_preferences: bedtime,

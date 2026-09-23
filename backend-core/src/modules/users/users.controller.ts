@@ -6,7 +6,7 @@ import type { UserProfile } from './interfaces/index.js';
 import { CurrentUser } from '../rbac/decorators/current-user.decorator.js';
 import type { UserContext } from '../rbac/interfaces/user-context.interface.js';
 
-@Controller('api/v2/users')
+@Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

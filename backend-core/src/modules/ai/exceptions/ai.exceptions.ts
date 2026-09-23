@@ -1,12 +1,29 @@
-export class AIProviderException extends Error {
+import { HttpException, HttpStatus } from '@nestjs/common';
+
+export class AIProviderException extends HttpException {
   constructor(
     message: string,
     public readonly originalError?: any,
+    status: number = HttpStatus.SERVICE_UNAVAILABLE,
   ) {
-    super(`AI Provider Error: ${message}`);
+    const isTransient = status === HttpStatus.SERVICE_UNAVAILABLE;
+    super(
+      {
+        statusCode: status,
+        error: isTransient ? 'Service Unavailable' : 'AI Provider Error',
+        code: isTransient
+          ? 'AI_PROVIDER_TEMPORARILY_UNAVAILABLE'
+          : 'AI_PROVIDER_ERROR',
+        message: isTransient
+          ? 'The story service is temporarily busy. Please try again shortly.'
+          : message,
+      },
+      status,
+    );
     this.name = 'AIProviderException';
   }
 }
+
 
 export class AIParseException extends Error {
   constructor(

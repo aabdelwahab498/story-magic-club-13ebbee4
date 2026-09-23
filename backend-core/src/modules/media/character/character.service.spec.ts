@@ -25,6 +25,7 @@ describe('CharacterBibleService', () => {
           provide: SupabaseService,
           useValue: {
             getAdminClient: jest.fn().mockReturnValue(mockSupabaseClient),
+            getUserClient: jest.fn().mockReturnValue(mockSupabaseClient),
           },
         },
       ],
@@ -83,5 +84,27 @@ describe('CharacterBibleService', () => {
     const results = await service.getCharacters('story-1');
     expect(results).toHaveLength(1);
     expect(results[0].characterName).toBe('Lina');
+  });
+
+  it('should fall back gracefully to in-memory mode when character_bibles table is missing in database', async () => {
+    mockSupabaseClient.order.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST205', message: "Could not find table 'character_bibles'" },
+    });
+
+    const getRes = await service.getCharacters('story-missing-table');
+    expect(getRes).toEqual([]);
+
+    mockSupabaseClient.single.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST205', message: "Could not find table 'character_bibles'" },
+    });
+
+    const seedRes = await service.extractAndSeedCharacters('story-missing-table', [
+      { text: 'Lina went to the magical forest.' },
+    ]);
+
+    expect(seedRes.length).toBeGreaterThan(0);
+    expect(seedRes[0].characterName).toBe('Lina');
   });
 });

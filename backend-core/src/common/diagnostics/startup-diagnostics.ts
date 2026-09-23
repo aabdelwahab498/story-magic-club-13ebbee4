@@ -18,11 +18,11 @@ export async function runStartupDiagnostics(app: INestApplication): Promise<void
     'NODE_ENV',
     'SUPABASE_URL',
     'SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
     'CORS_ALLOWED_ORIGINS',
   ];
 
   const optionalKeys = [
+    'SUPABASE_SERVICE_ROLE_KEY',
     'GEMINI_API_KEY',
     'GOOGLE_API_KEY',
     'REDIS_URL',
@@ -83,7 +83,9 @@ export async function runStartupDiagnostics(app: INestApplication): Promise<void
   // 3. Validate Storage Configuration
   let storageStatus: 'healthy' | 'unhealthy' = 'healthy';
   try {
-    const client = supabaseService.getAdminClient();
+    const client = supabaseService.hasAdminClient()
+      ? supabaseService.getAdminClient()
+      : supabaseService.getClient();
     const { error } = await client.storage.listBuckets();
     if (error) throw error;
   } catch (err) {
@@ -111,6 +113,26 @@ export async function runStartupDiagnostics(app: INestApplication): Promise<void
   if (databaseStatus === 'unhealthy') {
     logger.error('CRITICAL: Database connection is unhealthy. Failing fast.');
     throw new Error(`Database connection check failed: ${dbErrorMsg}`);
+  }
+
+  if (nodeEnv === 'production') {
+    if (paymentProvider === 'mock') {
+      logger.error(
+        'CRITICAL: PAYMENT_PROVIDER=mock is forbidden in production. Failing fast.',
+      );
+      throw new Error(
+        'PAYMENT_PROVIDER=mock is forbidden in production (NODE_ENV=production).',
+      );
+    }
+    const webhookSecret = configService.get('PADDLE_WEBHOOK_SECRET');
+    if (paymentProvider === 'paddle' && !webhookSecret) {
+      logger.error(
+        'CRITICAL: PADDLE_WEBHOOK_SECRET is missing in production. Failing fast.',
+      );
+      throw new Error(
+        'PADDLE_WEBHOOK_SECRET is required in production (NODE_ENV=production).',
+      );
+    }
   }
 
   logger.log('Diagnostics completed successfully.');

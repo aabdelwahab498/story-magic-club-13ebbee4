@@ -14,9 +14,7 @@ export const EnvSchema = z.object({
   SUPABASE_ANON_KEY: z
     .string()
     .min(10, 'SUPABASE_ANON_KEY is too short to be valid'),
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(10, 'SUPABASE_SERVICE_ROLE_KEY is too short to be valid'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   /**
    * Comma-separated list of allowed CORS origins.
    * Fail-closed: this is REQUIRED — the server refuses to start without it,
@@ -32,14 +30,18 @@ export const EnvSchema = z.object({
     ),
   USE_MOCK_LLM: z.enum(['true', 'false']).default('false'),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   GEMINI_TIMEOUT: z.coerce.number().default(30000),
 
-  // Authentication Cookie Configuration
+  // Authentication Cookie & Redirect Configuration
   JWT_COOKIE_NAME: z.string().default('najmah_token'),
   JWT_COOKIE_SECURE: z.coerce.boolean().default(true),
   JWT_COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   JWT_COOKIE_MAX_AGE: z.coerce.number().default(604800),
+  AUTH_EMAIL_CONFIRM_REDIRECT_URL: z
+    .string()
+    .url('AUTH_EMAIL_CONFIRM_REDIRECT_URL must be a valid URL')
+    .optional(),
 
   // Infrastructure Config
   REDIS_URL: z.string().url().or(z.string().regex(/^redis:\/\/.*$/)).optional(),
@@ -58,10 +60,21 @@ export const EnvSchema = z.object({
   MEDIA_IMAGE_PROVIDER: z.enum(['google', 'mock']).default('mock'),
   PAYMENT_PROVIDER: z.string().default('mock'),
 
+  // Paddle Billing Credentials
+  PADDLE_WEBHOOK_SECRET: z.string().optional(),
+  PADDLE_API_KEY: z.string().optional(),
+  PADDLE_CLIENT_TOKEN: z.string().optional(),
+  PADDLE_ENVIRONMENT: z.enum(['sandbox', 'production']).default('sandbox'),
+
   // Resilience & Storage Settings
   REQUEST_TIMEOUT: z.coerce.number().default(30000),
   RETRY_COUNT: z.coerce.number().default(3),
-  STORAGE_BUCKETS: z.string().default('illustrations,audio,avatars,covers'),
+  ILLUSTRATIONS_BUCKET: z.string().default('story-images'),
+  AUDIO_BUCKET: z.string().default('story-audio'),
+  AVATARS_BUCKET: z.string().default('avatars'),
+  COVERS_BUCKET: z.string().default('covers'),
+  EXPORTS_BUCKET: z.string().default('story-pdfs'),
+  STORAGE_BUCKETS: z.string().default('story-images,story-audio,avatars,covers,story-pdfs'),
   MASTER_ENCRYPTION_KEY: z
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, 'MASTER_ENCRYPTION_KEY must be a 64-character hex string')

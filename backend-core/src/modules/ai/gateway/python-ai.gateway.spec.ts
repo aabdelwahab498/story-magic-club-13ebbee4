@@ -102,11 +102,11 @@ describe('PythonAIGateway', () => {
       );
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:8000/ai/story/plan',
-        {
+        expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(mockContext),
-        },
+        }),
       );
       expect(result).toEqual(mockPlan);
     });

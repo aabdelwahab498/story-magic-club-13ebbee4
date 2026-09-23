@@ -1,8 +1,8 @@
-// backend-core/src/modules/media/audio.service.ts
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service.js';
 import { AudioProviderFactory } from './providers/audio/audio-provider.factory.js';
 import { MetricsService } from '../metrics/metrics.service.js';
+import { RequestContext } from '../../common/middleware/request-context.js';
 
 @Injectable()
 export class AudioService {
@@ -14,17 +14,51 @@ export class AudioService {
     private readonly metricsService: MetricsService,
   ) {}
 
-  async generateNarration(storyId: string) {
-    const supabase = this.supabaseService.getAdminClient();
+  private async resolveStory(storyId: string) {
+    const supabase = this.supabaseService.getUserClient();
 
-    // 1. Verify story exists
-    const { data: story, error: storyError } = await supabase
+    // 1. Query ai_story_history + story_requests
+    const { data: histStory, error: histErr } = await supabase
       .from('ai_story_history')
-      .select('id, pages, generated_story, language')
+      .select('id, user_id, pages, generated_story, language, audio_url')
       .eq('id', storyId)
       .maybeSingle();
 
-    if (storyError || !story) {
+    if (histErr) {
+      this.logger.error(
+        `Error querying ai_story_history table: ${histErr.message}`,
+      );
+      throw new Error('Failed to query story data');
+    }
+
+    if (histStory) {
+      const { data: reqData } = await supabase
+        .from('story_requests')
+        .select('language, user_id')
+        .eq('id', storyId)
+        .maybeSingle();
+
+      return {
+        id: histStory.id,
+        user_id: reqData?.user_id || histStory.user_id,
+        pages: histStory.generated_story?.pages || histStory.pages || [],
+        generated_story: histStory.generated_story || {
+          pages: histStory.pages || [],
+        },
+        language: reqData?.language || histStory.language || 'en',
+        audio_url: histStory.audio_url || null,
+      };
+    }
+
+    return null;
+  }
+
+  async generateNarration(storyId: string) {
+    const supabase = this.supabaseService.getUserClient();
+
+    // 1. Verify story exists via canonical-first lookup
+    const story = await this.resolveStory(storyId);
+    if (!story) {
       throw new NotFoundException(`Story with ID ${storyId} not found`);
     }
 
@@ -62,7 +96,17 @@ export class AudioService {
         .single();
 
       if (insertError || !newMedia) {
-        throw new Error('Failed to create audio media request');
+        this.logger.error(
+          `Failed to create audio media request for story ${storyId}`,
+          insertError,
+        );
+        throw new HttpException(
+          {
+            code: 'AUDIO_GENERATION_FAILED',
+            message: `Failed to create audio media request: ${insertError?.message || 'Insert failed'}`,
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
       mediaId = newMedia.id;
     }
@@ -77,16 +121,11 @@ export class AudioService {
   }
 
   async getNarration(storyId: string) {
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
 
-    // Check if the story exists and has a finalized audio URL
-    const { data: story, error: storyError } = await supabase
-      .from('ai_story_history')
-      .select('audio_url')
-      .eq('id', storyId)
-      .maybeSingle();
-
-    if (storyError || !story) {
+    // Check if story exists via canonical-first lookup
+    const story = await this.resolveStory(storyId);
+    if (!story) {
       throw new NotFoundException(`Story with ID ${storyId} not found`);
     }
 
@@ -126,7 +165,7 @@ export class AudioService {
   }
 
   async deleteNarration(storyId: string) {
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
 
     // Clear from ai_story_history
     await supabase
@@ -145,7 +184,7 @@ export class AudioService {
   }
 
   private async processAudioGeneration(mediaId: string, storyId: string, story: any) {
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
     try {
       await supabase
         .from('story_media')
@@ -218,10 +257,22 @@ export class AudioService {
     }
   }
 
-  async synthesizeTts(text: string, language: string, character?: string) {
-    const supabase = this.supabaseService.getAdminClient();
+  async synthesizeTts(
+    text: string,
+    language: string,
+    character?: string,
+    userToken?: string,
+  ) {
+    const supabase = this.supabaseService.getUserClient();
+    const token = userToken || RequestContext.authToken;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const { data, error } = await supabase.functions.invoke('narrate-story', {
       body: { text, language, character },
+      headers,
     });
 
     if (error) {

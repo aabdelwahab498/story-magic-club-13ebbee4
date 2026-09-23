@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RbacService } from './rbac.service.js';
 import { SupabaseService } from '../../supabase/supabase.service.js';
@@ -36,8 +37,9 @@ describe('RbacService', () => {
     }),
   };
 
-  const mockSupabaseService: Pick<SupabaseService, 'getAdminClient'> = {
+  const mockSupabaseService: Pick<SupabaseService, 'getAdminClient' | 'getUserClient'> = {
     getAdminClient: jest.fn().mockReturnValue(mockAdminClient),
+    getUserClient: jest.fn().mockReturnValue(mockAdminClient as any),
   };
 
   beforeEach(async () => {
@@ -87,16 +89,15 @@ describe('RbacService', () => {
       expect(ctx.roles).toEqual([Role.USER]);
     });
 
-    it('should default to USER role when user_roles query fails', async () => {
+    it('should throw InternalServerErrorException when user_roles query fails (fail-closed)', async () => {
       mockRolesQuery.eq.mockResolvedValueOnce({
         data: null,
         error: new Error('DB error'),
       });
 
-      const ctx = await service.buildUserContext('user-789', 'err@example.com');
-
-      expect(ctx.role).toBe(Role.USER);
-      expect(ctx.roles).toEqual([Role.USER]);
+      await expect(
+        service.buildUserContext('user-789', 'err@example.com'),
+      ).rejects.toThrow(InternalServerErrorException);
     });
 
     it('should return empty permissions and skip DB query for admin role', async () => {

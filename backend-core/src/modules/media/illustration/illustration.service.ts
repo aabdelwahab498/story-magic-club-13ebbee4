@@ -5,6 +5,10 @@ import { MediaConfigService } from '../media.config.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { CharacterBibleService } from '../character/character.service.js';
 import { IllustrationProviderFactory } from '../providers/illustration-provider.factory.js';
+import {
+  classifyProviderError,
+  sanitizeSecrets,
+} from '../../../common/resilience/provider-error.classifier.js';
 
 @Injectable()
 export class IllustrationService {
@@ -34,22 +38,27 @@ export class IllustrationService {
     this.logger.log(
       `[ILLUSTRATION:${storyId}] Starting illustration generation pipeline`,
     );
-    const supabase = this.supabaseService.getAdminClient();
+    const supabase = this.supabaseService.getUserClient();
 
     try {
-      // 1. Fetch story pages
-      const { data: story, error: storyError } = await supabase
-        .from('stories')
-        .select('pages')
+      // 1. Fetch story pages from ai_story_history
+      let storyPages: any[] | null = null;
+      const { data: histStory } = await supabase
+        .from('ai_story_history')
+        .select('pages, generated_story')
         .eq('id', storyId)
-        .single();
+        .maybeSingle();
 
-      if (storyError || !story) {
+      if (histStory) {
+        storyPages = histStory.generated_story?.pages || histStory.pages || null;
+      }
+
+      if (!storyPages) {
         throw new Error(`Failed to fetch story ${storyId}`);
       }
 
       // 2. Extract scenes
-      const scenes = this.sceneExtractor.extractScenes(story.pages);
+      const scenes = this.sceneExtractor.extractScenes(storyPages);
       if (scenes.length === 0) {
         this.logger.warn(
           `[ILLUSTRATION:${storyId}] No scenes extracted. Generating generic cover.`,
@@ -69,7 +78,7 @@ export class IllustrationService {
       if (characters.length === 0) {
         characters = await this.characterService.extractAndSeedCharacters(
           storyId,
-          story.pages,
+          storyPages,
         );
       }
 
@@ -78,29 +87,18 @@ export class IllustrationService {
       const regeneratePage = metadata?.regeneratePage as number | undefined;
 
       const totalPages = scenes.length;
-      let completedPages = metadata?.completedPages || 0;
-      let failedPages = metadata?.failedPages || 0;
+      let pages: any[] = Array.isArray(metadata?.pages) ? [...metadata.pages] : [];
 
-      // Setup the base pages array
-      let pages = [];
       if (retryFailedOnly) {
-        // Filter out any pages that we will retry, keeping only the ones we won't retry
-        pages = (metadata?.pages || []).filter(
-          (p: any) => p.status === 'COMPLETED',
-        );
-        completedPages = pages.length; // Only successfully completed pages carry over
-        failedPages = 0; // We are about to retry the rest
+        // Keep only successfully completed pages
+        pages = pages.filter((p: any) => p.status === 'COMPLETED' && p.imageUrl);
       } else if (regeneratePage !== undefined) {
         // Keep all existing pages except the one we are regenerating
-        pages = (metadata?.pages || []).filter(
-          (p: any) => p.pageNumber !== regeneratePage,
-        );
-        // Recalculate stats
-        completedPages = pages.filter(
-          (p: any) => p.status === 'COMPLETED',
-        ).length;
-        failedPages = pages.filter((p: any) => p.status === 'FAILED').length;
+        pages = pages.filter((p: any) => p.pageNumber !== regeneratePage);
       }
+
+      let completedPages = pages.filter((p: any) => p.status === 'COMPLETED').length;
+      let failedPages = pages.filter((p: any) => p.status === 'FAILED').length;
 
       let currentMetadata = {
         ...metadata,
@@ -126,35 +124,56 @@ export class IllustrationService {
           continue;
         }
 
-        // Skip if retrying and this page is already completed
-        if (
-          retryFailedOnly &&
-          pages.some((p: any) => p.pageNumber === scene.pageNumber)
-        ) {
+        // Idempotency: Skip if page already has a successful completed illustration
+        const existingCompleted = pages.find(
+          (p: any) =>
+            p.pageNumber === scene.pageNumber &&
+            p.status === 'COMPLETED' &&
+            p.imageUrl,
+        );
+        if (existingCompleted) {
+          this.logger.log(
+            `[ILLUSTRATION:${storyId}] Page ${scene.pageNumber} already completed with image. Skipping generation.`,
+          );
           continue;
         }
+
+        // Remove any previous failed attempt for this page
+        pages = pages.filter((p: any) => p.pageNumber !== scene.pageNumber);
+
         try {
           const prompt = this.promptBuilder.buildPrompt(scene, characters);
-          const result = await provider.generateIllustration!(prompt, metadata);
+          const pageMetadata = {
+            ...metadata,
+            storyId,
+            pageNumber: scene.pageNumber,
+          };
+          const result = await provider.generateIllustration!(
+            prompt,
+            pageMetadata,
+          );
 
           pages.push({
             pageNumber: scene.pageNumber,
             imageUrl: result.url,
             status: 'COMPLETED',
           });
-          completedPages++;
         } catch (sceneError: any) {
+          const classified = classifyProviderError(sceneError);
+          const sanitizedMsg = sanitizeSecrets(classified.message);
           this.logger.error(
-            `[ILLUSTRATION:${storyId}] Failed to generate page ${scene.pageNumber}`,
-            sceneError,
+            `[ILLUSTRATION:${storyId}] Failed to generate page ${scene.pageNumber} [Category: ${classified.category}, Status: ${classified.statusCode || 'N/A'}, Retryable: ${classified.isRetryable}]: ${sanitizedMsg}`,
           );
           pages.push({
             pageNumber: scene.pageNumber,
             imageUrl: null,
             status: 'FAILED',
           });
-          failedPages++;
         }
+
+        pages.sort((a: any, b: any) => a.pageNumber - b.pageNumber);
+        completedPages = pages.filter((p: any) => p.status === 'COMPLETED').length;
+        failedPages = pages.filter((p: any) => p.status === 'FAILED').length;
 
         currentMetadata = {
           ...metadata,
@@ -171,7 +190,9 @@ export class IllustrationService {
       }
 
       // 6. Finalize story_media record
-      const finalStatus = failedPages === totalPages ? 'FAILED' : 'COMPLETED';
+      completedPages = pages.filter((p: any) => p.status === 'COMPLETED').length;
+      failedPages = pages.filter((p: any) => p.status === 'FAILED').length;
+      const finalStatus = failedPages > 0 ? 'FAILED' : 'COMPLETED';
 
       await supabase
         .from('story_media')
@@ -182,14 +203,19 @@ export class IllustrationService {
         .eq('id', mediaRecordId);
 
       this.logger.log(
-        `[ILLUSTRATION:${storyId}] Completed illustration generation (${completedPages}/${totalPages})`,
+        `[ILLUSTRATION:${storyId}] Finished illustration cycle (${completedPages}/${totalPages} completed, ${failedPages} failed, status: ${finalStatus})`,
       );
-      return pages[0]?.imageUrl || '';
+      const firstCompleted = pages.find((p: any) => p.status === 'COMPLETED');
+      return firstCompleted?.imageUrl || '';
     } catch (error: any) {
-      this.logger.error(`[ILLUSTRATION:${storyId}] Pipeline failed`, error);
+      const classified = classifyProviderError(error);
+      const sanitizedMsg = sanitizeSecrets(classified.message);
+      this.logger.error(
+        `[ILLUSTRATION:${storyId}] Pipeline failed [Category: ${classified.category}]: ${sanitizedMsg}`,
+      );
       await supabase
         .from('story_media')
-        .update({ status: 'FAILED', failure_reason: error.message })
+        .update({ status: 'FAILED', failure_reason: sanitizedMsg })
         .eq('id', mediaRecordId);
       throw error;
     }

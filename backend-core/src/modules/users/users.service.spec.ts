@@ -24,6 +24,7 @@ describe('UsersService', () => {
 
   const mockSupabaseService = {
     getAdminClient: jest.fn().mockReturnValue(mockSupabaseAdminClient),
+    getUserClient: jest.fn().mockReturnValue(mockSupabaseAdminClient),
   };
 
   beforeEach(async () => {

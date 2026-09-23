@@ -3,7 +3,7 @@ import { StoryStatus } from '../enums/story-status.enum.js';
 export interface StoryMetadata {
   id: string;
   userId: string;
-  childId: string;
+  childId?: string;
   status: StoryStatus;
   language: string;
   readingLevel: string;
@@ -13,4 +13,10 @@ export interface StoryMetadata {
   estimatedReadingTime: number;
   createdAt: Date;
   updatedAt: Date;
+  childName?: string;
+  age?: number;
+  emotionalFocus?: string[];
+  customPrompt?: string;
+  presetBlueprint?: Record<string, any>;
+  preferences?: Record<string, any>;
 }

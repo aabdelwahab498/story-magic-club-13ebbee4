@@ -13,6 +13,7 @@ const logger = new Logger('Bootstrap');
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
   app.useLogger(new StructuredLogger());
 
@@ -58,10 +59,29 @@ async function bootstrap(): Promise<void> {
   // ── Error handling ───────────────────────────────────────────────────────
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  // ── OpenAPI / Swagger Documentation ──────────────────────────────────────
+  const isProduction = configService.get('NODE_ENV') === 'production';
+  const enableSwagger =
+    process.env.ENABLE_SWAGGER === 'true' ||
+    (process.env.ENABLE_SWAGGER === undefined && !isProduction);
+
+  if (enableSwagger) {
+    const { DocumentBuilder, SwaggerModule } = await import('@nestjs/swagger');
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Najmah Backend Core API')
+      .setDescription('Production API contract for Najmah AI Story Platform')
+      .setVersion('2.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
+
   // ── Graceful Shutdown ────────────────────────────────────────────────────
   app.enableShutdownHooks();
 
   // ── Diagnostics & Start ──────────────────────────────────────────────────
+  await app.init();
   const { runStartupDiagnostics } = await import('./common/diagnostics/startup-diagnostics.js');
   await runStartupDiagnostics(app);
 

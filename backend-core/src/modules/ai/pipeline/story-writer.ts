@@ -40,6 +40,9 @@ export class StoryWriter {
       rawResponse = await this.llmProvider.generateStory(prompt);
     } catch (error) {
       this.logger.error('Provider failed during story writing', error);
+      if (error instanceof AIProviderException) {
+        throw error;
+      }
       throw new AIProviderException('Failed to generate story text', error);
     }
 

@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v2';
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  timeout: 10000, // 10 second timeout
+  timeout: 90000, // 90 second timeout for long-running AI generation & retry windows
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,7 +41,7 @@ axiosInstance.interceptors.response.use(
  */
 export const apiClient = async <T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { timeout?: number } = {}
 ): Promise<T> => {
   const response = await axiosInstance({
     url: endpoint,
@@ -50,6 +50,7 @@ export const apiClient = async <T>(
     // Axios will automatically send the string payload or JSON depending on type.
     data: options.body,
     headers: options.headers as Record<string, string>,
+    timeout: options.timeout,
   });
   
   return response.data;

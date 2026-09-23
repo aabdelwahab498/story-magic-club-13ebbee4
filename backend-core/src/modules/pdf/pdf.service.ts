@@ -1,5 +1,6 @@
 // backend-core/src/modules/pdf/pdf.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../supabase/supabase.service.js';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
@@ -19,13 +20,17 @@ export interface PdfExportMetadata {
 export class PdfExportService {
   private readonly logger = new Logger(PdfExportService.name);
 
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    @Optional() private readonly configService?: ConfigService,
+  ) {}
 
   /** Generate PDF and upload; returns signed download URL */
   async exportStoryPdf(
     storyId: string,
     pages: Array<{ pageNumber: number; text: string; imageUrl?: string | null }>,
     metadata?: PdfExportMetadata,
+    userId?: string,
   ): Promise<string> {
     const pdfDoc = await PDFDocument.create();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -190,9 +195,16 @@ export class PdfExportService {
     const pdfBytes = await pdfDoc.save();
 
     // 3. Upload to Supabase Storage
-    const supabase = this.supabaseService.getAdminClient();
-    const bucket = 'pdf_exports';
-    const filePath = `${storyId}/${Date.now()}.pdf`;
+    const supabase = this.supabaseService.getUserClient();
+    const bucket =
+      this.configService?.get<string>('EXPORTS_BUCKET') ?? 'story-pdfs';
+    
+    // Canonical object path: <userId>/<storyId>/<timestamp>.pdf
+    // Ensures folder 1 is auth.uid() so Supabase Storage RLS policy passes:
+    // auth.uid()::text = (storage.foldername(name))[1]
+    const folderPath = userId ? `${userId}/${storyId}` : `${storyId}`;
+    const filePath = `${folderPath}/${Date.now()}.pdf`;
+
     const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(filePath, pdfBytes, {

@@ -21,6 +21,7 @@ describe('StoriesController', () => {
 
   const mockStoriesService = {
     createStory: jest.fn(),
+    createTrialStory: jest.fn(),
     getStoriesByChild: jest.fn(),
     getUserStories: jest.fn(),
     getStoryById: jest.fn(),
@@ -59,6 +60,31 @@ describe('StoriesController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('createTrialStory', () => {
+    it('should call storiesService.createTrialStory with dto without requiring user context', async () => {
+      const trialDto = {
+        childName: 'Leo',
+        age: 6,
+        theme: 'Dragons & Magic',
+        language: 'en',
+        selGoal: 'Courage',
+      };
+      const mockResult = {
+        requestId: 'trial-123',
+        teaser: true as const,
+        title: "Leo's Dragon Adventure",
+        pages: [],
+        totalPages: 4,
+        shownPages: 3,
+      };
+      mockStoriesService.createTrialStory.mockResolvedValueOnce(mockResult);
+
+      const res = await controller.createTrialStory(trialDto);
+      expect(res).toEqual(mockResult);
+      expect(mockStoriesService.createTrialStory).toHaveBeenCalledWith(trialDto, '127.0.0.1');
+    });
   });
 
   describe('createStory', () => {

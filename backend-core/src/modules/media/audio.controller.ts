@@ -1,10 +1,8 @@
-// backend-core/src/modules/media/audio.controller.ts
-import { Controller, Post, Get, Delete, Param, UseGuards, Body } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, Body } from '@nestjs/common';
 import { AudioService } from './audio.service.js';
-import { AuthGuard } from '../../auth/auth.guard.js';
+import { SynthesizeTtsDto } from './dto/synthesize-tts.dto.js';
 
-@Controller('api/v2/media')
-@UseGuards(AuthGuard)
+@Controller('media')
 export class AudioController {
   constructor(private readonly audioService: AudioService) {}
 
@@ -29,9 +27,7 @@ export class AudioController {
   }
 
   @Post('tts')
-  async synthesizeTts(
-    @Body() body: { text: string; language: string; character?: string },
-  ) {
-    return this.audioService.synthesizeTts(body.text, body.language, body.character);
+  async synthesizeTts(@Body() dto: SynthesizeTtsDto) {
+    return this.audioService.synthesizeTts(dto.text, dto.language, dto.character);
   }
 }

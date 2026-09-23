@@ -32,28 +32,73 @@ describe('PromptBuilder', () => {
     expect(prompt.userPrompt).toContain('SEL Goal: confidence');
   });
 
-  it('should build writer prompt', () => {
+  it('CASE A — should include primary custom story brief when present', () => {
+    const prompt = builder.buildPlannerPrompt({
+      targetAge: 7,
+      childName: 'Omar',
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'Courage',
+      readingLevel: 'level_2',
+      customPrompt:
+        'Omar discovers a tiny glowing star in his garden and helps it return to the sky.',
+    });
+
+    expect(prompt.userPrompt).toContain('PRIMARY STORY BRIEF / PREMISE (USER REQUEST):');
+    expect(prompt.userPrompt).toContain(
+      'Omar discovers a tiny glowing star in his garden and helps it return to the sky.',
+    );
+    expect(prompt.userPrompt).toContain(
+      'Treat this Primary Story Brief as the core story premise and primary direction.',
+    );
+  });
+
+  it('CASE B — should maintain standard behavior when custom brief is absent', () => {
+    const prompt = builder.buildPlannerPrompt({
+      targetAge: 7,
+      childName: 'Omar',
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'Courage',
+      readingLevel: 'level_2',
+    });
+
+    expect(prompt.userPrompt).not.toContain('PRIMARY STORY BRIEF / PREMISE');
+    expect(prompt.userPrompt).toContain('Theme: Adventure');
+    expect(prompt.userPrompt).toContain('SEL Goal: Courage');
+  });
+
+  it('CASE C — should treat whitespace-only custom brief as absent', () => {
     const context = {
       targetAge: 7,
-      language: 'ar',
-      theme: 'friendship',
-      selGoal: 'confidence',
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'Courage',
       readingLevel: 'level_2',
+      customPrompt: undefined,
     };
-    const plan = {
-      title: 'Brave Lion',
-      characters: [{ name: 'Leo', role: 'hero', description: '' }],
-      conflict: 'No friends',
-      resolution: 'Makes friends',
-      selGoals: ['confidence'],
-      pageCount: 3,
-    };
-    const prompt = builder.buildWriterPrompt(context, plan);
+    const prompt = builder.buildPlannerPrompt(context);
 
-    expect(prompt.systemPrompt).toContain('writer');
-    expect(prompt.userPrompt).toContain('Target Age: 7');
-    expect(prompt.userPrompt).toContain('Title: Brave Lion');
-    expect(prompt.userPrompt).toContain('Leo (hero)');
-    expect(prompt.userPrompt).toContain('"pageNumber": 1');
+    expect(prompt.userPrompt).not.toContain('PRIMARY STORY BRIEF / PREMISE');
+    expect(prompt.userPrompt).toContain('Theme: Adventure');
+  });
+
+  it('CASE D — should preserve distinct semantics for custom brief and SEL goal', () => {
+    const prompt = builder.buildPlannerPrompt({
+      targetAge: 7,
+      childName: 'Omar',
+      language: 'en',
+      theme: 'Adventure',
+      selGoal: 'Empathy',
+      readingLevel: 'level_2',
+      customPrompt: 'Omar finds a lost dragon cub.',
+    });
+
+    expect(prompt.userPrompt).toContain('PRIMARY STORY BRIEF / PREMISE (USER REQUEST):');
+    expect(prompt.userPrompt).toContain('Omar finds a lost dragon cub.');
+    expect(prompt.userPrompt).toContain('SEL Goal: Empathy');
+    expect(prompt.userPrompt).toContain(
+      'Theme and SEL Goal should guide and enrich this premise, not replace it.',
+    );
   });
 });

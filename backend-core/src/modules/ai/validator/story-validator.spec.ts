@@ -5,6 +5,7 @@ import { StructureRule } from './rules/structure.rule.js';
 import { AgeRule } from './rules/age.rule.js';
 import { SelRule } from './rules/sel.rule.js';
 import { SafetyRule } from './rules/safety.rule.js';
+import { StoryGuardianService } from '../director/story-guardian.service.js';
 
 describe('StoryValidator', () => {
   let validator: StoryValidator;
@@ -19,7 +20,7 @@ describe('StoryValidator', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StoryValidator, StructureRule, AgeRule, SelRule, SafetyRule],
+      providers: [StoryValidator, StructureRule, AgeRule, SelRule, SafetyRule, StoryGuardianService],
     }).compile();
 
     validator = module.get<StoryValidator>(StoryValidator);

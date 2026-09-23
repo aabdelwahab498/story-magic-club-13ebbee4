@@ -4,12 +4,26 @@ import {
   IsOptional,
   IsNumber,
   IsObject,
+  IsArray,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class CreateStoryRequestDto {
   @IsString()
+  @IsOptional()
+  childId?: string;
+
+  @IsString()
   @IsNotEmpty()
-  childId!: string;
+  @IsOptional()
+  childName?: string;
+
+  @IsNumber()
+  @Min(3)
+  @Max(12)
+  @IsOptional()
+  age?: number;
 
   @IsString()
   @IsNotEmpty()
@@ -19,9 +33,22 @@ export class CreateStoryRequestDto {
   @IsNotEmpty()
   selGoal!: string;
 
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  emotionalFocus?: string[];
+
   @IsString()
   @IsNotEmpty()
   language!: string;
+
+  @IsString()
+  @IsOptional()
+  customPrompt?: string;
+
+  @IsObject()
+  @IsOptional()
+  presetBlueprint?: Record<string, any>;
 
   @IsString()
   @IsOptional()
@@ -39,3 +66,4 @@ export class CreateStoryRequestDto {
   @IsOptional()
   preferences?: Record<string, any>;
 }
+

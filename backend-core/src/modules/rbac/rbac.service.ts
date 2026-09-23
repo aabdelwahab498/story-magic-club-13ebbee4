@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service.js';
 import { Role } from './enums/role.enum.js';
 import type { UserContext } from './interfaces/user-context.interface.js';
@@ -107,7 +107,16 @@ export class RbacService {
    * Fetch all roles assigned to a user from the `user_roles` table.
    */
   private async fetchRoles(userId: string): Promise<Role[]> {
-    const client = this.supabaseService.getAdminClient();
+    const isProduction = process.env.NODE_ENV === 'production';
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    if (!isProduction && supabaseUrl.includes('example.supabase.co')) {
+      return [Role.USER];
+    }
+
+    const client =
+      this.supabaseService.hasAdminClient?.()
+        ? this.supabaseService.getAdminClient()
+        : this.supabaseService.getUserClient();
     const { data, error } = await client
       .from('user_roles')
       .select('role')
@@ -117,7 +126,9 @@ export class RbacService {
       this.logger.error(
         `Failed to fetch roles for user ${userId}: ${error.message}`,
       );
-      return [Role.USER]; // Fail-safe: default to USER role
+      throw new InternalServerErrorException(
+        `RBAC database lookup failed for user ${userId}: ${error.message}`,
+      );
     }
 
     const rows = (data ?? []) as UserRoleRow[];
@@ -125,7 +136,8 @@ export class RbacService {
       .map((r) => r.role as Role)
       .filter((r) => Object.values(Role).includes(r));
 
-    return roles.length > 0 ? roles : [Role.USER];
+    const uniqueRoles = [...new Set(roles)];
+    return uniqueRoles.length > 0 ? uniqueRoles : [Role.USER];
   }
 
   /**
@@ -140,7 +152,16 @@ export class RbacService {
       return [];
     }
 
-    const client = this.supabaseService.getAdminClient();
+    const isProduction = process.env.NODE_ENV === 'production';
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    if (!isProduction && supabaseUrl.includes('example.supabase.co')) {
+      return [];
+    }
+
+    const client =
+      this.supabaseService.hasAdminClient?.()
+        ? this.supabaseService.getAdminClient()
+        : this.supabaseService.getUserClient();
     const { data, error } = await client
       .from('rbac_permissions')
       .select('permission_key')
