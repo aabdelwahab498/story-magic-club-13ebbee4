@@ -167,7 +167,7 @@ describe("AIStoryteller — user-authored custom prompt is never clobbered", () 
     expect((await getPromptBox()).value).toBe(USER_BRIEF);
   });
 
-  it("CASE C: an empty prompt needs no artificial 'Hero name' for API correctness", () => {
+  it("CASE C: an empty prompt still names the active child as protagonist", () => {
     const dto = toCreateStoryRequest({
       childProfileId: CHILD_UUID,
       childName: "Omar",
@@ -176,7 +176,7 @@ describe("AIStoryteller — user-authored custom prompt is never clobbered", () 
       language: "en",
     });
     expect(dto.childId).toBe(CHILD_UUID);
-    expect(dto.preferences?.customPrompt).toBeUndefined();
+    expect(dto.preferences?.customPrompt).toContain("The main character is Omar");
     expect(JSON.stringify(dto)).not.toContain("Hero name");
   });
 
