@@ -200,6 +200,24 @@ const Auth = () => {
           </div>
         </div>
 
+        <div className="mb-4 space-y-3">
+          <button
+            type="button"
+            className="lovable-auth-button"
+            onClick={handleLovableSignIn}
+            disabled={submitting}
+          >
+            {t("auth.continue_with_lovable", "Continue with Lovable")}
+          </button>
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">
+              {t("auth.or", "or")}
+            </span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </div>
+
         <Tabs defaultValue="signin">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">{t("auth.sign_in_tab")}</TabsTrigger>
