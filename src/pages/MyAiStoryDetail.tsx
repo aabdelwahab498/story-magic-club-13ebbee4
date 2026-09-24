@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Loader2, Headphones, ChevronLeft, ChevronRight, Film, Sparkles, ImagePlus, RefreshCw } from "lucide-react";
@@ -608,7 +608,24 @@ const MyAiStoryDetail = () => {
         />
       )}
     </div>
+    </>
   );
 };
+
+/** Handles `?download=pdf` deep links from parent notifications: once all
+ *  illustrations are ready, trigger the canonical PDF download exactly once. */
+function PdfDeepLink({ ready, onDownload }: { ready: boolean; onDownload: () => void }) {
+  const [params, setParams] = useSearchParams();
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current || !ready || params.get("download") !== "pdf") return;
+    fired.current = true;
+    onDownload();
+    const next = new URLSearchParams(params);
+    next.delete("download");
+    setParams(next, { replace: true });
+  }, [ready, params, setParams, onDownload]);
+  return null;
+}
 
 export default MyAiStoryDetail;
