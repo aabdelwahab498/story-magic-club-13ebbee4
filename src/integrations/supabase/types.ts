@@ -3449,6 +3449,14 @@ export type Database = {
         Args: { _n: number; _user_id: string }
         Returns: number
       }
+      consume_illustration_batch_credits: {
+        Args: { _amount: number; _story_id: string; _user_id: string }
+        Returns: {
+          balance: number
+          charged: boolean
+          success: boolean
+        }[]
+      }
       consume_illustration_credits: {
         Args: { _amount: number; _user_id: string }
         Returns: Json
