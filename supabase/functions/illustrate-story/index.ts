@@ -59,7 +59,7 @@ async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImag
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
       console.error(`[illustrate] pollinations status=${r.status} body=${txt.slice(0, 300)}`);
-      return { ok: false, status: r.status, body: txt.slice(0, 300) };
+      return { ok: false, status: r.status, body: txt.slice(0, 300), provider: "pollinations", model: "flux" };
     }
     const buf = new Uint8Array(await r.arrayBuffer());
     const mime = r.headers.get("content-type") ?? "image/jpeg";
@@ -186,7 +186,7 @@ async function tryLovableImage(prompt: string): Promise<ImgOk | ImgErr> {
       }
       const parsed = await readLovableImageStream(r);
       if (parsed.ok) return { ...parsed, provider: "lovable", model };
-      if (parsed.status !== 204) return parsed;
+      if (parsed.status !== 204) return { ...parsed, provider: "lovable", model };
 
       // A stream with zero events may be replayed exactly once without
       // streaming. This is the only automatic replay in the image path.
@@ -488,7 +488,7 @@ serve(async (req) => {
     // continue using their own provider; everyone else is blocked.
     let creditsCharged = false;
     let usingByok = false;
-    if (!isAdmin) {
+    if (!isAdmin && !priorChargedBatch) {
       const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
       if (debit.success) {
         creditsCharged = true;
@@ -699,30 +699,6 @@ serve(async (req) => {
         source: body.triggerSource ?? null,
       })
     ));
-
-    const readyPages = payload.illustrations.filter((r) => r.status === "ready" && !!r.imageUrl);
-    const mediaStatus = readyPages.length === pages.length ? "COMPLETED" : readyPages.length > 0 ? "PROCESSING" : "FAILED";
-    const mediaPayload = {
-      story_id: body.storyId,
-      type: "ILLUSTRATION",
-      provider: "lovable",
-      status: mediaStatus,
-      url: readyPages[0]?.imageUrl ?? null,
-      metadata: {
-        batchId: body.idempotencyKey ?? null,
-        totalPages: pages.length,
-        completedPages: readyPages.length,
-        failedPages: payload.illustrations.filter((r) => r.status === "failed").length,
-        pages: payload.illustrations.map((r) => ({ pageNumber: r.index, imageUrl: r.imageUrl, status: r.status.toUpperCase() })),
-        recovery: isRecovery,
-      },
-      updated_at: new Date().toISOString(),
-    };
-    const { data: existingMedia } = await admin.from("story_media").select("id").eq("story_id", body.storyId).eq("type", "ILLUSTRATION").order("created_at", { ascending: false }).limit(1).maybeSingle();
-    const mediaWrite = existingMedia?.id
-      ? await admin.from("story_media").update(mediaPayload).eq("id", existingMedia.id)
-      : await admin.from("story_media").insert(mediaPayload);
-    await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: mediaWrite.error ? "failed" : "saved", error: mediaWrite.error?.message ?? null, source: body.triggerSource ?? null, details: { table: "story_media", mediaStatus } });
 
     return json({ ...payload, recovery: isRecovery, repairedPages: missingPages.map((p) => p.index) }, 200, corsHeaders);
 
