@@ -60,7 +60,7 @@ export default function AdminIllustrationDiagnosticsPage() {
         .order("updated_at", { ascending: false })
         .limit(500);
       if (storyFilter.trim()) {
-        eventQuery = eventQuery.ilike("story_id", `%${storyFilter.trim()}%`);
+        eventQuery = eventQuery.eq("story_id", storyFilter.trim());
         illustrationQuery = illustrationQuery.eq("story_id", storyFilter.trim());
       }
       const [eventResult, illustrationResult] = await Promise.all([eventQuery, illustrationQuery]);
@@ -80,7 +80,7 @@ export default function AdminIllustrationDiagnosticsPage() {
   const batches = useMemo(() => {
     const grouped = new Map<string, DiagnosticEvent[]>();
     for (const event of events) {
-      const key = `${event.story_id}:${event.idempotency_key ?? event.created_at}`;
+      const key = `${event.story_id}:${event.idempotency_key ?? "legacy"}`;
       grouped.set(key, [...(grouped.get(key) ?? []), event]);
     }
     return Array.from(grouped.entries()).map(([key, batchEvents]) => {
