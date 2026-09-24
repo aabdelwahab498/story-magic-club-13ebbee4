@@ -150,7 +150,7 @@ async function tryStabilityImage(prompt: string, k: UserImageKey): Promise<ImgOk
   }
 }
 
-function base64ToBytes(b64: string, mime: string): ImgOk {
+function base64ToBytes(b64: string, mime: string): Omit<ImgOk, "provider" | "model"> {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -360,42 +360,6 @@ serve(async (req) => {
       console.error("[illustrate-story] BLOCKED non-user trigger", { trigger: body?.trigger, source: body?.triggerSource });
       return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
     }
-    const storyIdOk = typeof body?.storyId === "string" && body.storyId.length > 0 && body.storyId.length <= 64;
-    // A page is valid when it carries an index plus SOME canonical content to
-    // illustrate: either the planner's illustrationPrompt or the page text.
-    const pagesOk = Array.isArray(body?.pages) && body.pages.length > 0 && body.pages.every((p) =>
-      p && typeof p.index === "number"
-      && ((typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim().length > 0)
-        || (typeof p.text === "string" && p.text.trim().length > 0))
-    );
-    if (!storyIdOk || !pagesOk) {
-      return json({
-        error: "missing_or_invalid_fields",
-        details: { storyId: storyIdOk ? "ok" : "missing_or_invalid", pages: pagesOk ? "ok" : "missing_page_content" },
-      }, 400, corsHeaders);
-    }
-    // Character consistency data is OPTIONAL: when the canonical story has no
-    // visual hash we derive a deterministic one from the story + character
-    // context so every page of THIS story shares one locked reference.
-    const suppliedHash = typeof (body as { characterVisualHash?: unknown }).characterVisualHash === "string"
-      ? String(body.characterVisualHash).trim()
-      : "";
-    body.characterVisualHash = suppliedHash
-      || `story:${body.storyId}|seed:${stableSeed(`${body.storyId}|${JSON.stringify(body.characterProfile ?? {})}`)}`;
-    // Derive each page prompt from the ACTUAL canonical page content.
-    body.pages = body.pages.map((p) => ({
-      ...p,
-      illustrationPrompt: (typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim())
-        ? p.illustrationPrompt.trim().slice(0, 600)
-        : String(p.text ?? "").trim().slice(0, 600),
-      emotionTag: typeof p.emotionTag === "string" ? p.emotionTag : "",
-    }));
-    // Hard cap: max 8 illustrated pages per story (business model rule).
-    if (body.pages.length > MAX_ILLUSTRATION_PAGES) {
-      body.pages = body.pages.slice(0, MAX_ILLUSTRATION_PAGES);
-    }
-    const style = (typeof body.style === "string" ? body.style.slice(0, 200) : "") || "soft watercolor children's book illustration";
-
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -403,21 +367,70 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
     const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
-    if (!userId) return json({ error: "unauthorized" }, 401, corsHeaders);
+    const actorUserId = userData?.user?.id;
+    if (!actorUserId) return json({ error: "unauthorized" }, 401, corsHeaders);
 
-    // Rate limit (illustration calls are very expensive: image gen × pages)
-    // Check admin first — admins bypass rate limits during testing
-    const adminCheck = createClient(
+    const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const { data: isAdminEarly } = await adminCheck.rpc("has_role", {
-      _user_id: userId,
+    const { data: isAdmin } = await admin.rpc("has_role", {
+      _user_id: actorUserId,
       _role: "admin",
     });
-    if (!isAdminEarly) {
-      const rl = await checkRateLimits(`u:${userId}`, "illustrate-story", [
+
+    const storyIdOk = typeof body?.storyId === "string" && body.storyId.length > 0 && body.storyId.length <= 64;
+    if (!storyIdOk) return json({ error: "missing_or_invalid_story_id" }, 400, corsHeaders);
+
+    const { data: storyRow, error: storyError } = await admin
+      .from("ai_story_history")
+      .select("id,user_id,child_profile_id,pages,generated_story,character_visual_hash,theme")
+      .eq("id", body.storyId)
+      .maybeSingle();
+    if (storyError || !storyRow) return json({ error: "story_not_found" }, 404, corsHeaders);
+    const storyOwnerId = String(storyRow.user_id);
+    const isRecovery = body.mode === "admin_recovery";
+    if (isRecovery && !isAdmin) return json({ error: "admin_required" }, 403, corsHeaders);
+    if (!isRecovery && storyOwnerId !== actorUserId && !isAdmin) return json({ error: "story_forbidden" }, 403, corsHeaders);
+
+    if (isRecovery) {
+      body.triggerSource = "admin_diagnostics_recovery";
+      const canonical = canonicalPages(storyRow.pages ?? storyRow.generated_story);
+      body.pages = canonical;
+      body.characterVisualHash = String(storyRow.character_visual_hash ?? "");
+      body.style = typeof storyRow.theme === "string" && storyRow.theme ? storyRow.theme : body.style;
+      if (storyRow.child_profile_id) {
+        const { data: child } = await admin.from("child_profiles").select("name,age").eq("id", storyRow.child_profile_id).maybeSingle();
+        if (child) body.characterProfile = { ...(body.characterProfile ?? {}), name: child.name, age: child.age };
+      }
+    }
+
+    const pagesOk = Array.isArray(body.pages) && body.pages.length > 0 && body.pages.every((p) =>
+      p && typeof p.index === "number"
+      && ((typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim().length > 0)
+        || (typeof p.text === "string" && p.text.trim().length > 0))
+    );
+    if (!pagesOk) return json({ error: "missing_or_invalid_fields", details: { pages: "missing_page_content" } }, 400, corsHeaders);
+
+    const suppliedHash = typeof body.characterVisualHash === "string" ? body.characterVisualHash.trim() : "";
+    body.characterVisualHash = suppliedHash
+      || `story:${body.storyId}|seed:${stableSeed(`${body.storyId}|${JSON.stringify(body.characterProfile ?? {})}`)}`;
+    body.pages = body.pages.map((p) => ({
+      ...p,
+      illustrationPrompt: (typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim())
+        ? p.illustrationPrompt.trim().slice(0, 600)
+        : String(p.text ?? "").trim().slice(0, 600),
+      emotionTag: typeof p.emotionTag === "string" ? p.emotionTag : "",
+    })).slice(0, MAX_ILLUSTRATION_PAGES);
+    const pages = body.pages;
+    const characterVisualHash = body.characterVisualHash;
+    const style = (typeof body.style === "string" ? body.style.slice(0, 200) : "") || "soft watercolor children's book illustration";
+    const userId = storyOwnerId;
+
+    // Rate limit (illustration calls are very expensive: image gen × pages)
+    // Check admin first — admins bypass rate limits during testing
+    if (!isAdmin) {
+      const rl = await checkRateLimits(`u:${actorUserId}`, "illustrate-story", [
         { windowSec: 60, max: 3 },
         { windowSec: 3600, max: 40 },
         { windowSec: 86400, max: 100 },
@@ -429,16 +442,7 @@ serve(async (req) => {
     // Other users: try to debit 10 illustration credits. If insufficient,
     // pro_creator/elite_publisher with valid image-capable BYOK key may
     // continue using their own provider; everyone else is blocked.
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-    const { data: isAdmin } = await admin.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-
-    const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
+    const characterLock = describeCharacter(characterVisualHash, body.characterProfile);
 
     // ----------------------------------------------------------------
     // REUSE GUARD: before spending credits, check whether the requested
@@ -446,8 +450,8 @@ serve(async (req) => {
     // requested page is already ready, short-circuit (no credit charge).
     // If only some are ready, restrict generation to the missing pages.
     // ----------------------------------------------------------------
-    const requestedIndices = body.pages.map((p) => p.index);
-    const { data: existingRows } = await supabase
+    const requestedIndices = pages.map((p) => p.index);
+    const { data: existingRows } = await admin
       .from("generated_illustrations")
       .select("page_index,image_url,status")
       .eq("story_id", body.storyId)
@@ -459,9 +463,9 @@ serve(async (req) => {
         readyMap.set(r.page_index as number, r.image_url as string);
       }
     }
-    const missingPages = body.pages.filter((p) => !readyMap.has(p.index));
+    const missingPages = pages.filter((p) => !readyMap.has(p.index));
     if (missingPages.length === 0) {
-      const reused = body.pages
+      const reused = pages
         .map((p) => ({ index: p.index, imageUrl: readyMap.get(p.index)!, status: "ready" as const }))
         .sort((a, b) => a.index - b.index);
       await logLifecycle(admin, {
@@ -486,6 +490,7 @@ serve(async (req) => {
       if (debit.success) {
         creditsCharged = true;
         chargedUserId = userId;
+        await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "charged", source: body.triggerSource ?? null, details: { amount: ILLUSTRATION_CREDIT_COST, balance: debit.balance } });
       } else {
         const byokOk = await hasValidImageByok(userId);
         if (!byokOk) {
@@ -498,7 +503,10 @@ serve(async (req) => {
           }, 402, corsHeaders);
         }
         usingByok = true;
+        await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "byok", source: body.triggerSource ?? null, details: { amount: 0 } });
       }
+    } else {
+      await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "admin_bypass", source: body.triggerSource ?? null, details: { amount: 0, actorUserId } });
     }
 
     // Load user-supplied image API keys (used first so credits go on their account)
