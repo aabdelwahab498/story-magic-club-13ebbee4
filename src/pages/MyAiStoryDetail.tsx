@@ -130,7 +130,8 @@ const MyAiStoryDetail = () => {
       emotionTag: "story scene",
     })).filter((page) => !ready.has(page.index));
     if (missing.length === 0 || recoveryStartedRef.current === story.id) return;
-    recoveryStartedRef.current = story.id;
+    const recoveryStoryId = story.id;
+    recoveryStartedRef.current = recoveryStoryId;
     setIsDirectIllustrating(true);
     void illustrateSelStory({
       storyId: story.id,
@@ -140,6 +141,12 @@ const MyAiStoryDetail = () => {
     }, { trigger: "story_recovery", source: "MyAiStoryDetail.autoRecovery" })
       .then(() => queryClient.invalidateQueries({ queryKey: ["illustrations", story.id] }))
       .catch((recoveryError) => {
+        // Do not permanently lock recovery after a transient provider/network
+        // failure. A later refresh or eligibility update may safely retry the
+        // same stable, server-idempotent batch without a duplicate charge.
+        if (recoveryStartedRef.current === recoveryStoryId) {
+          recoveryStartedRef.current = null;
+        }
         toast.error(recoveryError instanceof Error ? recoveryError.message : "Some pictures are not ready yet.");
       })
       .finally(() => setIsDirectIllustrating(false));
