@@ -326,18 +326,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     const missing = pages.filter((candidate) => !candidate.imageUrl);
     if (missing.length === 0) return;
 
-    const automaticStoryId = story.story_id;
-    automaticBatchStartedRef.current = automaticStoryId;
+    automaticBatchStartedRef.current = story.story_id;
     void runIllustrate(missing, {
       trigger: "story_completion",
       source: "SelStoryViewer.autoIllustrate",
-      idempotencyKey: `${automaticStoryId}:customer-auto-v1`,
-    }).then((result) => {
-      // A failed first request must not permanently disable automatic recovery.
-      // Keep the latch only after every requested page is actually ready.
-      if (!result.ok && automaticBatchStartedRef.current === automaticStoryId) {
-        automaticBatchStartedRef.current = null;
-      }
+      idempotencyKey: `${story.story_id}:customer-auto-v1`,
     });
   }, [user, subLoading, canIllustrate, story.story_id, pages.length]);
 
