@@ -288,6 +288,69 @@ const MyAiStoryDetail = () => {
         </div>
       </header>
 
+      {basePages.length > 0 && (() => {
+        const rows = basePages.map((_, i) => {
+          const img = illustrations.find((x) => x.pageNumber === i + 1);
+          const ready = img?.status === "COMPLETED" && !!img.imageUrl;
+          const failed = !ready && img?.status === "FAILED";
+          const status: "ready" | "failed" | "working" | "waiting" = ready
+            ? "ready"
+            : failed && !isCurrentlyGenerating
+              ? "failed"
+              : isCurrentlyGenerating
+                ? "working"
+                : "waiting";
+          return { n: i + 1, status, error: (img as { errorMessage?: string } | undefined)?.errorMessage };
+        });
+        const readyCount = rows.filter((r) => r.status === "ready").length;
+        const failedCount = rows.filter((r) => r.status === "failed" || r.status === "waiting").length;
+        const pct = Math.round((readyCount / rows.length) * 100);
+        const label = {
+          ready: t("story_detail.page_ready", { defaultValue: "جاهزة" }),
+          failed: t("story_detail.page_failed", { defaultValue: "فشلت" }),
+          working: t("story_detail.page_working", { defaultValue: "جارٍ الرسم…" }),
+          waiting: t("story_detail.page_waiting", { defaultValue: "بانتظار الرسم" }),
+        };
+        const tone = {
+          ready: "bg-primary/15 text-primary border-primary/30",
+          failed: "bg-destructive/10 text-destructive border-destructive/30",
+          working: "bg-accent text-accent-foreground border-border",
+          waiting: "bg-muted text-muted-foreground border-border",
+        };
+        return (
+          <Card className="p-4 space-y-3" data-testid="illustration-progress-panel">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold text-foreground">
+                {t("story_detail.illustration_progress", { defaultValue: "تقدم إنتاج الصور" })}
+              </h2>
+              <span className="text-sm text-muted-foreground">{readyCount}/{rows.length}</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+            </div>
+            <ul className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              {rows.map((r) => (
+                <li key={r.n} data-testid={`progress-page-${r.n}`} data-status={r.status}
+                  title={r.error}
+                  className={`rounded-xl border px-2 py-2 text-center text-xs ${tone[r.status]}`}>
+                  <div className="font-bold">{t("story_detail.page_n", { n: r.n, defaultValue: `صفحة ${r.n}` })}</div>
+                  <div className="flex items-center justify-center gap-1">
+                    {r.status === "working" && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {label[r.status]}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {failedCount > 0 && !isCurrentlyGenerating && (
+              <Button size="sm" variant="outline" onClick={() => void handleGenerateIllustrations()} data-testid="retry-failed-pages" className="gap-1">
+                <RefreshCw className="h-4 w-4" />
+                {t("story_detail.retry_failed_only", { count: failedCount, defaultValue: `إعادة محاولة الصفحات الفاشلة فقط (${failedCount})` })}
+              </Button>
+            )}
+          </Card>
+        );
+      })()}
+
       <Card className="p-5 sm:p-6 space-y-4">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">
           {story.title || t("my_stories.untitled", { defaultValue: "Untitled story" })}
