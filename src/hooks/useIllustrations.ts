@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchIllustrations, IllustrationJobResponse } from '../api/illustrations.api';
 import { supabase } from '@/integrations/supabase/client';
 
-export const useIllustrations = (storyId: string) => {
+export const useIllustrations = (storyId: string, activelyGenerating = false) => {
   return useQuery<IllustrationJobResponse>({
     queryKey: ['illustrations', storyId],
     queryFn: async () => {
@@ -47,7 +47,7 @@ export const useIllustrations = (storyId: string) => {
       const data = query.state.data;
       if (!data) return false;
       const isGenerating = ['PENDING', 'PROCESSING', 'GENERATING'].includes(data.jobStatus);
-      return isGenerating ? 3000 : false;
+      return isGenerating || activelyGenerating ? 3000 : false;
     },
   });
 };

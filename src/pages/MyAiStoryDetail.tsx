@@ -16,7 +16,6 @@ import { downloadAudioMp3, safeFilename } from "@/lib/storyDownloads";
 import { toast } from "sonner";
 import type { AiStoryRow } from "@/lib/aiStoryApi";
 import { useIllustrations } from "@/hooks/useIllustrations";
-import { useRetryIllustrations, useRegeneratePageIllustration } from "@/hooks/useGenerateIllustrations";
 import { Download } from "lucide-react";
 
 import { useStoryAudio, useGenerateAudio, useRetryAudio, useDeleteAudio } from "@/hooks/useStoryAudio";
@@ -85,9 +84,7 @@ const MyAiStoryDetail = () => {
     },
   });
 
-  const { data: illustrationJob } = useIllustrations(id ?? "");
-  const { mutate: retryIllustrations, isPending: isRetrying } = useRetryIllustrations();
-  const { mutate: regeneratePage, isPending: isRegeneratingPage } = useRegeneratePageIllustration();
+  const { data: illustrationJob } = useIllustrations(id ?? "", isDirectIllustrating);
 
   // Audio Narration Hooks
   const { data: audioJob } = useStoryAudio(id!);
@@ -115,7 +112,7 @@ const MyAiStoryDetail = () => {
   const currentIllustration = illustrations.find((img) => img.pageNumber === pageIndex + 1);
   const currentImageUrl = (currentIllustration?.status === "COMPLETED" ? currentIllustration.imageUrl : null) || current?.image_url;
   
-  const isCurrentlyGenerating = isRetrying || isRegeneratingPage || isDirectIllustrating || ["GENERATING", "PENDING", "PROCESSING"].includes(illustrationJob?.jobStatus || "");
+  const isCurrentlyGenerating = isDirectIllustrating || ["GENERATING", "PENDING", "PROCESSING"].includes(illustrationJob?.jobStatus || "");
 
   // Reopening a saved story resumes only missing pages. The stable key and
   // server-side ready-page check make refresh/reopen idempotent.
@@ -474,25 +471,6 @@ const MyAiStoryDetail = () => {
               loading="lazy"
             />
             
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-              <Button 
-                size="sm" 
-                variant="secondary" 
-                className="bg-background/80 backdrop-blur shadow-sm hover:bg-background/90"
-                onClick={() => {
-                  if (id) {
-                    regeneratePage({ storyId: id, pageNumber: pageIndex + 1 }, {
-                      onSuccess: () => toast.success(t("story_detail.generate_success", { defaultValue: "Regenerating illustration..." })),
-                      onError: () => toast.error(t("story_detail.generate_error", { defaultValue: "Failed to regenerate illustration." }))
-                    });
-                  }
-                }}
-                disabled={isCurrentlyGenerating}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isRegeneratingPage ? 'animate-spin' : ''}`} />
-                {t("story_detail.regenerate_btn", { defaultValue: "Regenerate" })}
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="w-full rounded-xl bg-muted flex flex-col items-center justify-center min-h-[250px] space-y-4 border-2 border-dashed border-muted-foreground/20">
@@ -535,14 +513,8 @@ const MyAiStoryDetail = () => {
                     <Button 
                       variant="outline"
                       className="border-destructive text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (id) {
-                          retryIllustrations(id, {
-                            onSuccess: () => toast.success("Retrying failed illustrations..."),
-                            onError: () => toast.error("Failed to start retry.")
-                          });
-                        }
-                      }}
+                      onClick={() => void handleGenerateIllustrations()}
+                      disabled={isDirectIllustrating}
                     >
                       Retry {illustrationJob.failedPages} Failed
                     </Button>
