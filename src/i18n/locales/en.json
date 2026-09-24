@@ -497,6 +497,7 @@
       "section": "Manage",
       "dashboard": "Dashboard",
       "stories": "Stories",
+      "illustration_diagnostics": "Illustration Diagnostics",
       "videos": "Videos",
       "languages": "Languages",
       "settings": "Settings"
@@ -644,6 +645,21 @@
       "save_failed": "Save failed",
       "delete_failed": "Delete failed"
     }
+  },
+  "admin_illustration_diagnostics": {
+    "title": "Illustration diagnostics",
+    "subtitle": "Provider, page, storage, persistence, and credit results by batch",
+    "refresh": "Refresh",
+    "story": "Story ID",
+    "search": "Search",
+    "empty": "No illustration batches found.",
+    "ready": "ready",
+    "recover": "Recover missing/failed",
+    "page": "Page",
+    "load_failed": "Could not load diagnostics",
+    "partial": "Recovery finished with failed pages",
+    "recovered": "Missing illustrations recovered",
+    "recovery_failed": "Recovery failed"
   },
   "theme": {
     "label": "Theme",

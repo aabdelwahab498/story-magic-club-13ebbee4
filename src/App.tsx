@@ -59,6 +59,7 @@ const AdminPaymentLogsPage = lazy(() => import("./pages/admin/AdminPaymentLogsPa
 const AdminStoryEnginePage = lazy(() => import("./pages/admin/AdminStoryEnginePage"));
 const AdminAiModelsPage = lazy(() => import("./pages/admin/AdminAiModelsPage"));
 const AdminIllustrationAnalyticsPage = lazy(() => import("./pages/admin/AdminIllustrationAnalyticsPage"));
+const AdminIllustrationDiagnosticsPage = lazy(() => import("./pages/admin/AdminIllustrationDiagnosticsPage"));
 const AdminAiUsagePage = lazy(() => import("./pages/admin/AdminAiUsagePage"));
 const AdminAudioPage = lazy(() => import("./pages/admin/AdminAudioPage"));
 const AdminAiAgentsPage = lazy(() => import("./pages/admin/AdminAiAgentsPage"));
@@ -169,6 +170,7 @@ const App = () => (
                       <Route path="story-engine" element={<AdminStoryEnginePage />} />
                       <Route path="ai-models" element={<AdminAiModelsPage />} />
                       <Route path="illustration-analytics" element={<AdminIllustrationAnalyticsPage />} />
+                      <Route path="illustration-diagnostics" element={<PermissionGuard adminOnly sectionLabel="Illustration diagnostics"><AdminIllustrationDiagnosticsPage /></PermissionGuard>} />
                       <Route path="ai-usage" element={<AdminAiUsagePage />} />
                       <Route path="audio" element={<AdminAudioPage />} />
                       <Route path="ai/agents" element={<PermissionGuard permission="manage_agents" sectionLabel="AI Agents"><AdminAiAgentsPage /></PermissionGuard>} />

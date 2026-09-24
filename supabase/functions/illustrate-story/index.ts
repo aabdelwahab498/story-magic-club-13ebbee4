@@ -24,8 +24,8 @@ const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations"
 const IMAGE_MODELS = ["openai/gpt-image-2.5-sunburst"];
 const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt";
 
-type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string };
-type ImgErr = { ok: false; status: number; body: string };
+type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string; provider: string; model: string };
+type ImgErr = { ok: false; status: number; body: string; provider: string; model: string };
 
 async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImageKey[]): Promise<ImgOk | ImgErr> {
   // 1) Lovable AI image gateway — no external provider account is required.
@@ -59,14 +59,14 @@ async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImag
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
       console.error(`[illustrate] pollinations status=${r.status} body=${txt.slice(0, 300)}`);
-      return { ok: false, status: r.status, body: txt.slice(0, 300) };
+      return { ok: false, status: r.status, body: txt.slice(0, 300), provider: "pollinations", model: "flux" };
     }
     const buf = new Uint8Array(await r.arrayBuffer());
     const mime = r.headers.get("content-type") ?? "image/jpeg";
     const ext = mime.includes("png") ? "png" : "jpg";
-    return { ok: true, bytes: buf, mime, ext };
+    return { ok: true, bytes: buf, mime, ext, provider: "pollinations", model: "flux" };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "pollinations", model: "flux" };
   }
 }
 
@@ -87,13 +87,13 @@ async function tryOpenAIImage(prompt: string, k: UserImageKey): Promise<ImgOk | 
         response_format: "b64_json",
       }),
     });
-    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300), provider: "openai_byok", model: k.model || "gpt-image-1" };
     const data = await r.json();
     const b64 = data?.data?.[0]?.b64_json;
-    if (typeof b64 !== "string") return { ok: false, status: 502, body: "missing_image_b64" };
-    return base64ToBytes(b64, "image/png");
+    if (typeof b64 !== "string") return { ok: false, status: 502, body: "missing_image_b64", provider: "openai_byok", model: k.model || "gpt-image-1" };
+    return { ...base64ToBytes(b64, "image/png"), provider: "openai_byok", model: k.model || "gpt-image-1" };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "openai_byok", model: k.model || "gpt-image-1" };
   } finally {
     clearTimeout(timer);
   }
@@ -112,15 +112,15 @@ async function tryGoogleImage(prompt: string, k: UserImageKey): Promise<ImgOk | 
       headers: { Authorization: `Bearer ${k.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, modalities: ["image", "text"], messages: [{ role: "user", content: prompt }] }),
     });
-    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300), provider: "google_byok", model };
     const data = await r.json();
     const dataUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
-      return { ok: false, status: 502, body: "missing_image_data" };
+      return { ok: false, status: 502, body: "missing_image_data", provider: "google_byok", model };
     }
-    return dataUrlToBytes(dataUrl);
+    return { ...dataUrlToBytes(dataUrl), provider: "google_byok", model };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "google_byok", model };
   } finally {
     clearTimeout(timer);
   }
@@ -140,17 +140,17 @@ async function tryStabilityImage(prompt: string, k: UserImageKey): Promise<ImgOk
       headers: { Authorization: `Bearer ${k.apiKey}`, Accept: "image/*" },
       body: form,
     });
-    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300), provider: "stability_byok", model: k.model || "stable-image-core" };
     const buf = new Uint8Array(await r.arrayBuffer());
-    return { ok: true, bytes: buf, mime: "image/png", ext: "png" };
+    return { ok: true, bytes: buf, mime: "image/png", ext: "png", provider: "stability_byok", model: k.model || "stable-image-core" };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "stability_byok", model: k.model || "stable-image-core" };
   } finally {
     clearTimeout(timer);
   }
 }
 
-function base64ToBytes(b64: string, mime: string): ImgOk {
+function base64ToBytes(b64: string, mime: string): Omit<ImgOk, "provider" | "model"> {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -158,7 +158,7 @@ function base64ToBytes(b64: string, mime: string): ImgOk {
   return { ok: true, bytes, mime, ext };
 }
 
-async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8Array; mime: string; ext: string } | { ok: false; status: number; body: string }> {
+async function tryLovableImage(prompt: string): Promise<ImgOk | ImgErr> {
   let lastStatus = 500;
   let lastBody = "no_image";
   for (const model of IMAGE_MODELS) {
@@ -185,8 +185,8 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
         continue;
       }
       const parsed = await readLovableImageStream(r);
-      if (parsed.ok) return parsed;
-      if (parsed.status !== 204) return parsed;
+      if (parsed.ok) return { ...parsed, provider: "lovable", model };
+      if (parsed.status !== 204) return { ...parsed, provider: "lovable", model };
 
       // A stream with zero events may be replayed exactly once without
       // streaming. This is the only automatic replay in the image path.
@@ -202,7 +202,7 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
       }
       const data = await replay.json();
       const b64 = data?.data?.[0]?.b64_json;
-      if (typeof b64 === "string" && b64.length > 0) return base64ToBytes(b64, "image/jpeg");
+      if (typeof b64 === "string" && b64.length > 0) return { ...base64ToBytes(b64, "image/jpeg"), provider: "lovable", model };
       lastStatus = 502;
       lastBody = "missing_image_data";
     } catch (e) {
@@ -211,10 +211,12 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
     }
   }
 
-  return { ok: false, status: lastStatus, body: lastBody };
+  return { ok: false, status: lastStatus, body: lastBody, provider: "lovable", model: IMAGE_MODELS[IMAGE_MODELS.length - 1] };
 }
 
-async function readLovableImageStream(response: Response): Promise<ImgOk | ImgErr> {
+type StreamImgOk = Omit<ImgOk, "provider" | "model">;
+type StreamImgErr = Omit<ImgErr, "provider" | "model">;
+async function readLovableImageStream(response: Response): Promise<StreamImgOk | StreamImgErr> {
   if (!response.body) return { ok: false, status: 204, body: "empty_image_stream" };
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
@@ -262,11 +264,12 @@ interface PageIn {
 }
 interface ReqBody {
   storyId: string;
-  pages: PageIn[];
-  characterVisualHash: string;
+  pages?: PageIn[];
+  characterVisualHash?: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
   idempotencyKey?: string;
+  mode?: "generate" | "admin_recovery";
 }
 
 // Idempotency cache lives in TWO tiers:
@@ -293,7 +296,11 @@ type LifecycleEvent =
   | "failed"
   | "idempotent_replay"
   | "idempotent_join"
-  | "trigger_rejected";
+  | "trigger_rejected"
+  | "provider_response"
+  | "storage"
+  | "persistence"
+  | "credit";
 async function logLifecycle(
   adminClient: ReturnType<typeof createClient>,
   args: {
@@ -306,12 +313,13 @@ async function logLifecycle(
     error?: string | null;
     latencyMs?: number | null;
     source?: string | null;
+    details?: Record<string, unknown>;
   },
 ) {
   const payload = { ts: Date.now(), source: "illustrate-story", ...args };
   console.info(`[illustrate-lifecycle] ${args.event}`, JSON.stringify(payload));
   try {
-    await adminClient.from("illustration_job_events").insert([{
+    const { error } = await adminClient.from("illustration_job_events").insert([{
       event: args.event,
       story_id: args.storyId,
       user_id: args.userId ?? null,
@@ -321,7 +329,9 @@ async function logLifecycle(
       error: args.error ?? null,
       latency_ms: args.latencyMs ?? null,
       source: args.source ?? null,
+      details: args.details ?? {},
     }]);
+    if (error) console.error("[illustrate-lifecycle] insert failed", error.message);
   } catch (e) {
     // Logging must NEVER break the request.
     console.error("[illustrate-lifecycle] insert failed", e instanceof Error ? e.message : e);
@@ -351,42 +361,6 @@ serve(async (req) => {
       console.error("[illustrate-story] BLOCKED non-user trigger", { trigger: body?.trigger, source: body?.triggerSource });
       return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
     }
-    const storyIdOk = typeof body?.storyId === "string" && body.storyId.length > 0 && body.storyId.length <= 64;
-    // A page is valid when it carries an index plus SOME canonical content to
-    // illustrate: either the planner's illustrationPrompt or the page text.
-    const pagesOk = Array.isArray(body?.pages) && body.pages.length > 0 && body.pages.every((p) =>
-      p && typeof p.index === "number"
-      && ((typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim().length > 0)
-        || (typeof p.text === "string" && p.text.trim().length > 0))
-    );
-    if (!storyIdOk || !pagesOk) {
-      return json({
-        error: "missing_or_invalid_fields",
-        details: { storyId: storyIdOk ? "ok" : "missing_or_invalid", pages: pagesOk ? "ok" : "missing_page_content" },
-      }, 400, corsHeaders);
-    }
-    // Character consistency data is OPTIONAL: when the canonical story has no
-    // visual hash we derive a deterministic one from the story + character
-    // context so every page of THIS story shares one locked reference.
-    const suppliedHash = typeof (body as { characterVisualHash?: unknown }).characterVisualHash === "string"
-      ? String(body.characterVisualHash).trim()
-      : "";
-    body.characterVisualHash = suppliedHash
-      || `story:${body.storyId}|seed:${stableSeed(`${body.storyId}|${JSON.stringify(body.characterProfile ?? {})}`)}`;
-    // Derive each page prompt from the ACTUAL canonical page content.
-    body.pages = body.pages.map((p) => ({
-      ...p,
-      illustrationPrompt: (typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim())
-        ? p.illustrationPrompt.trim().slice(0, 600)
-        : String(p.text ?? "").trim().slice(0, 600),
-      emotionTag: typeof p.emotionTag === "string" ? p.emotionTag : "",
-    }));
-    // Hard cap: max 8 illustrated pages per story (business model rule).
-    if (body.pages.length > MAX_ILLUSTRATION_PAGES) {
-      body.pages = body.pages.slice(0, MAX_ILLUSTRATION_PAGES);
-    }
-    const style = (typeof body.style === "string" ? body.style.slice(0, 200) : "") || "soft watercolor children's book illustration";
-
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -394,21 +368,73 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
     const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
-    if (!userId) return json({ error: "unauthorized" }, 401, corsHeaders);
+    const actorUserId = userData?.user?.id;
+    if (!actorUserId) return json({ error: "unauthorized" }, 401, corsHeaders);
 
-    // Rate limit (illustration calls are very expensive: image gen × pages)
-    // Check admin first — admins bypass rate limits during testing
-    const adminCheck = createClient(
+    const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const { data: isAdminEarly } = await adminCheck.rpc("has_role", {
-      _user_id: userId,
+    const { data: isAdmin } = await admin.rpc("has_role", {
+      _user_id: actorUserId,
       _role: "admin",
     });
-    if (!isAdminEarly) {
-      const rl = await checkRateLimits(`u:${userId}`, "illustrate-story", [
+
+    const storyIdOk = typeof body?.storyId === "string" && body.storyId.length > 0 && body.storyId.length <= 64;
+    if (!storyIdOk) return json({ error: "missing_or_invalid_story_id" }, 400, corsHeaders);
+
+    const { data: storyRow, error: storyError } = await admin
+      .from("ai_story_history")
+      .select("id,user_id,child_profile_id,pages,generated_story,character_visual_hash,theme")
+      .eq("id", body.storyId)
+      .maybeSingle();
+    if (storyError || !storyRow) return json({ error: "story_not_found" }, 404, corsHeaders);
+    const storyOwnerId = String(storyRow.user_id);
+    const isRecovery = body.mode === "admin_recovery";
+    if (isRecovery && !isAdmin) return json({ error: "admin_required" }, 403, corsHeaders);
+    if (!isRecovery && storyOwnerId !== actorUserId && !isAdmin) return json({ error: "story_forbidden" }, 403, corsHeaders);
+
+    if (isRecovery) {
+      body.triggerSource = "admin_diagnostics_recovery";
+      const canonical = canonicalPages(storyRow.pages ?? storyRow.generated_story);
+      body.pages = canonical;
+      body.characterVisualHash = String(storyRow.character_visual_hash ?? "");
+      body.style = typeof storyRow.theme === "string" && storyRow.theme ? storyRow.theme : body.style;
+      if (storyRow.child_profile_id) {
+        const { data: child } = await admin.from("child_profiles").select("name,age").eq("id", storyRow.child_profile_id).maybeSingle();
+        if (child) body.characterProfile = { ...(body.characterProfile ?? {}), name: child.name, age: child.age };
+      }
+    }
+
+    const pagesOk = Array.isArray(body.pages) && body.pages.length > 0 && body.pages.every((p) =>
+      p && typeof p.index === "number"
+      && ((typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim().length > 0)
+        || (typeof p.text === "string" && p.text.trim().length > 0))
+    );
+    if (!pagesOk) return json({ error: "missing_or_invalid_fields", details: { pages: "missing_page_content" } }, 400, corsHeaders);
+
+    const suppliedHash = typeof body.characterVisualHash === "string" ? body.characterVisualHash.trim() : "";
+    body.characterVisualHash = suppliedHash
+      || `story:${body.storyId}|seed:${stableSeed(`${body.storyId}|${JSON.stringify(body.characterProfile ?? {})}`)}`;
+    body.pages = body.pages.map((p) => ({
+      ...p,
+      illustrationPrompt: (typeof p.illustrationPrompt === "string" && p.illustrationPrompt.trim())
+        ? p.illustrationPrompt.trim().slice(0, 600)
+        : String(p.text ?? "").trim().slice(0, 600),
+      emotionTag: typeof p.emotionTag === "string" ? p.emotionTag : "",
+    })).slice(0, MAX_ILLUSTRATION_PAGES);
+    const pages = body.pages;
+    const characterVisualHash = body.characterVisualHash;
+    const style = (typeof body.style === "string" ? body.style.slice(0, 200) : "") || "soft watercolor children's book illustration";
+    const userId = storyOwnerId;
+
+    // Rate limit (illustration calls are very expensive: image gen × pages)
+    // Check admin first — admins bypass rate limits during testing
+    const priorChargedBatch = isRecovery
+      ? await hasPriorSuccessfulCharge(admin, body.storyId, userId)
+      : false;
+    if (!isAdmin && !priorChargedBatch) {
+      const rl = await checkRateLimits(`u:${actorUserId}`, "illustrate-story", [
         { windowSec: 60, max: 3 },
         { windowSec: 3600, max: 40 },
         { windowSec: 86400, max: 100 },
@@ -420,16 +446,7 @@ serve(async (req) => {
     // Other users: try to debit 10 illustration credits. If insufficient,
     // pro_creator/elite_publisher with valid image-capable BYOK key may
     // continue using their own provider; everyone else is blocked.
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-    const { data: isAdmin } = await admin.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-
-    const characterLock = describeCharacter(body.characterVisualHash, body.characterProfile);
+    const characterLock = describeCharacter(characterVisualHash, body.characterProfile);
 
     // ----------------------------------------------------------------
     // REUSE GUARD: before spending credits, check whether the requested
@@ -437,8 +454,8 @@ serve(async (req) => {
     // requested page is already ready, short-circuit (no credit charge).
     // If only some are ready, restrict generation to the missing pages.
     // ----------------------------------------------------------------
-    const requestedIndices = body.pages.map((p) => p.index);
-    const { data: existingRows } = await supabase
+    const requestedIndices = pages.map((p) => p.index);
+    const { data: existingRows } = await admin
       .from("generated_illustrations")
       .select("page_index,image_url,status")
       .eq("story_id", body.storyId)
@@ -450,9 +467,9 @@ serve(async (req) => {
         readyMap.set(r.page_index as number, r.image_url as string);
       }
     }
-    const missingPages = body.pages.filter((p) => !readyMap.has(p.index));
+    const missingPages = pages.filter((p) => !readyMap.has(p.index));
     if (missingPages.length === 0) {
-      const reused = body.pages
+      const reused = pages
         .map((p) => ({ index: p.index, imageUrl: readyMap.get(p.index)!, status: "ready" as const }))
         .sort((a, b) => a.index - b.index);
       await logLifecycle(admin, {
@@ -472,11 +489,12 @@ serve(async (req) => {
     // continue using their own provider; everyone else is blocked.
     let creditsCharged = false;
     let usingByok = false;
-    if (!isAdmin) {
+    if (!isAdmin && !priorChargedBatch) {
       const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
       if (debit.success) {
         creditsCharged = true;
         chargedUserId = userId;
+        await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "charged", source: body.triggerSource ?? null, details: { amount: ILLUSTRATION_CREDIT_COST, balance: debit.balance } });
       } else {
         const byokOk = await hasValidImageByok(userId);
         if (!byokOk) {
@@ -489,7 +507,14 @@ serve(async (req) => {
           }, 402, corsHeaders);
         }
         usingByok = true;
+        await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "byok", source: body.triggerSource ?? null, details: { amount: 0 } });
       }
+    } else {
+      await logLifecycle(admin, {
+        event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null,
+        status: isAdmin ? "admin_bypass" : "recovery_no_charge", source: body.triggerSource ?? null,
+        details: { amount: 0, actorUserId, priorChargedBatch },
+      });
     }
 
     // Load user-supplied image API keys (used first so credits go on their account)
@@ -510,12 +535,20 @@ serve(async (req) => {
           `Child-safe, no text in image, gentle composition, full scene, no logos, no watermark.`;
 
         try {
-          const seed = stableSeed(`${body.characterVisualHash}|${page.index}`);
+          const seed = stableSeed(`${characterVisualHash}|${page.index}`);
           const gen = await tryGenerate(prompt, seed, userImageKeys);
+          await logLifecycle(admin, {
+            event: "provider_response", storyId: body.storyId, userId,
+            idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index,
+            status: gen.ok ? "success" : "failed", source: body.triggerSource ?? null,
+            details: { provider: gen.provider, model: gen.model, httpStatus: gen.ok ? 200 : gen.status },
+            error: gen.ok ? null : gen.body,
+          });
           if (!gen.ok) {
-            console.error(`[illustrate] page ${page.index} pollinations failed status=${gen.status} body=${gen.body}`);
-            await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
-            return { index: page.index, imageUrl: null, status: "failed", error: `pollinations:${gen.status}` };
+            console.error(`[illustrate] page ${page.index} provider failed status=${gen.status} body=${gen.body}`);
+            const persisted = await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+            await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "failed_recorded" : "failed", error: persisted.error ?? null, source: body.triggerSource ?? null, details: { table: "generated_illustrations" } });
+            return { index: page.index, imageUrl: null, status: "failed", error: `${gen.provider}:${gen.status}` };
           }
           const path = `${userId}/${body.storyId}/page-${page.index}.${gen.ext}`;
           const { error: upErr } = await admin.storage
@@ -523,16 +556,23 @@ serve(async (req) => {
             .upload(path, gen.bytes, { contentType: gen.mime, upsert: true });
           if (upErr) {
             console.error(`[illustrate] upload page ${page.index} failed`, upErr);
-            await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
+            await logLifecycle(admin, { event: "storage", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: "failed", error: upErr.message, source: body.triggerSource ?? null, details: { bucket: "story-images", path, contentType: gen.mime } });
+            const persisted = await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+            await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "failed_recorded" : "failed", error: persisted.error ?? null, source: body.triggerSource ?? null, details: { table: "generated_illustrations", cause: "storage_failed" } });
             return { index: page.index, imageUrl: null, status: "failed", error: "upload_failed" };
           }
+          await logLifecycle(admin, { event: "storage", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: "uploaded", source: body.triggerSource ?? null, details: { bucket: "story-images", path, contentType: gen.mime, bytes: gen.bytes.length } });
           const { data: pub } = supabase.storage.from("story-images").getPublicUrl(path);
           const url = pub.publicUrl;
-          await persist(supabase, body.storyId, userId, page, prompt, url, "ready", body.characterVisualHash, style);
-          return { index: page.index, imageUrl: url, status: "ready" };
+          const persisted = await persist(admin, body.storyId, userId, page, prompt, url, "ready", characterVisualHash, style);
+          await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "saved" : "failed", error: persisted.error ?? null, source: body.triggerSource ?? null, details: { table: "generated_illustrations", storagePath: path } });
+          if (!persisted.ok) return { index: page.index, imageUrl: null, status: "failed", error: "persistence_failed" };
+          return { index: page.index, imageUrl: url, status: "ready", provider: gen.provider, storagePath: path };
         } catch (e) {
-          console.error(`[illustrate] page ${page.index} unexpected error`, e);
-          return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
+          const message = e instanceof Error ? e.message : "unknown";
+          const persisted = await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+          await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "failed_recorded" : "failed", error: persisted.error ?? message, source: body.triggerSource ?? null, details: { table: "generated_illustrations", cause: "unexpected_error" } });
+          return { index: page.index, imageUrl: null, status: "failed", error: message };
         }
       });
       const generated = await Promise.all(tasks);
@@ -552,7 +592,7 @@ serve(async (req) => {
     // Promise; recently-completed calls replay the cached result from the
     // durable `illustration_job_cache` row (survives cold starts).
     gcIdempotency();
-    const pageSig = body.pages.map((p) => p.index).sort((a, b) => a - b).join(",");
+    const pageSig = pages.map((p) => p.index).sort((a, b) => a - b).join(",");
     const cacheKey = body.idempotencyKey
       ? `u:${userId}|s:${body.storyId}|k:${body.idempotencyKey}|p:${pageSig}`
       : null;
@@ -622,6 +662,7 @@ serve(async (req) => {
         try {
           await refundIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
           refundCompleted = true;
+          await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "refunded", source: body.triggerSource ?? null, details: { amount: ILLUSTRATION_CREDIT_COST, reason: "total_failure" } });
           console.info("[illustrate] credits refunded after total failure", { userId, storyId: body.storyId });
         } catch (e) {
           console.error("[illustrate] refund failed", e instanceof Error ? e.message : e);
@@ -663,7 +704,7 @@ serve(async (req) => {
       })
     ));
 
-    return json(payload, 200, corsHeaders);
+    return json({ ...payload, recovery: isRecovery, repairedPages: missingPages.map((p) => p.index) }, 200, corsHeaders);
 
 
   } catch (e) {
@@ -694,7 +735,7 @@ async function persist(
   hash: string,
   style: string,
 ) {
-  await supabase.from("generated_illustrations").insert([{
+  const { error } = await supabase.from("generated_illustrations").upsert({
     story_id: storyId,
     user_id: userId,
     page_index: page.index,
@@ -703,7 +744,42 @@ async function persist(
     status,
     character_profile_hash: hash,
     style,
-  }]);
+  }, { onConflict: "story_id,page_index" });
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+function canonicalPages(raw: unknown): PageIn[] {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? (raw as { pages?: unknown }).pages
+    : raw;
+  if (!Array.isArray(source)) return [];
+  return source.map((item, position) => {
+    const page = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    const index = Number(page.pageNumber ?? page.index ?? position + 1);
+    const text = String(page.text ?? page.content ?? "").trim();
+    return {
+      index: Number.isFinite(index) ? index : position + 1,
+      illustrationPrompt: String(page.illustrationPrompt ?? text).trim().slice(0, 600),
+      emotionTag: String(page.emotionTag ?? page.emotion ?? "gentle").slice(0, 80),
+      text,
+    };
+  }).filter((page) => page.illustrationPrompt.length > 0).slice(0, MAX_ILLUSTRATION_PAGES);
+}
+
+async function hasPriorSuccessfulCharge(
+  admin: ReturnType<typeof createClient>,
+  storyId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data } = await admin
+    .from("illustration_job_events")
+    .select("id")
+    .eq("story_id", storyId)
+    .eq("user_id", userId)
+    .eq("event", "credit")
+    .eq("status", "charged")
+    .limit(1);
+  return (data?.length ?? 0) > 0;
 }
 
 function json(obj: unknown, status: number, corsHeaders: Record<string, string>): Response {

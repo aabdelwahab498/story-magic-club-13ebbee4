@@ -1627,6 +1627,7 @@ export type Database = {
       illustration_job_events: {
         Row: {
           created_at: string
+          details: Json
           error: string | null
           event: string
           id: string
@@ -1640,6 +1641,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          details?: Json
           error?: string | null
           event: string
           id?: string
@@ -1653,6 +1655,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          details?: Json
           error?: string | null
           event?: string
           id?: string

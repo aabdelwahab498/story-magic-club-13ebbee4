@@ -498,6 +498,7 @@
       "section": "الإدارة",
       "dashboard": "اللوحة",
       "stories": "القصص",
+      "illustration_diagnostics": "تشخيص الرسومات",
       "videos": "الفيديوهات",
       "languages": "اللغات",
       "settings": "الإعدادات"
@@ -568,6 +569,21 @@
       "upload_thumbnail": "رفع صورة مصغرة",
       "or_paste_url": "أو الصق الرابط"
     }
+  },
+  "admin_illustration_diagnostics": {
+    "title": "تشخيص الرسومات",
+    "subtitle": "نتائج المزوّد والصفحات والتخزين والحفظ والرصيد لكل دفعة",
+    "refresh": "تحديث",
+    "story": "معرّف القصة",
+    "search": "بحث",
+    "empty": "لا توجد دفعات رسوم.",
+    "ready": "جاهزة",
+    "recover": "استعادة الناقص أو الفاشل",
+    "page": "صفحة",
+    "load_failed": "تعذّر تحميل التشخيص",
+    "partial": "اكتملت الاستعادة مع بقاء صفحات فاشلة",
+    "recovered": "تمت استعادة الرسومات الناقصة",
+    "recovery_failed": "فشلت الاستعادة"
   },
   "theme": {
     "label": "المظهر",
