@@ -2,6 +2,7 @@
 // for unseen backup failures (per "notify on failure only" preference).
 import { useEffect, useState, useCallback } from "react";
 import { Bell } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -103,6 +104,16 @@ export function NotificationBell() {
                 </span>
               </div>
               {n.message && <div className="text-xs text-muted-foreground pl-4 whitespace-normal">{n.message}</div>}
+              {(() => {
+                const m = (n.metadata ?? {}) as { open_url?: string; pdf_url?: string };
+                if (!m.open_url && !m.pdf_url) return null;
+                return (
+                  <div className="flex gap-3 pl-4 text-xs font-semibold">
+                    {m.open_url && <Link to={m.open_url} className="text-primary underline" onClick={() => setOpen(false)}>فتح القصة</Link>}
+                    {m.pdf_url && <Link to={m.pdf_url} className="text-primary underline" onClick={() => setOpen(false)}>تنزيل PDF</Link>}
+                  </div>
+                );
+              })()}
             </DropdownMenuItem>
           ))
         )}
