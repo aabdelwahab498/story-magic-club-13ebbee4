@@ -252,6 +252,11 @@ const MyAiStoryDetail = () => {
   };
 
   return (
+    <>
+      <PdfDeepLink
+        ready={basePages.length > 0 && pages.every((p) => !!p.image_url)}
+        onDownload={() => void handleExportPdf()}
+      />
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       <Seo
         title={`${story.title || "Story"} — NajmaH`}
