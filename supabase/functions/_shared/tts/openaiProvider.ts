@@ -64,8 +64,8 @@ export const openaiTtsProvider: TtsProvider = {
   maxChunkChars: 4000,
   voicesByLang: {
     // OpenAI voices are multilingual — the same pool works for ar & en.
-    ar: ["alloy", "shimmer", "nova"],
-    en: ["alloy", "nova", "shimmer", "echo", "fable", "onyx"],
+    ar: ["nova", "shimmer", "alloy"],
+    en: ["nova", "shimmer", "alloy", "echo", "fable", "onyx"],
   },
   synthesize,
 };
