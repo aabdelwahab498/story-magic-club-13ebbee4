@@ -327,14 +327,17 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // at most once per story, and refunds total failures, so refresh/reopen can
   // never double-charge. Entitlement rules still apply (silent skip if none).
   const autoIllustratedRef = useRef<string | null>(null);
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
   useEffect(() => {
     const sid = story.story_id;
     if (!sid || !user || subLoading || !canIllustrate) return;
     if (autoIllustratedRef.current === sid) return;
-    const missing = pages.filter((p) => !p.imageUrl);
-    autoIllustratedRef.current = sid;
-    if (missing.length === 0) return;
-    const timer = setTimeout(() => { void runIllustrate(missing); }, 1500);
+    const timer = setTimeout(() => {
+      autoIllustratedRef.current = sid;
+      const missing = pagesRef.current.filter((p) => !p.imageUrl);
+      if (missing.length > 0) void runIllustrate(missing);
+    }, 1500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story.story_id, user, subLoading, canIllustrate]);
