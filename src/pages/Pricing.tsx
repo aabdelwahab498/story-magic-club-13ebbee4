@@ -24,7 +24,7 @@ const Pricing = () => {
   const handleUpgradeClick = (planTier: string) => {
     const target = `/checkout/manual?plan=${planTier}`;
     if (!user) {
-      navigate(`/auth?redirect=${target}`);
+      navigate(`/auth?redirect=${encodeURIComponent(target)}`);
       return;
     }
     navigate(target);
