@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { buildRecoveryKey, findRecoverablePages } from "@/lib/illustrationRecovery";
 
 interface DiagnosticEvent {
   id: string;
@@ -85,8 +86,7 @@ export default function AdminIllustrationDiagnosticsPage() {
     return Array.from(grouped.entries()).map(([key, batchEvents]) => {
       const storyId = batchEvents[0].story_id;
       const pages = illustrations.filter((row) => row.story_id === storyId);
-      const known = new Set(pages.filter((row) => row.status === "ready" && row.image_url).map((row) => row.page_index));
-      const recoverable = Array.from({ length: 5 }, (_, offset) => offset + 1).filter((pageIndex) => !known.has(pageIndex));
+      const recoverable = findRecoverablePages(pages);
       const completed = pages.filter((row) => row.status === "ready" && row.image_url).length;
       return { key, storyId, events: batchEvents, pages, recoverable, completed, newest: batchEvents[0].created_at };
     }).sort((a, b) => b.newest.localeCompare(a.newest));
@@ -96,14 +96,13 @@ export default function AdminIllustrationDiagnosticsPage() {
     if (recoveringStory) return;
     setRecoveringStory(storyId);
     try {
-      const signature = recoverable.length ? recoverable.sort((a, b) => a - b).join("-") : "missing";
       const { data, error } = await supabase.functions.invoke("illustrate-story", {
         body: {
           trigger: "user",
           triggerSource: "admin_diagnostics_recovery",
           mode: "admin_recovery",
           storyId,
-          idempotencyKey: `admin-recovery:${storyId}:${signature}`,
+          idempotencyKey: buildRecoveryKey(storyId, recoverable),
         },
       });
       if (error) throw error;
