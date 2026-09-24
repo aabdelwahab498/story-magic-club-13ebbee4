@@ -82,7 +82,7 @@ describe("completed story survives downstream media failures", () => {
       new ApiError(500, "media failed", { code: "INTERNAL_ERROR" }),
     );
     renderViewer();
-    fireEvent.click(screen.getByText("Illustrate"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
 
     expect(screen.getByText("Leo's Brave Hello")).toBeTruthy();
@@ -100,7 +100,7 @@ describe("completed story survives downstream media failures", () => {
     });
     exportMock.mockRejectedValue(new ApiError(503, "busy", { code: "AI_PROVIDER_TEMPORARILY_UNAVAILABLE" }));
     renderViewer();
-    fireEvent.click(screen.getByText("Illustrate"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
 
     expect(screen.getByText("Leo's Brave Hello")).toBeTruthy();
@@ -111,7 +111,7 @@ describe("completed story survives downstream media failures", () => {
     let release: (v: unknown) => void = () => {};
     illustrateMock.mockImplementation(() => new Promise((r) => { release = r; }));
     renderViewer();
-    const btn = screen.getByText("Illustrate");
+    const btn = screen.getAllByText("Illustrate")[0];
     fireEvent.click(btn);
     fireEvent.click(btn);
     fireEvent.click(btn);
@@ -130,7 +130,7 @@ describe("explicit retry for failed illustrations", () => {
   it("offers a retry action after a failed run while the story stays readable", async () => {
     illustrateMock.mockRejectedValueOnce(new ApiError(503, "busy", { code: "AI_PROVIDER_TEMPORARILY_UNAVAILABLE" }));
     renderViewer();
-    fireEvent.click(screen.getByText("Illustrate"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
 
     const notice = await screen.findByTestId("illustration-retry-notice");
     expect(notice.textContent).toMatch(/temporarily busy/i);
@@ -162,7 +162,7 @@ describe("explicit retry for failed illustrations", () => {
     });
     exportMock.mockResolvedValue("https://example.com/x.pdf");
     renderViewer();
-    fireEvent.click(screen.getByText("Illustrate"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
     await screen.findByTestId("illustration-retry-notice");
 
     illustrateMock.mockResolvedValueOnce({ storyId: "s1", illustrations: [] });
