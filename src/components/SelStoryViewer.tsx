@@ -331,6 +331,12 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       trigger: "story_completion",
       source: "SelStoryViewer.autoIllustrate",
       idempotencyKey: `${story.story_id}:customer-auto-v1`,
+    }).then((result) => {
+      // A completed batch remains latched. A failed/partial batch is re-armed
+      // so the same mounted story can recover when auth, entitlement, or the
+      // image provider becomes available again. The stable server key keeps
+      // this retry credit-safe and ready pages are always reused.
+      if (!result.ok) automaticBatchStartedRef.current = null;
     });
   }, [user, subLoading, canIllustrate, story.story_id, pages.length]);
 

@@ -1164,7 +1164,7 @@ const AIStoryteller = () => {
               "Your story is saved — you can still download it below.",
             )}
           >
-            <SelStoryViewer story={selStory} onBack={() => setSelStory(null)} />
+            <SelStoryViewer key={selStory.story_id ?? selStory.title} story={selStory} onBack={() => setSelStory(null)} />
           </SectionErrorBoundary>
 
           {/* Audio / illustrations / PDF / downloads: one failing capability

@@ -486,6 +486,36 @@ Deno.serve(async (req) => {
       details: { provider: "local", bytes: pdfBytes.byteLength, page_count: pages.length, embedded_images: embedded },
     });
 
+    // Notify only after the illustrated PDF is actually persisted. The former
+    // illustration-stage notification claimed the PDF was ready too early.
+    if (storyId && embedded === pages.length) {
+      try {
+        const { data: existing } = await admin
+          .from("user_notifications")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("kind", "story_ready")
+          .contains("metadata", { story_id: storyId })
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          await admin.from("user_notifications").insert({
+            user_id: userId,
+            kind: "story_ready",
+            severity: "success",
+            title: "قصتك المصورة جاهزة! Your illustrated story is ready",
+            message: `${title} — القصة و${pages.length} صور وملف PDF جاهزة. Story, pictures and PDF are ready.`,
+            metadata: {
+              story_id: storyId,
+              open_url: `/my-stories/${storyId}`,
+              pdf_url: `/my-stories/${storyId}?download=pdf`,
+            },
+          });
+        }
+      } catch (notificationError) {
+        console.error("[export-story-pdf] notification failed", notificationError instanceof Error ? notificationError.message : notificationError);
+      }
+    }
+
     return json({
       success: true,
       export_id: exportId,

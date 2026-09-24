@@ -1,8 +1,7 @@
 # Roadmap
 
-- [ ] Trace existing illustration batch, retry, persistence, storage, and credit behavior.
-- [ ] Design an admin-only diagnostics data endpoint and screen using existing roles and tables.
-- [ ] Add recoverable missing/failed-page retry with idempotency and no duplicate charge.
-- [ ] Add focused backend and frontend tests.
-- [ ] Deploy and verify diagnostics access plus a real recovery flow.
-- [ ] Run regression tests and confirm the existing illustrated PDF flow remains intact.
+- [x] Trace the current story, illustration, persistence, and PDF failure path.
+- [x] Re-arm automatic illustration after transient or partial failures without duplicate charging.
+- [x] Run focused regressions for automatic recovery, persistence, and PDF readiness.
+- [x] Publish the repaired customer flow.
+- [x] Verify one real production story: 5 images, refresh persistence, and illustrated PDF.
