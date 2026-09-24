@@ -150,4 +150,5 @@ describe("MyAiStoryDetail Integration", () => {
       expect(screen.getByText("Generating illustration...")).toBeInTheDocument();
     });
   });
+
 });
