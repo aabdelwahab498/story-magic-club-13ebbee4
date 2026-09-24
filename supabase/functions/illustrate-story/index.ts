@@ -527,12 +527,20 @@ serve(async (req) => {
           `Child-safe, no text in image, gentle composition, full scene, no logos, no watermark.`;
 
         try {
-          const seed = stableSeed(`${body.characterVisualHash}|${page.index}`);
+          const seed = stableSeed(`${characterVisualHash}|${page.index}`);
           const gen = await tryGenerate(prompt, seed, userImageKeys);
+          await logLifecycle(admin, {
+            event: "provider_response", storyId: body.storyId, userId,
+            idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index,
+            status: gen.ok ? "success" : "failed", source: body.triggerSource ?? null,
+            details: { provider: gen.provider, model: gen.model, httpStatus: gen.ok ? 200 : gen.status },
+            error: gen.ok ? null : gen.body,
+          });
           if (!gen.ok) {
-            console.error(`[illustrate] page ${page.index} pollinations failed status=${gen.status} body=${gen.body}`);
-            await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
-            return { index: page.index, imageUrl: null, status: "failed", error: `pollinations:${gen.status}` };
+            console.error(`[illustrate] page ${page.index} provider failed status=${gen.status} body=${gen.body}`);
+            const persisted = await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+            await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "failed_recorded" : "failed", error: persisted.error ?? null, source: body.triggerSource ?? null, details: { table: "generated_illustrations" } });
+            return { index: page.index, imageUrl: null, status: "failed", error: `${gen.provider}:${gen.status}` };
           }
           const path = `${userId}/${body.storyId}/page-${page.index}.${gen.ext}`;
           const { error: upErr } = await admin.storage
@@ -540,13 +548,17 @@ serve(async (req) => {
             .upload(path, gen.bytes, { contentType: gen.mime, upsert: true });
           if (upErr) {
             console.error(`[illustrate] upload page ${page.index} failed`, upErr);
-            await persist(supabase, body.storyId, userId, page, prompt, null, "failed", body.characterVisualHash, style);
+            await logLifecycle(admin, { event: "storage", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: "failed", error: upErr.message, source: body.triggerSource ?? null, details: { bucket: "story-images", path, contentType: gen.mime } });
+            await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
             return { index: page.index, imageUrl: null, status: "failed", error: "upload_failed" };
           }
+          await logLifecycle(admin, { event: "storage", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: "uploaded", source: body.triggerSource ?? null, details: { bucket: "story-images", path, contentType: gen.mime, bytes: gen.bytes.length } });
           const { data: pub } = supabase.storage.from("story-images").getPublicUrl(path);
           const url = pub.publicUrl;
-          await persist(supabase, body.storyId, userId, page, prompt, url, "ready", body.characterVisualHash, style);
-          return { index: page.index, imageUrl: url, status: "ready" };
+          const persisted = await persist(admin, body.storyId, userId, page, prompt, url, "ready", characterVisualHash, style);
+          await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "saved" : "failed", error: persisted.error ?? null, source: body.triggerSource ?? null, details: { table: "generated_illustrations", storagePath: path } });
+          if (!persisted.ok) return { index: page.index, imageUrl: null, status: "failed", error: "persistence_failed" };
+          return { index: page.index, imageUrl: url, status: "ready", provider: gen.provider, storagePath: path };
         } catch (e) {
           console.error(`[illustrate] page ${page.index} unexpected error`, e);
           return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
@@ -569,7 +581,7 @@ serve(async (req) => {
     // Promise; recently-completed calls replay the cached result from the
     // durable `illustration_job_cache` row (survives cold starts).
     gcIdempotency();
-    const pageSig = body.pages.map((p) => p.index).sort((a, b) => a - b).join(",");
+    const pageSig = pages.map((p) => p.index).sort((a, b) => a - b).join(",");
     const cacheKey = body.idempotencyKey
       ? `u:${userId}|s:${body.storyId}|k:${body.idempotencyKey}|p:${pageSig}`
       : null;
@@ -639,6 +651,7 @@ serve(async (req) => {
         try {
           await refundIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
           refundCompleted = true;
+          await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "refunded", source: body.triggerSource ?? null, details: { amount: ILLUSTRATION_CREDIT_COST, reason: "total_failure" } });
           console.info("[illustrate] credits refunded after total failure", { userId, storyId: body.storyId });
         } catch (e) {
           console.error("[illustrate] refund failed", e instanceof Error ? e.message : e);
@@ -680,7 +693,31 @@ serve(async (req) => {
       })
     ));
 
-    return json(payload, 200, corsHeaders);
+    const readyPages = payload.illustrations.filter((r) => r.status === "ready" && !!r.imageUrl);
+    const mediaStatus = readyPages.length === pages.length ? "COMPLETED" : readyPages.length > 0 ? "PROCESSING" : "FAILED";
+    const mediaPayload = {
+      story_id: body.storyId,
+      type: "ILLUSTRATION",
+      provider: "lovable",
+      status: mediaStatus,
+      url: readyPages[0]?.imageUrl ?? null,
+      metadata: {
+        batchId: body.idempotencyKey ?? null,
+        totalPages: pages.length,
+        completedPages: readyPages.length,
+        failedPages: payload.illustrations.filter((r) => r.status === "failed").length,
+        pages: payload.illustrations.map((r) => ({ pageNumber: r.index, imageUrl: r.imageUrl, status: r.status.toUpperCase() })),
+        recovery: isRecovery,
+      },
+      updated_at: new Date().toISOString(),
+    };
+    const { data: existingMedia } = await admin.from("story_media").select("id").eq("story_id", body.storyId).eq("type", "ILLUSTRATION").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const mediaWrite = existingMedia?.id
+      ? await admin.from("story_media").update(mediaPayload).eq("id", existingMedia.id)
+      : await admin.from("story_media").insert(mediaPayload);
+    await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: mediaWrite.error ? "failed" : "saved", error: mediaWrite.error?.message ?? null, source: body.triggerSource ?? null, details: { table: "story_media", mediaStatus } });
+
+    return json({ ...payload, recovery: isRecovery, repairedPages: missingPages.map((p) => p.index) }, 200, corsHeaders);
 
 
   } catch (e) {
@@ -711,7 +748,7 @@ async function persist(
   hash: string,
   style: string,
 ) {
-  await supabase.from("generated_illustrations").insert([{
+  const { error } = await supabase.from("generated_illustrations").upsert({
     story_id: storyId,
     user_id: userId,
     page_index: page.index,
@@ -720,7 +757,26 @@ async function persist(
     status,
     character_profile_hash: hash,
     style,
-  }]);
+  }, { onConflict: "story_id,page_index" });
+  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+}
+
+function canonicalPages(raw: unknown): PageIn[] {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? (raw as { pages?: unknown }).pages
+    : raw;
+  if (!Array.isArray(source)) return [];
+  return source.map((item, position) => {
+    const page = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    const index = Number(page.pageNumber ?? page.index ?? position + 1);
+    const text = String(page.text ?? page.content ?? "").trim();
+    return {
+      index: Number.isFinite(index) ? index : position + 1,
+      illustrationPrompt: String(page.illustrationPrompt ?? text).trim().slice(0, 600),
+      emotionTag: String(page.emotionTag ?? page.emotion ?? "gentle").slice(0, 80),
+      text,
+    };
+  }).filter((page) => page.illustrationPrompt.length > 0).slice(0, MAX_ILLUSTRATION_PAGES);
 }
 
 function json(obj: unknown, status: number, corsHeaders: Record<string, string>): Response {
