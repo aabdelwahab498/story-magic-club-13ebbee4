@@ -1,5 +1,5 @@
 // Page-by-page SEL story viewer (Phase 3 UI + Phase 4 illustrations).
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Volume2, Pause, Square, RefreshCw } from "lucide-react";
@@ -56,6 +56,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   // tracked here. Repeated Retry presses for the same page are no-ops while a
   // job is in-flight — this prevents duplicate edge function calls / charges.
   const inFlightPagesRef = useRef<Set<number>>(new Set());
+  const automaticBatchStartedRef = useRef<string | null>(null);
   // Polite, screen-reader-only announcer for status transitions and toast
   // phases (queued / generating / page X ready / page X failed). Mirrors the
   // toast lifecycle so blind users get the same progress narrative.
@@ -94,6 +95,11 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
 
   const runIllustrate = async (
     targetPages: SelStoryPage[],
+    options: {
+      trigger?: "user" | "story_completion";
+      source?: string;
+      idempotencyKey?: string;
+    } = {},
   ): Promise<{ ok: boolean; readyIndexes: number[] }> => {
     if (!requireSubscription("illustrate")) return { ok: false, readyIndexes: [] };
     if (!story.story_id) {
@@ -114,7 +120,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
     const batchKey = `illustrate:${story.story_id}:${pending.map((p) => p.index).join(",")}`;
     // Idempotency key: stable for this batch so a server with dedup support can
     // reject duplicate posts and the UI can correlate toasts.
-    const idempotencyKey = `${story.story_id}:${pending
+    const idempotencyKey = options.idempotencyKey ?? `${story.story_id}:${pending
       .map((p) => p.index)
       .join("-")}:${Date.now()}`;
 
@@ -191,7 +197,10 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
         characterVisualHash: story.character_visual_hash,
         characterProfile: (story.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? null,
         idempotencyKey,
-      }, { trigger: "user", source: "SelStoryViewer.runIllustrate" });
+      }, {
+        trigger: options.trigger ?? "user",
+        source: options.source ?? "SelStoryViewer.runIllustrate",
+      });
 
       const latencyMs = Date.now() - startedAt;
       if ((res as { idempotent?: boolean }).idempotent) {
@@ -307,6 +316,23 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
       });
     }
   };
+
+  // The rendered story is the authoritative hand-off point: once auth and
+  // entitlement are known, automatically request only pages that have no
+  // image. The stable key makes refresh/retry credit-safe on the server.
+  useEffect(() => {
+    if (!user || subLoading || !canIllustrate || !story.story_id || pages.length === 0) return;
+    if (automaticBatchStartedRef.current === story.story_id) return;
+    const missing = pages.filter((candidate) => !candidate.imageUrl);
+    if (missing.length === 0) return;
+
+    automaticBatchStartedRef.current = story.story_id;
+    void runIllustrate(missing, {
+      trigger: "story_completion",
+      source: "SelStoryViewer.autoIllustrate",
+      idempotencyKey: `${story.story_id}:customer-auto-v1`,
+    });
+  }, [user, subLoading, canIllustrate, story.story_id, pages.length]);
 
   const handleIllustrate = () => runIllustrate(pages);
   /**

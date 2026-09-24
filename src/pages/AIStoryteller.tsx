@@ -564,39 +564,9 @@ const AIStoryteller = () => {
       queryClient.invalidateQueries({ queryKey: ["my_ai_stories"] });
       queryClient.invalidateQueries({ queryKey: ["my_ai_stories_page"] });
       queryClient.invalidateQueries({ queryKey: ["ai-story-history"] });
-      // Start the five persisted illustrations from the successful customer
-      // creation action. This cannot be cancelled by a viewer mount timer.
-      if (res.story_id && (res.pages ?? []).length > 0) {
-        try {
-          const illustrated = await illustrateSelStory({
-            storyId: res.story_id,
-            pages: res.pages.map((page) => ({
-              index: page.index,
-              illustrationPrompt: (page.illustrationPrompt || page.text || "").trim().slice(0, 600),
-              emotionTag: page.emotionTag || "gentle",
-              text: page.text,
-            })),
-            characterVisualHash: res.character_visual_hash,
-            characterProfile: (res.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? {
-              name: input.childName,
-              age: input.age,
-            },
-            idempotencyKey: `${res.story_id}:customer-auto-v1`,
-          }, { trigger: "story_completion", source: "AIStoryteller.runFullCompose" });
-          const byIndex = new Map(illustrated.illustrations.map((image) => [image.index, image]));
-          setSelStory((current) => current?.story_id === res.story_id ? {
-            ...current,
-            pages: current.pages.map((page) => {
-              const image = byIndex.get(page.index);
-              return image?.imageUrl ? { ...page, imageUrl: image.imageUrl } : page;
-            }),
-          } : current);
-          queryClient.invalidateQueries({ queryKey: ["illustrations", res.story_id] });
-        } catch (illustrationError) {
-          console.error("[SEL] automatic illustrations failed", illustrationError);
-          toast.error(t("sel.auto_illustrations_failed", "The story is saved, but some pictures are not ready yet. Open it to retry missing pages."));
-        }
-      }
+      // SelStoryViewer owns the automatic illustration request. Keeping a
+      // single caller avoids duplicate batches while ensuring the request is
+      // tied to the rendered, persisted story rather than this compose branch.
     } catch (e) {
       console.error("[SEL] composeSelStory → error", e);
       stopProgressTimeline("idle");
