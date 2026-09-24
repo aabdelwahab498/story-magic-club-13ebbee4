@@ -24,8 +24,8 @@ const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations"
 const IMAGE_MODELS = ["openai/gpt-image-2.5-sunburst"];
 const POLLINATIONS_BASE = "https://image.pollinations.ai/prompt";
 
-type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string };
-type ImgErr = { ok: false; status: number; body: string };
+type ImgOk = { ok: true; bytes: Uint8Array; mime: string; ext: string; provider: string; model: string };
+type ImgErr = { ok: false; status: number; body: string; provider: string; model: string };
 
 async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImageKey[]): Promise<ImgOk | ImgErr> {
   // 1) Lovable AI image gateway — no external provider account is required.
@@ -64,9 +64,9 @@ async function tryGenerate(prompt: string, seed: number, userImageKeys: UserImag
     const buf = new Uint8Array(await r.arrayBuffer());
     const mime = r.headers.get("content-type") ?? "image/jpeg";
     const ext = mime.includes("png") ? "png" : "jpg";
-    return { ok: true, bytes: buf, mime, ext };
+    return { ok: true, bytes: buf, mime, ext, provider: "pollinations", model: "flux" };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "pollinations", model: "flux" };
   }
 }
 
@@ -87,13 +87,13 @@ async function tryOpenAIImage(prompt: string, k: UserImageKey): Promise<ImgOk | 
         response_format: "b64_json",
       }),
     });
-    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300), provider: "openai_byok", model: k.model || "gpt-image-1" };
     const data = await r.json();
     const b64 = data?.data?.[0]?.b64_json;
-    if (typeof b64 !== "string") return { ok: false, status: 502, body: "missing_image_b64" };
-    return base64ToBytes(b64, "image/png");
+    if (typeof b64 !== "string") return { ok: false, status: 502, body: "missing_image_b64", provider: "openai_byok", model: k.model || "gpt-image-1" };
+    return { ...base64ToBytes(b64, "image/png"), provider: "openai_byok", model: k.model || "gpt-image-1" };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "openai_byok", model: k.model || "gpt-image-1" };
   } finally {
     clearTimeout(timer);
   }
@@ -112,15 +112,15 @@ async function tryGoogleImage(prompt: string, k: UserImageKey): Promise<ImgOk | 
       headers: { Authorization: `Bearer ${k.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, modalities: ["image", "text"], messages: [{ role: "user", content: prompt }] }),
     });
-    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300), provider: "google_byok", model };
     const data = await r.json();
     const dataUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
-      return { ok: false, status: 502, body: "missing_image_data" };
+      return { ok: false, status: 502, body: "missing_image_data", provider: "google_byok", model };
     }
-    return dataUrlToBytes(dataUrl);
+    return { ...dataUrlToBytes(dataUrl), provider: "google_byok", model };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "google_byok", model };
   } finally {
     clearTimeout(timer);
   }
@@ -140,11 +140,11 @@ async function tryStabilityImage(prompt: string, k: UserImageKey): Promise<ImgOk
       headers: { Authorization: `Bearer ${k.apiKey}`, Accept: "image/*" },
       body: form,
     });
-    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+    if (!r.ok) return { ok: false, status: r.status, body: (await r.text().catch(() => "")).slice(0, 300), provider: "stability_byok", model: k.model || "stable-image-core" };
     const buf = new Uint8Array(await r.arrayBuffer());
-    return { ok: true, bytes: buf, mime: "image/png", ext: "png" };
+    return { ok: true, bytes: buf, mime: "image/png", ext: "png", provider: "stability_byok", model: k.model || "stable-image-core" };
   } catch (e) {
-    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown" };
+    return { ok: false, status: 0, body: e instanceof Error ? e.message : "unknown", provider: "stability_byok", model: k.model || "stable-image-core" };
   } finally {
     clearTimeout(timer);
   }
@@ -158,7 +158,7 @@ function base64ToBytes(b64: string, mime: string): ImgOk {
   return { ok: true, bytes, mime, ext };
 }
 
-async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8Array; mime: string; ext: string } | { ok: false; status: number; body: string }> {
+async function tryLovableImage(prompt: string): Promise<ImgOk | ImgErr> {
   let lastStatus = 500;
   let lastBody = "no_image";
   for (const model of IMAGE_MODELS) {
@@ -185,7 +185,7 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
         continue;
       }
       const parsed = await readLovableImageStream(r);
-      if (parsed.ok) return parsed;
+      if (parsed.ok) return { ...parsed, provider: "lovable", model };
       if (parsed.status !== 204) return parsed;
 
       // A stream with zero events may be replayed exactly once without
@@ -202,7 +202,7 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
       }
       const data = await replay.json();
       const b64 = data?.data?.[0]?.b64_json;
-      if (typeof b64 === "string" && b64.length > 0) return base64ToBytes(b64, "image/jpeg");
+      if (typeof b64 === "string" && b64.length > 0) return { ...base64ToBytes(b64, "image/jpeg"), provider: "lovable", model };
       lastStatus = 502;
       lastBody = "missing_image_data";
     } catch (e) {
@@ -211,10 +211,12 @@ async function tryLovableImage(prompt: string): Promise<{ ok: true; bytes: Uint8
     }
   }
 
-  return { ok: false, status: lastStatus, body: lastBody };
+  return { ok: false, status: lastStatus, body: lastBody, provider: "lovable", model: IMAGE_MODELS[IMAGE_MODELS.length - 1] };
 }
 
-async function readLovableImageStream(response: Response): Promise<ImgOk | ImgErr> {
+type StreamImgOk = Omit<ImgOk, "provider" | "model">;
+type StreamImgErr = Omit<ImgErr, "provider" | "model">;
+async function readLovableImageStream(response: Response): Promise<StreamImgOk | StreamImgErr> {
   if (!response.body) return { ok: false, status: 204, body: "empty_image_stream" };
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
@@ -262,11 +264,12 @@ interface PageIn {
 }
 interface ReqBody {
   storyId: string;
-  pages: PageIn[];
-  characterVisualHash: string;
+  pages?: PageIn[];
+  characterVisualHash?: string;
   characterProfile?: Record<string, unknown> | null;
   style?: string;
   idempotencyKey?: string;
+  mode?: "generate" | "admin_recovery";
 }
 
 // Idempotency cache lives in TWO tiers:
@@ -293,7 +296,11 @@ type LifecycleEvent =
   | "failed"
   | "idempotent_replay"
   | "idempotent_join"
-  | "trigger_rejected";
+  | "trigger_rejected"
+  | "provider_response"
+  | "storage"
+  | "persistence"
+  | "credit";
 async function logLifecycle(
   adminClient: ReturnType<typeof createClient>,
   args: {
@@ -306,6 +313,7 @@ async function logLifecycle(
     error?: string | null;
     latencyMs?: number | null;
     source?: string | null;
+    details?: Record<string, unknown>;
   },
 ) {
   const payload = { ts: Date.now(), source: "illustrate-story", ...args };
@@ -321,6 +329,7 @@ async function logLifecycle(
       error: args.error ?? null,
       latency_ms: args.latencyMs ?? null,
       source: args.source ?? null,
+      details: args.details ?? {},
     }]);
   } catch (e) {
     // Logging must NEVER break the request.
