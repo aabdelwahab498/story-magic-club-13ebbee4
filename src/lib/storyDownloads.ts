@@ -1,6 +1,5 @@
 // Client helpers for story download formats (PDF, MP3, TXT, DOCX, EPUB, Images, Pack).
 import { supabase } from "@/integrations/supabase/client";
-import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 
 import {
   downloadBlob,
@@ -117,8 +116,11 @@ function readEdgeBody(data: unknown, error: unknown, fallback: string): EdgeExpo
  * signed download URL.
  */
 export async function exportStoryPdf(storyId: string): Promise<string> {
-  const result = await waitForCanonicalStoryPdf(storyId);
-  const url = result.download_url;
+  const { data, error } = await supabase.functions.invoke("export-story-pdf", {
+    body: { storyId, force: true },
+  });
+  const body = readEdgeBody(data, error, "pdf_export_failed");
+  const url = body.download_url ?? body.pdfUrl;
   if (!url) throw new Error("no_pdf_url");
   return url;
 }

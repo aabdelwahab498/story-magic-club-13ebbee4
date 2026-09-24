@@ -17,6 +17,7 @@ const CHILD_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const mocks = vi.hoisted(() => ({
   planSelStory: vi.fn(),
   composeSelStory: vi.fn(),
+  illustrateSelStory: vi.fn(),
   resolveActiveChild: vi.fn(),
 }));
 
@@ -81,6 +82,7 @@ vi.mock("@/lib/selStoryApi", async (importOriginal) => {
     ...actual,
     planSelStory: (...a: unknown[]) => mocks.planSelStory(...a),
     composeSelStory: (...a: unknown[]) => mocks.composeSelStory(...a),
+    illustrateSelStory: (...a: unknown[]) => mocks.illustrateSelStory(...a),
   };
 });
 
@@ -119,6 +121,7 @@ describe("AIStoryteller — canonical plan render path (production crash regress
       emotionalGoals: [],
     });
     localStorage.clear();
+    mocks.illustrateSelStory.mockResolvedValue({ storyId: "s1", illustrations: [] });
   });
 
   it.each([
@@ -164,6 +167,10 @@ describe("AIStoryteller — canonical plan render path (production crash regress
 
       fireEvent.click(approve);
       await waitFor(() => expect(mocks.composeSelStory).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(mocks.illustrateSelStory).toHaveBeenCalledWith(
+        expect.objectContaining({ storyId: "s1", idempotencyKey: "s1:customer-auto-v1" }),
+        { trigger: "story_completion", source: "AIStoryteller.runFullCompose" },
+      ));
 
       // plan and create receive the same canonical child UUID.
       expect(mocks.planSelStory.mock.calls[0][0].childProfileId).toBe(CHILD_UUID);

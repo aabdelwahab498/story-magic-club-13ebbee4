@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import MyAiStoryDetail from "./MyAiStoryDetail";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -108,7 +108,7 @@ describe("MyAiStoryDetail Integration", () => {
     expect(img).toHaveAttribute("src", "http://test.image/img.jpg");
   });
 
-  it("renders generate button and triggers API when no images", async () => {
+  it("automatically recovers missing images on reopen", async () => {
     vi.mocked(useIllustrations).mockReturnValue({
       data: {
         jobStatus: "NONE",
@@ -125,13 +125,9 @@ describe("MyAiStoryDetail Integration", () => {
       expect(screen.getByText("Once upon a time")).toBeInTheDocument();
     });
 
-    const btn = screen.getByText("Generate Illustrations");
-    expect(btn).toBeInTheDocument();
-
-    fireEvent.click(btn);
     await waitFor(() => expect(illustrateSelStory).toHaveBeenCalledWith(
       expect.objectContaining({ storyId: "123", pages: [expect.objectContaining({ index: 1, text: "Once upon a time" })] }),
-      { trigger: "user", source: "MyAiStoryDetail" },
+      { trigger: "story_recovery", source: "MyAiStoryDetail.autoRecovery" },
     ));
   });
 
@@ -150,8 +146,6 @@ describe("MyAiStoryDetail Integration", () => {
 
     renderComponent();
 
-    await waitFor(() => expect(screen.getByText("Generate Illustrations")).toBeInTheDocument());
-    fireEvent.click(screen.getByText("Generate Illustrations"));
     await waitFor(() => {
       expect(screen.getByText("Generating illustration...")).toBeInTheDocument();
     });

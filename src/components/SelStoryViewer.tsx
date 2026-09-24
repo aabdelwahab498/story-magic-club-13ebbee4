@@ -1,5 +1,5 @@
 // Page-by-page SEL story viewer (Phase 3 UI + Phase 4 illustrations).
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Volume2, Pause, Square, RefreshCw } from "lucide-react";
@@ -321,31 +321,15 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const handleRetryPage = () => runIllustrate([page]);
 
 
-  // Auto-start: the customer's "Create Story" action is the user trigger for
-  // the normal illustration workflow. Once per story per mount, request ONLY
-  // pages without a persisted picture. The server reuses ready pages, charges
-  // at most once per story, and refunds total failures, so refresh/reopen can
-  // never double-charge. Entitlement rules still apply (silent skip if none).
-  const autoIllustratedRef = useRef<string | null>(null);
-  const pagesRef = useRef(pages);
-  pagesRef.current = pages;
-  useEffect(() => {
-    const sid = story.story_id;
-    if (!sid || !user || subLoading || !canIllustrate) return;
-    if (autoIllustratedRef.current === sid) return;
-    const timer = setTimeout(() => {
-      autoIllustratedRef.current = sid;
-      const missing = pagesRef.current.filter((p) => !p.imageUrl);
-      if (missing.length > 0) void runIllustrate(missing);
-    }, 1500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story.story_id, user, subLoading, canIllustrate]);
-
   const handleExportPdf = async () => {
     if (!requireSubscription("pdf")) return;
     if (!story.story_id) {
       toast.error("Sign in to download PDF");
+      return;
+    }
+    const missing = pages.filter((candidate) => !candidate.imageUrl);
+    if (missing.length > 0 || illustrating) {
+      toast.info(t("sel.pdf_waiting_for_illustrations", `Your illustrated story is still preparing (${pages.length - missing.length}/${pages.length}).`));
       return;
     }
     setExporting(true);
@@ -785,7 +769,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
           <PremiumBadge featureKey="audio" size="lg" />
         )}
 
-        {/* ILLUSTRATE + PDF — Family / Premium tiers. User-triggered only (Function B). */}
+        {/* PDF export never generates pictures; recovery is handled separately. */}
         {canIllustrate && canExportPdf ? (
           (() => {
             const allReady = pages.length > 0 && pages.every((p) => !!p.imageUrl);
@@ -793,29 +777,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
               <button
                 data-testid="illustrate-download-button"
                 data-all-ready={allReady ? "true" : "false"}
-                onClick={async () => {
-                  // Reuse existing pictures; only draw the missing pages, then
-                  // WAIT for real completion before touching the PDF export.
-                  if (!allReady) {
-                    const missing = pages.filter((p) => !p.imageUrl);
-                    const res = await runIllustrate(missing.length ? missing : pages);
-                    const stillMissing = (missing.length ? missing : pages).filter(
-                      (p) => !res.readyIndexes.includes(p.index),
-                    );
-                    if (!res.ok || stillMissing.length > 0) {
-                      // Never continue to PDF with pending/failed illustrations.
-                      toast.error(
-                        t(
-                          "sel.illustrations_required_for_pdf",
-                          "The illustrated PDF was not created because some pictures are still missing. Please retry.",
-                        ),
-                      );
-                      return;
-                    }
-                  }
-                  if (!requireSubscription("pdf")) return;
-                  await handleExportPdf();
-                }}
+                onClick={handleExportPdf}
 
                 disabled={illustrating || exporting}
                 title={allReady ? t("sel.illustrations_ready_title", "Illustrations already generated — will export PDF") : undefined}
@@ -832,7 +794,7 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
                   ? t("sel.exporting", "Exporting…")
                   : allReady
                   ? t("sel.download_pdf", "Download PDF")
-                  : t("sel.illustrate_download", "Illustrate & Download")}
+                  : t("sel.pdf_preparing", "PDF preparing")}
               </button>
             );
           })()

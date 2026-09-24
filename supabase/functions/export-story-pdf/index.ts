@@ -249,7 +249,6 @@ Deno.serve(async (req) => {
   catch { return friendly("invalid_json", 400); }
 
   const storyId = payload.story_id ?? payload.storyId ?? null;
-  const force = payload.force === true;
   const skipImages = payload.skipImages === true;
   const maxImages = typeof payload.maxImages === "number" ? Math.max(0, Math.min(MAX_IMAGES, payload.maxImages)) : MAX_IMAGES;
 
@@ -295,33 +294,9 @@ Deno.serve(async (req) => {
         .slice(0, MAX_PAGES);
     }
 
-    if (!force && existingPdfUrl) {
-      const exportRow = await admin.from("exports").insert({
-        user_id: userId,
-        story_id: storyId,
-        child_id: childId,
-        type: "pdf",
-        language,
-        status: "ready",
-        file_path: null,
-        signed_url: existingPdfUrl,
-        provider: "local",
-        metadata: { title, reused: true },
-        pdf_metadata: { page_count: pages.length },
-      }).select("id").single();
-      return json({
-        success: true,
-        export_id: exportRow.data?.id ?? storyId,
-        download_url: existingPdfUrl,
-        preview_url: existingPdfUrl,
-        file_name: `${slug(title)}.pdf`,
-        file_size: null,
-        page_count: pages.length,
-        provider: "local",
-        expires_at: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
-        reused: true,
-      });
-    }
+    // A cached URL may be a legacy text-only PDF, so saved stories are always
+    // rebuilt after the persisted illustration readiness check below.
+    void existingPdfUrl;
   }
 
   if (!title) return friendly("title_required", 400);
@@ -331,7 +306,7 @@ Deno.serve(async (req) => {
   // ONE illustrated PDF behaviour: whenever the story has illustrations
   // persisted by `illustrate-story`, attach them to the matching page so the
   // customer-facing download is the illustrated book (never a text-only file).
-  // Pages that already carry an image keep it; missing ones stay text-only.
+  // Refuse export unless every canonical page has its persisted illustration.
   if (storyId && !skipImages && pages.some((p) => !p.imageUrl)) {
     const { data: illus, error: illusErr } = await admin
       .from("generated_illustrations")
@@ -348,10 +323,14 @@ Deno.serve(async (req) => {
         const url = typeof row.image_url === "string" ? row.image_url : "";
         if (Number.isFinite(idx) && url) byIndex.set(idx, url);
       }
-      if (byIndex.size > 0) {
-        pages = pages.map((p) => (p.imageUrl ? p : { ...p, imageUrl: byIndex.get(p.pageNumber) ?? null }));
-        console.info("[export-story-pdf] attached illustrations", { storyId, matched: pages.filter((p) => !!p.imageUrl).length });
-      }
+      pages = pages.map((p) => (p.imageUrl ? p : { ...p, imageUrl: byIndex.get(p.pageNumber) ?? null }));
+      console.info("[export-story-pdf] attached illustrations", { storyId, matched: pages.filter((p) => !!p.imageUrl).length });
+    }
+  }
+  if (storyId && !skipImages) {
+    const readyCount = pages.filter((page) => !!page.imageUrl).length;
+    if (readyCount !== pages.length) {
+      return friendly("illustrations_not_ready", 409, { ready: readyCount, total: pages.length });
     }
   }
 

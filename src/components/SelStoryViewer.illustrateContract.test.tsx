@@ -118,8 +118,10 @@ describe("Illustrate & Download request contract (5-page story)", () => {
     exportMock.mockResolvedValue("https://example.com/story.pdf");
 
     renderViewer();
-    fireEvent.click(screen.getByTestId("illustrate-download-button"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("illustrate-download-button")).toHaveAttribute("data-all-ready", "true"));
+    fireEvent.click(screen.getByTestId("illustrate-download-button"));
     await waitFor(() => expect(exportMock).toHaveBeenCalledWith(story.story_id, { force: true }));
 
     const payload = illustrateMock.mock.calls[0][0] as {
@@ -147,7 +149,7 @@ describe("Illustrate & Download request contract (5-page story)", () => {
     illustrateMock.mockRejectedValue(err);
 
     renderViewer();
-    const btn = screen.getByTestId("illustrate-download-button");
+    const btn = screen.getAllByText("Illustrate")[0];
     fireEvent.click(btn);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
 

@@ -71,6 +71,13 @@
       "when": 1790249907768,
       "tag": "0009_add_illustration_batch_diagnostics",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790252814999,
+      "tag": "0010_atomic_illustration_batch_charge",
+      "breakpoints": true
     }
   ]
 }

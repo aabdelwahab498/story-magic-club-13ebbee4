@@ -138,11 +138,9 @@ export default function DownloadMenu({
       downloadTarget = prepareDownloadTarget();
       setBusy(fmt);
       if (fmt === "pdf") {
-        let url = pdfUrl || null;
-        if (!url) {
-          toast.message(t("downloads.generating_pdf", { defaultValue: "Generating PDF…" }));
-          url = await exportStoryPdf(storyId);
-        }
+        void pdfUrl;
+        toast.message(t("downloads.generating_pdf", { defaultValue: "Preparing illustrated PDF…" }));
+        const url = await exportStoryPdf(storyId);
         const signed = await signStorageUrl(url, "story-pdfs");
         await downloadFromUrl(signed, `najmah-${filename}.pdf`, downloadTarget);
       } else if (fmt === "mp3") {

@@ -15,7 +15,7 @@ import { generateClassicIllustrations, type ClassicIllustration } from "@/lib/ai
 import { handleEdgeError, type EdgeErrorInfo } from "@/lib/edgeErrors";
 import { useActiveChild, resolveActiveChild } from "@/lib/childProfilesApi";
 import { getLocalized } from "@/lib/multilingual";
-import { planSelStory, composeSelStory, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
+import { planSelStory, composeSelStory, illustrateSelStory, exportStoryPdf, ComposeStoryError, type ComposeStoryInput, type SelStoryResponse, type SelPlanResponse } from "@/lib/selStoryApi";
 
 import SelStoryViewer from "@/components/SelStoryViewer";
 import PremiumBadge from "@/components/PremiumBadge";
@@ -39,7 +39,6 @@ import {
   clearTrialResume,
   type TrialStoryResponse,
 } from "@/lib/trialStoryApi";
-import { waitForCanonicalStoryPdf } from "@/api/storyExports.api";
 import { generateStoryMp3, downloadStoryMp3, StoryMp3Error } from "@/lib/storyTtsApi";
 import StoryExportBar from "@/components/story/StoryExportBar";
 import StoryPlanPreview from "@/components/StoryPlanPreview";
@@ -565,6 +564,39 @@ const AIStoryteller = () => {
       queryClient.invalidateQueries({ queryKey: ["my_ai_stories"] });
       queryClient.invalidateQueries({ queryKey: ["my_ai_stories_page"] });
       queryClient.invalidateQueries({ queryKey: ["ai-story-history"] });
+      // Start the five persisted illustrations from the successful customer
+      // creation action. This cannot be cancelled by a viewer mount timer.
+      if (res.story_id && (res.pages ?? []).length > 0) {
+        try {
+          const illustrated = await illustrateSelStory({
+            storyId: res.story_id,
+            pages: res.pages.map((page) => ({
+              index: page.index,
+              illustrationPrompt: (page.illustrationPrompt || page.text || "").trim().slice(0, 600),
+              emotionTag: page.emotionTag || "gentle",
+              text: page.text,
+            })),
+            characterVisualHash: res.character_visual_hash,
+            characterProfile: (res.blueprint as { hero?: Record<string, unknown> } | undefined)?.hero ?? {
+              name: input.childName,
+              age: input.age,
+            },
+            idempotencyKey: `${res.story_id}:customer-auto-v1`,
+          }, { trigger: "story_completion", source: "AIStoryteller.runFullCompose" });
+          const byIndex = new Map(illustrated.illustrations.map((image) => [image.index, image]));
+          setSelStory((current) => current?.story_id === res.story_id ? {
+            ...current,
+            pages: current.pages.map((page) => {
+              const image = byIndex.get(page.index);
+              return image?.imageUrl ? { ...page, imageUrl: image.imageUrl } : page;
+            }),
+          } : current);
+          queryClient.invalidateQueries({ queryKey: ["illustrations", res.story_id] });
+        } catch (illustrationError) {
+          console.error("[SEL] automatic illustrations failed", illustrationError);
+          toast.error(t("sel.auto_illustrations_failed", "The story is saved, but some pictures are not ready yet. Open it to retry missing pages."));
+        }
+      }
     } catch (e) {
       console.error("[SEL] composeSelStory → error", e);
       stopProgressTimeline("idle");
@@ -1107,9 +1139,7 @@ const AIStoryteller = () => {
                       // Canonical saved story → Backend Core illustrated PDF export
                       // (waits for the story-media worker). No browser-built PDF here.
                       if (selStory.story_id) {
-                        const result = await waitForCanonicalStoryPdf(selStory.story_id);
-                        const url = result.download_url;
-                        if (!url) throw new Error("no_pdf_url");
+                        const url = await exportStoryPdf(selStory.story_id, { force: true });
                         if (downloadTarget) downloadTarget.location.href = url;
                         else window.open(url, "_blank", "noopener");
                       } else {

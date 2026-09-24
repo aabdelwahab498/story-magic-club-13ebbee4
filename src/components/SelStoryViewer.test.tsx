@@ -74,13 +74,13 @@ beforeEach(() => {
 });
 
 describe("SelStoryViewer — Illustrate button + readiness badge", () => {
-  it("shows 0/N badge and 'Illustrate & Download' label when no images are ready", () => {
+  it("shows 0/N badge and a preparing PDF label when no images are ready", () => {
     renderViewer(storyFixture(false));
     const badge = screen.getByTestId("illustration-readiness-badge");
     expect(badge.textContent).toMatch(/0\/2/);
     const btn = screen.getByTestId("illustrate-download-button");
     expect(btn).toHaveAttribute("data-all-ready", "false");
-    expect(btn.textContent).toMatch(/Illustrate/);
+    expect(btn.textContent).toMatch(/PDF preparing/);
     expect(btn).not.toBeDisabled();
   });
 
@@ -110,7 +110,7 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
       ],
     });
     renderViewer(storyFixture(false));
-    fireEvent.click(screen.getByTestId("illustrate-download-button"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
 
     await waitFor(() => {
       expect(screen.getByTestId("illustration-page-1")).toHaveAttribute("data-status", "complete");
@@ -132,7 +132,7 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
       ],
     });
     renderViewer(storyFixture(false));
-    fireEvent.click(screen.getByTestId("illustrate-download-button"));
+    fireEvent.click(screen.getAllByText("Illustrate")[0]);
 
     await waitFor(() => {
       expect(screen.getByTestId("illustration-page-2")).toHaveAttribute("data-status", "error");

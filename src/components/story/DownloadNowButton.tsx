@@ -79,13 +79,11 @@ export default function DownloadNowButton({
     const target = prepareDownloadTarget();
     setBusy(true);
     try {
-      let url = pdfUrl || null;
-      if (!url) {
-        toast.message(
-          t("downloads.generating_pdf", { defaultValue: "Generating PDF…" }),
-        );
-        url = await exportStoryPdf(storyId);
-      }
+      // Always verify readiness and rebuild from the persisted illustrations;
+      // an older cached URL may have been generated before images existed.
+      void pdfUrl;
+      toast.message(t("downloads.generating_pdf", { defaultValue: "Preparing illustrated PDF…" }));
+      const url = await exportStoryPdf(storyId);
       const signed = await signStorageUrl(url, "story-pdfs");
       await downloadFromUrl(signed, `najmah-${filename}.pdf`, target);
       void logDownload({ storyId, storyTitle: title, format: "pdf" });
@@ -120,9 +118,9 @@ export default function DownloadNowButton({
         );
         navigate("/pricing");
       } else {
-        toast.error(
-          t("downloads.failed", { defaultValue: "Download failed" }),
-        );
+        toast.error(msg.includes("illustrations_not_ready")
+          ? t("downloads.illustrations_not_ready", { defaultValue: "The illustrated story is still preparing. Please try again shortly." })
+          : t("downloads.failed", { defaultValue: "Download failed" }));
       }
     } finally {
       setBusy(false);
