@@ -150,4 +150,39 @@ describe("MyAiStoryDetail Integration", () => {
       expect(screen.getByText("Generating illustration...")).toBeInTheDocument();
     });
   });
+
+  it("allows recovery again after a transient failure", async () => {
+    vi.mocked(useIllustrations).mockReturnValue({
+      data: {
+        jobStatus: "NONE",
+        totalPages: 0,
+        completedPages: 0,
+        failedPages: 0,
+        illustrations: []
+      },
+      isLoading: false
+    } as any);
+    vi.mocked(illustrateSelStory)
+      .mockRejectedValueOnce(new Error("temporary_provider_error"))
+      .mockResolvedValueOnce({
+        storyId: "123",
+        illustrations: [{ index: 1, imageUrl: "http://test.image/img.jpg", status: "ready" }],
+      });
+
+    const view = renderComponent();
+    await waitFor(() => expect(illustrateSelStory).toHaveBeenCalledTimes(1));
+    view.rerender(
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/story/123"]}>
+            <Routes>
+              <Route path="/story/:id" element={<MyAiStoryDetail />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </HelmetProvider>,
+    );
+
+    await waitFor(() => expect(illustrateSelStory).toHaveBeenCalledTimes(2));
+  });
 });

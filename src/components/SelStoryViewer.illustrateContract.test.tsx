@@ -157,4 +157,30 @@ describe("Illustrate & Download request contract (5-page story)", () => {
       expect(screen.getByText(new RegExp(txt.slice(0, 15)))).toBeTruthy();
     });
   });
+
+  it("re-arms automatic illustration after a transient first failure", async () => {
+    illustrateMock
+      .mockRejectedValueOnce(new Error("temporary_provider_error"))
+      .mockResolvedValueOnce({
+        storyId: story.story_id,
+        illustrations: PAGE_TEXTS.map((_, i) => ({
+          index: i + 1,
+          imageUrl: `https://img/${i + 1}.png`,
+          status: "ready",
+        })),
+      });
+
+    const view = renderViewer();
+    await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
+    await screen.findByTestId("illustration-retry-notice");
+
+    view.rerender(
+      <MemoryRouter>
+        <SelStoryViewer story={{ ...story }} onBack={() => {}} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId("illustrate-download-button")).toHaveAttribute("data-all-ready", "true"));
+  });
 });
