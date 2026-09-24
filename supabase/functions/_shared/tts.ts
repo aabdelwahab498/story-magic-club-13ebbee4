@@ -113,7 +113,7 @@ class LovableAiTtsProvider implements TtsProvider {
       body: JSON.stringify({
         model: "openai/gpt-4o-mini-tts",
         input: req.text,
-        voice: "alloy",
+        voice: "nova", // default female storyteller
         response_format: "mp3",
         stream_format: "audio",
         speed: req.ageId === "3-5" ? 0.9 : 1,
@@ -134,8 +134,8 @@ class LovableAiTtsProvider implements TtsProvider {
 function toneInstructions(req: TtsRequest): string {
   const lang = (req.language || "en").toLowerCase().slice(0, 2);
   const base = lang === "ar"
-    ? "اقرأ بصوت دافئ وهادئ مناسب للأطفال، مع إيقاع واضح ومطمئن."
-    : "Read warmly and calmly for children, with clear pacing and a reassuring tone.";
+    ? "أنتِ راوية قصص. اقرئي بصوت دافئ وهادئ مناسب للأطفال، مع إيقاع واضح ومطمئن."
+    : "You are a gentle female storyteller. Read warmly and calmly for children, with clear pacing and a reassuring tone.";
   if (req.character) return `${base} Keep the narrator persona gentle and expressive: ${req.character}.`;
   return base;
 }

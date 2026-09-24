@@ -321,15 +321,26 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const handleRetryPage = () => runIllustrate([page]);
 
 
-  // Illustrations are user-triggered only — generation no longer auto-fires
-  // when a story arrives. Users tap the "Illustrate" button (handleIllustrate)
-  // to request images. Keeping illustrations behind an explicit click separates
-  // the story-text pipeline from the image pipeline (per Function A / B split).
-  const autoIllustratedRef = useRef(false);
+  // Auto-start: the customer's "Create Story" action is the user trigger for
+  // the normal illustration workflow. Once per story per mount, request ONLY
+  // pages without a persisted picture. The server reuses ready pages, charges
+  // at most once per story, and refunds total failures, so refresh/reopen can
+  // never double-charge. Entitlement rules still apply (silent skip if none).
+  const autoIllustratedRef = useRef<string | null>(null);
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
   useEffect(() => {
-    // Mark existing illustrated stories so we don't re-trigger if logic changes later.
-    if (pages.some((p) => p.imageUrl)) autoIllustratedRef.current = true;
-  }, [pages]);
+    const sid = story.story_id;
+    if (!sid || !user || subLoading || !canIllustrate) return;
+    if (autoIllustratedRef.current === sid) return;
+    const timer = setTimeout(() => {
+      autoIllustratedRef.current = sid;
+      const missing = pagesRef.current.filter((p) => !p.imageUrl);
+      if (missing.length > 0) void runIllustrate(missing);
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [story.story_id, user, subLoading, canIllustrate]);
 
   const handleExportPdf = async () => {
     if (!requireSubscription("pdf")) return;
