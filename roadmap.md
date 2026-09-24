@@ -5,3 +5,4 @@
 - [x] Run focused regressions for automatic recovery, persistence, and PDF readiness.
 - [x] Publish the repaired customer flow.
 - [x] Verify one real production story: 5 images, refresh persistence, and illustrated PDF.
+- [ ] Backend Core: move story generation off the HTTP request using the existing queue/worker — blocked: no BullMQ queue or StoryGenerationProcessor exists in the code; awaiting user decision.
