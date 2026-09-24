@@ -1,7 +1,7 @@
 // Integration tests: Illustrate button state + per-page readiness badge.
 // Asserts Function B (illustration) UI reacts to image-availability updates.
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 // --- Mocks (must come before importing the component) ---
@@ -71,6 +71,7 @@ const renderViewer = (story: SelStoryResponse) =>
 
 beforeEach(() => {
   illustrateMock.mockReset();
+  illustrateMock.mockResolvedValue({ storyId: "s1", illustrations: [] });
 });
 
 describe("SelStoryViewer — Illustrate button + readiness badge", () => {
@@ -80,8 +81,8 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
     expect(badge.textContent).toMatch(/0\/2/);
     const btn = screen.getByTestId("illustrate-download-button");
     expect(btn).toHaveAttribute("data-all-ready", "false");
-    expect(btn.textContent).toMatch(/PDF preparing/);
-    expect(btn).not.toBeDisabled();
+    expect(btn.textContent).toMatch(/Illustrating/);
+    expect(btn).toBeDisabled();
   });
 
   it("renders 'Download PDF' and emerald 'all ready' badge when every page has imageUrl", () => {
@@ -93,12 +94,12 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
     expect(badge.textContent).toMatch(/All illustrations ready/);
   });
 
-  it("renders one progress dot per page with status=queued when no images present", () => {
+  it("renders one generating progress dot per page when automatic illustration starts", () => {
     renderViewer(storyFixture(false));
     const dot1 = screen.getByTestId("illustration-page-1");
     const dot2 = screen.getByTestId("illustration-page-2");
-    expect(dot1).toHaveAttribute("data-status", "queued");
-    expect(dot2).toHaveAttribute("data-status", "queued");
+    expect(dot1).toHaveAttribute("data-status", "generating");
+    expect(dot2).toHaveAttribute("data-status", "generating");
   });
 
   it("updates badge + per-page status to 'complete' after illustrate resolves", async () => {
@@ -110,17 +111,22 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
       ],
     });
     renderViewer(storyFixture(false));
-    fireEvent.click(screen.getAllByText("Illustrate")[0]);
-
     await waitFor(() => {
       expect(screen.getByTestId("illustration-page-1")).toHaveAttribute("data-status", "complete");
       expect(screen.getByTestId("illustration-page-2")).toHaveAttribute("data-status", "complete");
     });
     expect(screen.getByTestId("illustration-readiness-badge").textContent).toMatch(/All illustrations ready/);
 
-    // illustrateSelStory was called with trigger:"user"
+    // Missing illustrations start automatically from the completed story.
     expect(illustrateMock).toHaveBeenCalledTimes(1);
-    expect(illustrateMock.mock.calls[0][1]).toMatchObject({ trigger: "user" });
+    expect(illustrateMock.mock.calls[0][0]).toMatchObject({
+      storyId: "s1",
+      idempotencyKey: "s1:customer-auto-v1",
+    });
+    expect(illustrateMock.mock.calls[0][1]).toMatchObject({
+      trigger: "story_completion",
+      source: "SelStoryViewer.autoIllustrate",
+    });
   });
 
   it("marks failed pages with status=error and shows a 'Retry failed' button", async () => {
@@ -132,8 +138,6 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
       ],
     });
     renderViewer(storyFixture(false));
-    fireEvent.click(screen.getAllByText("Illustrate")[0]);
-
     await waitFor(() => {
       expect(screen.getByTestId("illustration-page-2")).toHaveAttribute("data-status", "error");
     });

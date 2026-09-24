@@ -118,7 +118,6 @@ describe("Illustrate & Download request contract (5-page story)", () => {
     exportMock.mockResolvedValue("https://example.com/story.pdf");
 
     renderViewer();
-    fireEvent.click(screen.getAllByText("Illustrate")[0]);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId("illustrate-download-button")).toHaveAttribute("data-all-ready", "true"));
     fireEvent.click(screen.getByTestId("illustrate-download-button"));
@@ -149,12 +148,10 @@ describe("Illustrate & Download request contract (5-page story)", () => {
     illustrateMock.mockRejectedValue(err);
 
     renderViewer();
-    const btn = screen.getAllByText("Illustrate")[0];
-    fireEvent.click(btn);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
 
     await screen.findByTestId("illustration-retry-notice");
-    await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(screen.getAllByText("Illustrate")[0]).not.toBeDisabled());
     expect(screen.getByText("Nour's Brave Hello")).toBeTruthy();
     PAGE_TEXTS.slice(0, 1).forEach((txt) => {
       expect(screen.getByText(new RegExp(txt.slice(0, 15)))).toBeTruthy();
