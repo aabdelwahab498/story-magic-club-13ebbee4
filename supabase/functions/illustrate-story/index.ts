@@ -319,7 +319,7 @@ async function logLifecycle(
   const payload = { ts: Date.now(), source: "illustrate-story", ...args };
   console.info(`[illustrate-lifecycle] ${args.event}`, JSON.stringify(payload));
   try {
-    await adminClient.from("illustration_job_events").insert([{
+    const { error } = await adminClient.from("illustration_job_events").insert([{
       event: args.event,
       story_id: args.storyId,
       user_id: args.userId ?? null,
@@ -331,6 +331,7 @@ async function logLifecycle(
       source: args.source ?? null,
       details: args.details ?? {},
     }]);
+    if (error) console.error("[illustrate-lifecycle] insert failed", error.message);
   } catch (e) {
     // Logging must NEVER break the request.
     console.error("[illustrate-lifecycle] insert failed", e instanceof Error ? e.message : e);
@@ -556,7 +557,8 @@ serve(async (req) => {
           if (upErr) {
             console.error(`[illustrate] upload page ${page.index} failed`, upErr);
             await logLifecycle(admin, { event: "storage", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: "failed", error: upErr.message, source: body.triggerSource ?? null, details: { bucket: "story-images", path, contentType: gen.mime } });
-            await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+            const persisted = await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+            await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "failed_recorded" : "failed", error: persisted.error ?? null, source: body.triggerSource ?? null, details: { table: "generated_illustrations", cause: "storage_failed" } });
             return { index: page.index, imageUrl: null, status: "failed", error: "upload_failed" };
           }
           await logLifecycle(admin, { event: "storage", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: "uploaded", source: body.triggerSource ?? null, details: { bucket: "story-images", path, contentType: gen.mime, bytes: gen.bytes.length } });
@@ -567,8 +569,10 @@ serve(async (req) => {
           if (!persisted.ok) return { index: page.index, imageUrl: null, status: "failed", error: "persistence_failed" };
           return { index: page.index, imageUrl: url, status: "ready", provider: gen.provider, storagePath: path };
         } catch (e) {
-          console.error(`[illustrate] page ${page.index} unexpected error`, e);
-          return { index: page.index, imageUrl: null, status: "failed", error: e instanceof Error ? e.message : "unknown" };
+          const message = e instanceof Error ? e.message : "unknown";
+          const persisted = await persist(admin, body.storyId, userId, page, prompt, null, "failed", characterVisualHash, style);
+          await logLifecycle(admin, { event: "persistence", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, pageIndex: page.index, status: persisted.ok ? "failed_recorded" : "failed", error: persisted.error ?? message, source: body.triggerSource ?? null, details: { table: "generated_illustrations", cause: "unexpected_error" } });
+          return { index: page.index, imageUrl: null, status: "failed", error: message };
         }
       });
       const generated = await Promise.all(tasks);
