@@ -81,7 +81,7 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
     expect(badge.textContent).toMatch(/0\/2/);
     const btn = screen.getByTestId("illustrate-download-button");
     expect(btn).toHaveAttribute("data-all-ready", "false");
-    expect(btn.textContent).toMatch(/PDF preparing/);
+    expect(btn.textContent).toMatch(/Illustrating/);
     expect(btn).not.toBeDisabled();
   });
 
@@ -94,12 +94,12 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
     expect(badge.textContent).toMatch(/All illustrations ready/);
   });
 
-  it("renders one progress dot per page with status=queued when no images present", () => {
+  it("renders one generating progress dot per page when automatic illustration starts", () => {
     renderViewer(storyFixture(false));
     const dot1 = screen.getByTestId("illustration-page-1");
     const dot2 = screen.getByTestId("illustration-page-2");
-    expect(dot1).toHaveAttribute("data-status", "queued");
-    expect(dot2).toHaveAttribute("data-status", "queued");
+    expect(dot1).toHaveAttribute("data-status", "generating");
+    expect(dot2).toHaveAttribute("data-status", "generating");
   });
 
   it("updates badge + per-page status to 'complete' after illustrate resolves", async () => {
