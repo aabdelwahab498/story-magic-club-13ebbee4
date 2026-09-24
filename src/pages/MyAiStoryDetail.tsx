@@ -140,6 +140,10 @@ const MyAiStoryDetail = () => {
     }, { trigger: "story_recovery", source: "MyAiStoryDetail.autoRecovery" })
       .then(() => queryClient.invalidateQueries({ queryKey: ["illustrations", story.id] }))
       .catch((recoveryError) => {
+        // Do not permanently latch a transient failure. Re-arming lets this
+        // mounted page retry only still-missing images; the stable idempotency
+        // key and server-side ready-page lookup prevent a duplicate charge.
+        recoveryStartedRef.current = null;
         toast.error(recoveryError instanceof Error ? recoveryError.message : "Some pictures are not ready yet.");
       })
       .finally(() => setIsDirectIllustrating(false));
