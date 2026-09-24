@@ -65,7 +65,7 @@ const navItems: Array<{
   { titleKey: "admin_dashboard.nav.story_engine", url: "/admin/dashboard/story-engine", icon: Sparkles, gradient: "from-fuchsia-500 to-violet-500", labelFallback: "Story Engine", permission: "manage_stories" },
   { titleKey: "admin_dashboard.nav.ai_models", url: "/admin/dashboard/ai-models", icon: Bot, gradient: "from-violet-500 to-indigo-500", labelFallback: "AI Models", permission: "manage_ai_settings" },
   { titleKey: "admin_dashboard.nav.illustration_analytics", url: "/admin/dashboard/illustration-analytics", icon: Activity, gradient: "from-sky-500 to-cyan-500", labelFallback: "Illustration Analytics", permission: "view_analytics" },
-  { titleKey: "admin_dashboard.nav.illustration_diagnostics", url: "/admin/dashboard/illustration-diagnostics", icon: Wrench, gradient: "from-amber-500 to-red-500", labelFallback: "Illustration Diagnostics" },
+  { titleKey: "admin_dashboard.nav.illustration_diagnostics", url: "/admin/dashboard/illustration-diagnostics", icon: Wrench, gradient: "from-amber-500 to-red-500", labelFallback: "Illustration Diagnostics", permission: "admin_only" },
   { titleKey: "admin_dashboard.nav.ai_usage", url: "/admin/dashboard/ai-usage", icon: Activity, gradient: "from-emerald-500 to-teal-500", labelFallback: "AI Usage", permission: "view_analytics" },
   { titleKey: "admin_dashboard.nav.audio", url: "/admin/dashboard/audio", icon: Volume2, gradient: "from-pink-500 to-rose-500", labelFallback: "Audio & Narration", permission: "generate_audio" },
   { titleKey: "admin_dashboard.nav.videos", url: "/admin/dashboard/videos", icon: Video, gradient: "from-kids-blue to-accent", labelFallback: "Videos", permission: "manage_videos" },

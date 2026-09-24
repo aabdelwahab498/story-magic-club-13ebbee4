@@ -85,7 +85,8 @@ export default function AdminIllustrationDiagnosticsPage() {
     return Array.from(grouped.entries()).map(([key, batchEvents]) => {
       const storyId = batchEvents[0].story_id;
       const pages = illustrations.filter((row) => row.story_id === storyId);
-      const recoverable = pages.filter((row) => row.status !== "ready" || !row.image_url).map((row) => row.page_index);
+      const known = new Set(pages.filter((row) => row.status === "ready" && row.image_url).map((row) => row.page_index));
+      const recoverable = Array.from({ length: 5 }, (_, offset) => offset + 1).filter((pageIndex) => !known.has(pageIndex));
       const completed = pages.filter((row) => row.status === "ready" && row.image_url).length;
       return { key, storyId, events: batchEvents, pages, recoverable, completed, newest: batchEvents[0].created_at };
     }).sort((a, b) => b.newest.localeCompare(a.newest));

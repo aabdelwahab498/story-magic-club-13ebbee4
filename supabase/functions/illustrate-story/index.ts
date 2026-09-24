@@ -429,7 +429,10 @@ serve(async (req) => {
 
     // Rate limit (illustration calls are very expensive: image gen × pages)
     // Check admin first — admins bypass rate limits during testing
-    if (!isAdmin) {
+    const priorChargedBatch = isRecovery
+      ? await hasPriorSuccessfulCharge(admin, body.storyId, userId)
+      : false;
+    if (!isAdmin && !priorChargedBatch) {
       const rl = await checkRateLimits(`u:${actorUserId}`, "illustrate-story", [
         { windowSec: 60, max: 3 },
         { windowSec: 3600, max: 40 },
@@ -506,7 +509,11 @@ serve(async (req) => {
         await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "byok", source: body.triggerSource ?? null, details: { amount: 0 } });
       }
     } else {
-      await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "admin_bypass", source: body.triggerSource ?? null, details: { amount: 0, actorUserId } });
+      await logLifecycle(admin, {
+        event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null,
+        status: isAdmin ? "admin_bypass" : "recovery_no_charge", source: body.triggerSource ?? null,
+        details: { amount: 0, actorUserId, priorChargedBatch },
+      });
     }
 
     // Load user-supplied image API keys (used first so credits go on their account)
@@ -777,6 +784,22 @@ function canonicalPages(raw: unknown): PageIn[] {
       text,
     };
   }).filter((page) => page.illustrationPrompt.length > 0).slice(0, MAX_ILLUSTRATION_PAGES);
+}
+
+async function hasPriorSuccessfulCharge(
+  admin: ReturnType<typeof createClient>,
+  storyId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data } = await admin
+    .from("illustration_job_events")
+    .select("id")
+    .eq("story_id", storyId)
+    .eq("user_id", userId)
+    .eq("event", "credit")
+    .eq("status", "charged")
+    .limit(1);
+  return (data?.length ?? 0) > 0;
 }
 
 function json(obj: unknown, status: number, corsHeaders: Record<string, string>): Response {
