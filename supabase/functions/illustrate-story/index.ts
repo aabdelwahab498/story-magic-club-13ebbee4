@@ -709,46 +709,6 @@ serve(async (req) => {
       })
     ));
 
-    // Parent notification: once every page has a ready, persisted illustration,
-    // insert one in-app notification (deduped per story) with direct links.
-    try {
-      const totalPages = Array.isArray(storyRow.pages) ? storyRow.pages.length : 0;
-      if (totalPages > 0 && storyOwnerId) {
-        const { count: readyCount } = await admin
-          .from("generated_illustrations")
-          .select("page_index", { count: "exact", head: true })
-          .eq("story_id", body.storyId)
-          .eq("status", "ready");
-        if ((readyCount ?? 0) >= totalPages) {
-          const { data: existing } = await admin
-            .from("user_notifications")
-            .select("id")
-            .eq("user_id", storyOwnerId)
-            .eq("kind", "story_ready")
-            .contains("metadata", { story_id: body.storyId })
-            .limit(1);
-          if (!existing || existing.length === 0) {
-            const gs = storyRow.generated_story as { title?: string } | null;
-            const title = (gs && typeof gs === "object" && gs.title) || "";
-            await admin.from("user_notifications").insert({
-              user_id: storyOwnerId,
-              kind: "story_ready",
-              severity: "success",
-              title: "قصتك جاهزة! Your story is ready",
-              message: `${title ? title + " — " : ""}القصة و${totalPages} صور وملف PDF جاهزة. Story, pictures and PDF are ready.`,
-              metadata: {
-                story_id: body.storyId,
-                open_url: `/my-stories/${body.storyId}`,
-                pdf_url: `/my-stories/${body.storyId}?download=pdf`,
-              },
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error("[illustrate] notify failed", e instanceof Error ? e.message : e);
-    }
-
     return json({ ...payload, recovery: isRecovery, repairedPages: missingPages.map((p) => p.index) }, 200, corsHeaders);
 
 
