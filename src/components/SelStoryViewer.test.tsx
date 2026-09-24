@@ -82,7 +82,7 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
     const btn = screen.getByTestId("illustrate-download-button");
     expect(btn).toHaveAttribute("data-all-ready", "false");
     expect(btn.textContent).toMatch(/Illustrating/);
-    expect(btn).not.toBeDisabled();
+    expect(btn).toBeDisabled();
   });
 
   it("renders 'Download PDF' and emerald 'all ready' badge when every page has imageUrl", () => {
