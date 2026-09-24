@@ -71,6 +71,7 @@ const renderViewer = (story: SelStoryResponse) =>
 
 beforeEach(() => {
   illustrateMock.mockReset();
+  illustrateMock.mockResolvedValue({ storyId: "s1", illustrations: [] });
 });
 
 describe("SelStoryViewer — Illustrate button + readiness badge", () => {
@@ -110,17 +111,22 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
       ],
     });
     renderViewer(storyFixture(false));
-    fireEvent.click(screen.getAllByText("Illustrate")[0]);
-
     await waitFor(() => {
       expect(screen.getByTestId("illustration-page-1")).toHaveAttribute("data-status", "complete");
       expect(screen.getByTestId("illustration-page-2")).toHaveAttribute("data-status", "complete");
     });
     expect(screen.getByTestId("illustration-readiness-badge").textContent).toMatch(/All illustrations ready/);
 
-    // illustrateSelStory was called with trigger:"user"
+    // Missing illustrations start automatically from the completed story.
     expect(illustrateMock).toHaveBeenCalledTimes(1);
-    expect(illustrateMock.mock.calls[0][1]).toMatchObject({ trigger: "user" });
+    expect(illustrateMock.mock.calls[0][0]).toMatchObject({
+      storyId: "s1",
+      idempotencyKey: "s1:customer-auto-v1",
+    });
+    expect(illustrateMock.mock.calls[0][1]).toMatchObject({
+      trigger: "story_completion",
+      source: "SelStoryViewer.autoIllustrate",
+    });
   });
 
   it("marks failed pages with status=error and shows a 'Retry failed' button", async () => {
@@ -132,8 +138,6 @@ describe("SelStoryViewer — Illustrate button + readiness badge", () => {
       ],
     });
     renderViewer(storyFixture(false));
-    fireEvent.click(screen.getAllByText("Illustrate")[0]);
-
     await waitFor(() => {
       expect(screen.getByTestId("illustration-page-2")).toHaveAttribute("data-status", "error");
     });
