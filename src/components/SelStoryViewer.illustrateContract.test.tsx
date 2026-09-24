@@ -118,7 +118,6 @@ describe("Illustrate & Download request contract (5-page story)", () => {
     exportMock.mockResolvedValue("https://example.com/story.pdf");
 
     renderViewer();
-    fireEvent.click(screen.getAllByText("Illustrate")[0]);
     await waitFor(() => expect(illustrateMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId("illustrate-download-button")).toHaveAttribute("data-all-ready", "true"));
     fireEvent.click(screen.getByTestId("illustrate-download-button"));
