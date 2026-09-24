@@ -1,5 +1,5 @@
 // Page-by-page SEL story viewer (Phase 3 UI + Phase 4 illustrations).
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Image as ImageIcon, Loader2, Download, Volume2, Pause, Square, RefreshCw } from "lucide-react";

@@ -9,7 +9,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkRateLimits, rateLimitResponse } from "../_shared/rateLimit.ts";
 import { loadUserAIContext, type UserImageKey } from "../_shared/userKeys.ts";
-import { consumeIllustrationCredits, refundIllustrationCredits, hasValidImageByok } from "../_shared/quota.ts";
+import { refundIllustrationCredits, hasValidImageByok } from "../_shared/quota.ts";
 
 const MAX_ILLUSTRATION_PAGES = 8;
 const ILLUSTRATION_CREDIT_COST = 10;

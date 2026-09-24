@@ -249,7 +249,6 @@ Deno.serve(async (req) => {
   catch { return friendly("invalid_json", 400); }
 
   const storyId = payload.story_id ?? payload.storyId ?? null;
-  const force = payload.force === true;
   const skipImages = payload.skipImages === true;
   const maxImages = typeof payload.maxImages === "number" ? Math.max(0, Math.min(MAX_IMAGES, payload.maxImages)) : MAX_IMAGES;
 
