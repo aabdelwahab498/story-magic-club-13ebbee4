@@ -321,31 +321,15 @@ export const SelStoryViewer = ({ story, onBack }: Props) => {
   const handleRetryPage = () => runIllustrate([page]);
 
 
-  // Auto-start: the customer's "Create Story" action is the user trigger for
-  // the normal illustration workflow. Once per story per mount, request ONLY
-  // pages without a persisted picture. The server reuses ready pages, charges
-  // at most once per story, and refunds total failures, so refresh/reopen can
-  // never double-charge. Entitlement rules still apply (silent skip if none).
-  const autoIllustratedRef = useRef<string | null>(null);
-  const pagesRef = useRef(pages);
-  pagesRef.current = pages;
-  useEffect(() => {
-    const sid = story.story_id;
-    if (!sid || !user || subLoading || !canIllustrate) return;
-    if (autoIllustratedRef.current === sid) return;
-    const timer = setTimeout(() => {
-      autoIllustratedRef.current = sid;
-      const missing = pagesRef.current.filter((p) => !p.imageUrl);
-      if (missing.length > 0) void runIllustrate(missing);
-    }, 1500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story.story_id, user, subLoading, canIllustrate]);
-
   const handleExportPdf = async () => {
     if (!requireSubscription("pdf")) return;
     if (!story.story_id) {
       toast.error("Sign in to download PDF");
+      return;
+    }
+    const missing = pages.filter((candidate) => !candidate.imageUrl);
+    if (missing.length > 0 || illustrating) {
+      toast.info(t("sel.pdf_waiting_for_illustrations", `Your illustrated story is still preparing (${pages.length - missing.length}/${pages.length}).`));
       return;
     }
     setExporting(true);

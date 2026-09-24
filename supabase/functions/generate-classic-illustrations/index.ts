@@ -54,16 +54,16 @@ serve(async (req) => {
 
   // Body size guard (~16KB)
   const cl = Number(req.headers.get("content-length") || "0");
-  if (cl > 16_384) return json({ error: "payload_too_large" }, 413);
+  if (cl > 16_384) return json({ error: "payload_too_large" }, 413, corsHeaders);
 
   try {
     const raw = (await req.json().catch(() => ({}))) as ReqBody & { trigger?: string; triggerSource?: string };
     if ((raw as { trigger?: string })?.trigger !== "user") {
       console.error("[classic-illust] BLOCKED non-user trigger", { trigger: (raw as { trigger?: string })?.trigger, source: (raw as { triggerSource?: string })?.triggerSource });
-      return json({ error: "trigger_required", message: "generate-classic-illustrations requires { trigger: 'user' }" }, 403);
+      return json({ error: "trigger_required", message: "generate-classic-illustrations requires { trigger: 'user' }" }, 403, corsHeaders);
     }
     if (!Array.isArray(raw?.scenes) || raw.scenes.length === 0) {
-      return json({ error: "missing_scenes" }, 400);
+      return json({ error: "missing_scenes" }, 400, corsHeaders);
     }
     const body: ReqBody = {
       scenes: raw.scenes.slice(0, 6).map((s) => (typeof s === "string" ? s.slice(0, 400) : "")).filter(Boolean),
@@ -73,7 +73,7 @@ serve(async (req) => {
       style: typeof raw.style === "string" ? raw.style.slice(0, 200) : undefined,
       language: typeof raw.language === "string" ? raw.language.slice(0, 5) : undefined,
     };
-    if (body.scenes.length === 0) return json({ error: "missing_scenes" }, 400);
+    if (body.scenes.length === 0) return json({ error: "missing_scenes" }, 400, corsHeaders);
 
     // Auth (optional — guests get a cover only too)
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -115,7 +115,7 @@ serve(async (req) => {
             balance: debit.balance,
             cost: 10,
             message: "Not enough illustration credits.",
-          }, 402);
+          }, 402, corsHeaders);
         }
       }
     }
@@ -153,14 +153,14 @@ serve(async (req) => {
       illustrations: results,
       gated: !canFullSet && body.scenes.length > 1,
       tier: canFullSet ? "paid" : userId ? "free" : "guest",
-    }, 200);
+    }, 200, corsHeaders);
   } catch (e) {
     console.error("generate-classic-illustrations error", e);
-    return json({ error: e instanceof Error ? e.message : "unknown" }, 500);
+    return json({ error: e instanceof Error ? e.message : "unknown" }, 500, corsHeaders);
   }
 });
 
-function json(obj: unknown, status: number): Response {
+function json(obj: unknown, status: number, corsHeaders: Record<string, string>): Response {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

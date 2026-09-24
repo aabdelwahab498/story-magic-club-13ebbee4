@@ -355,11 +355,12 @@ serve(async (req) => {
 
   try {
     const body = (await req.json().catch(() => ({}))) as ReqBody & { trigger?: string; triggerSource?: string };
-    // Function B contract: illustration generation MUST be user-triggered.
-    // Reject any unattributed call even if a client bug slips through.
-    if (body?.trigger !== "user") {
+    // Story completion/reopening are authenticated customer lifecycle triggers;
+    // unknown or unattributed automation remains forbidden.
+    const allowedTriggers = new Set(["user", "story_completion", "story_recovery"]);
+    if (!allowedTriggers.has(body?.trigger ?? "")) {
       console.error("[illustrate-story] BLOCKED non-user trigger", { trigger: body?.trigger, source: body?.triggerSource });
-      return json({ error: "trigger_required", message: "illustrate-story requires { trigger: 'user' }" }, 403, corsHeaders);
+      return json({ error: "trigger_required", message: "illustrate-story requires an approved customer trigger" }, 403, corsHeaders);
     }
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
@@ -430,9 +431,7 @@ serve(async (req) => {
 
     // Rate limit (illustration calls are very expensive: image gen × pages)
     // Check admin first — admins bypass rate limits during testing
-    const priorChargedBatch = isRecovery
-      ? await hasPriorSuccessfulCharge(admin, body.storyId, userId)
-      : false;
+    const priorChargedBatch = await hasPriorSuccessfulCharge(admin, body.storyId, userId);
     if (!isAdmin && !priorChargedBatch) {
       const rl = await checkRateLimits(`u:${actorUserId}`, "illustrate-story", [
         { windowSec: 60, max: 3 },
@@ -490,18 +489,24 @@ serve(async (req) => {
     let creditsCharged = false;
     let usingByok = false;
     if (!isAdmin && !priorChargedBatch) {
-      const debit = await consumeIllustrationCredits(userId, ILLUSTRATION_CREDIT_COST);
-      if (debit.success) {
-        creditsCharged = true;
-        chargedUserId = userId;
-        await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "charged", source: body.triggerSource ?? null, details: { amount: ILLUSTRATION_CREDIT_COST, balance: debit.balance } });
+      const { data: debitRows, error: debitError } = await admin.rpc("consume_illustration_batch_credits", {
+        _user_id: userId,
+        _story_id: body.storyId,
+        _amount: ILLUSTRATION_CREDIT_COST,
+      });
+      if (debitError) throw new Error(`illustration_credit_reservation_failed:${debitError.message}`);
+      const debit = (Array.isArray(debitRows) ? debitRows[0] : debitRows) as { success?: boolean; balance?: number; charged?: boolean } | null;
+      if (debit?.success) {
+        creditsCharged = debit.charged === true;
+        chargedUserId = creditsCharged ? userId : null;
+        if (!creditsCharged) await logLifecycle(admin, { event: "credit", storyId: body.storyId, userId, idempotencyKey: body.idempotencyKey ?? null, status: "recovery_no_charge", source: body.triggerSource ?? null, details: { amount: 0, balance: debit.balance, atomicReservation: true } });
       } else {
         const byokOk = await hasValidImageByok(userId);
         if (!byokOk) {
           return json({
             error: "illustration_credits_exhausted",
             reason: "insufficient_credits",
-            balance: debit.balance,
+            balance: debit?.balance ?? 0,
             cost: ILLUSTRATION_CREDIT_COST,
             message: "You don't have enough illustration credits. Upgrade your plan or add a personal image API key.",
           }, 402, corsHeaders);

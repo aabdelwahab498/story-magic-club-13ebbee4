@@ -401,20 +401,14 @@ export class SubscriptionRequiredError extends Error {
 
 export async function illustrateSelStory(
   input: IllustrateInput,
-  meta: { trigger?: "user" | "auto"; source?: string } = {},
+  meta: { trigger?: "user" | "story_completion" | "story_recovery"; source?: string } = {},
 ): Promise<IllustrateResponse> {
-  const trigger = meta.trigger ?? "auto";
+  const trigger = meta.trigger ?? "user";
   const source = meta.source ?? "unknown";
-  if (trigger === "user") {
-    console.info("[illustrate-story] user-triggered invoke", { source, pages: input.pages?.length });
-  } else {
-    // Image generation must be user-initiated only (Function B contract).
-    console.error("[illustrate-story] BLOCKED auto/unattributed invoke", { source, stack: new Error().stack });
-    throw new Error("illustrate-story must be user-triggered (pass { trigger: 'user' })");
-  }
+  console.info("[illustrate-story] authenticated invoke", { trigger, source, pages: input.pages?.length });
 
   const { data, error } = await supabase.functions.invoke("illustrate-story", {
-    body: { ...input, trigger: "user", triggerSource: source },
+    body: { ...input, trigger, triggerSource: source },
   });
   if (error) {
     // Surface the function's own error code (e.g. missing_or_invalid_fields)

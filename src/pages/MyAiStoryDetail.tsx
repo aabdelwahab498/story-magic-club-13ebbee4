@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -117,6 +117,34 @@ const MyAiStoryDetail = () => {
   
   const isCurrentlyGenerating = isRetrying || isRegeneratingPage || isDirectIllustrating || ["GENERATING", "PENDING", "PROCESSING"].includes(illustrationJob?.jobStatus || "");
 
+  // Reopening a saved story resumes only missing pages. The stable key and
+  // server-side ready-page check make refresh/reopen idempotent.
+  const recoveryStartedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!story?.id || basePages.length === 0 || isCurrentlyGenerating) return;
+    const ready = new Set(illustrations.filter((image) => image.status === "COMPLETED" && image.imageUrl).map((image) => image.pageNumber));
+    const missing = basePages.map((page, index) => ({
+      index: index + 1,
+      text: page.text,
+      illustrationPrompt: page.text,
+      emotionTag: "story scene",
+    })).filter((page) => !ready.has(page.index));
+    if (missing.length === 0 || recoveryStartedRef.current === story.id) return;
+    recoveryStartedRef.current = story.id;
+    setIsDirectIllustrating(true);
+    void illustrateSelStory({
+      storyId: story.id,
+      pages: missing,
+      style: "warm child-friendly storybook illustration",
+      idempotencyKey: `${story.id}:customer-auto-v1`,
+    }, { trigger: "story_recovery", source: "MyAiStoryDetail.autoRecovery" })
+      .then(() => queryClient.invalidateQueries({ queryKey: ["illustrations", story.id] }))
+      .catch((recoveryError) => {
+        toast.error(recoveryError instanceof Error ? recoveryError.message : "Some pictures are not ready yet.");
+      })
+      .finally(() => setIsDirectIllustrating(false));
+  }, [story?.id, basePages, illustrations, isCurrentlyGenerating, queryClient]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -171,7 +199,7 @@ const MyAiStoryDetail = () => {
           storyId: story.id,
           pages: missingPages,
           style: "warm child-friendly storybook illustration",
-          idempotencyKey: `${story.id}:${missingPages.map((page) => page.index).join(",")}:${crypto.randomUUID()}`,
+          idempotencyKey: `${story.id}:customer-auto-v1`,
         },
         { trigger: "user", source: "MyAiStoryDetail" },
       );
@@ -201,8 +229,12 @@ const MyAiStoryDetail = () => {
     await generateMissingIllustrations();
   };
 
-  const handleExportPdf = async (ensureIllustrations = false) => {
-    if (ensureIllustrations && !(await generateMissingIllustrations())) return;
+  const handleExportPdf = async () => {
+    const readyCount = illustrations.filter((image) => image.status === "COMPLETED" && image.imageUrl).length;
+    if (readyCount !== basePages.length) {
+      toast.info(t("story_detail.pdf_waiting", { defaultValue: `Your illustrated story is still preparing (${readyCount}/${basePages.length}).` }));
+      return;
+    }
     setIsDirectExporting(true);
     try {
       const url = await exportStoryPdf(story.id, { force: true });
@@ -416,7 +448,7 @@ const MyAiStoryDetail = () => {
 
                   <Button
                     variant="default"
-                    onClick={() => void handleExportPdf(true)}
+                    onClick={() => void handleExportPdf()}
                     disabled={isDirectIllustrating || isDirectExporting}
                   >
                     {isDirectIllustrating || isDirectExporting ? (
@@ -424,7 +456,7 @@ const MyAiStoryDetail = () => {
                     ) : (
                       <Download className="h-4 w-4 me-2" />
                     )}
-                    {t("story_detail.illustrate_download", { defaultValue: "Illustrate & Download" })}
+                    {t("story_detail.download_when_ready", { defaultValue: "Download PDF when ready" })}
                   </Button>
                   
                   {illustrationJob?.failedPages ? (
